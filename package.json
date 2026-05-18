@@ -16,8 +16,7 @@
   },
   "devDependencies": {
     "@openai/codex": "^0.120.0",
-    "@openai/codex-win32-x64": "npm:@openai/codex@^0.120.0-win32-x64",
-    "@types/node": "^24.0.0",
+    "@types/node": "^24.12.2",
     "dotenv": "^16.4.5",
     "typescript": "^5.5.0",
     "undici": "^7.16.0"
