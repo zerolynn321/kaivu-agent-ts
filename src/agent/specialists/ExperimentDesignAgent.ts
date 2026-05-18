@@ -1,4 +1,4 @@
-import type { StageResult } from "../../shared/types.js";
+import type { StageResult } from "../../shared/StageContracts.js";
 import { BaseSpecialistAgent, type SpecialistRunInput } from "../SpecialistAgent.js";
 
 export class ExperimentDesignAgent extends BaseSpecialistAgent {
@@ -7,10 +7,13 @@ export class ExperimentDesignAgent extends BaseSpecialistAgent {
   description = "Designs experiment portfolios, quality gates, and resource-aware execution plans.";
 
   async run(input: SpecialistRunInput): Promise<StageResult> {
-    const summary = await this.modelSummary(
-      input,
-      `Design a discriminative experiment portfolio for: ${input.plan.objective}. Include quality gates and resource tradeoffs.`,
-    );
+    const summary = await this.modelStep(input, {
+      prompt: [
+        `Design a discriminative experiment portfolio for: ${input.plan.objective}.`,
+        "Write the output in English. Preserve technical terms, paper titles, method names, URLs, and identifiers in their original form.",
+        "Include quality gates and resource tradeoffs.",
+      ].join("\n"),
+    });
     return {
       stage: this.stage,
       specialistId: this.id,

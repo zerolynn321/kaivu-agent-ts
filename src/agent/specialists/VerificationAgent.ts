@@ -1,4 +1,4 @@
-import type { StageResult } from "../../shared/types.js";
+import type { StageResult } from "../../shared/StageContracts.js";
 import { BaseSpecialistAgent, type SpecialistRunInput } from "../SpecialistAgent.js";
 
 export class VerificationAgent extends BaseSpecialistAgent {
@@ -7,10 +7,13 @@ export class VerificationAgent extends BaseSpecialistAgent {
   description = "Checks novelty, feasibility, falsifiability, leakage, and evidence readiness.";
 
   async run(input: SpecialistRunInput): Promise<StageResult> {
-    const summary = await this.modelSummary(
-      input,
-      `Validate the current hypotheses for: ${input.plan.objective}. Check novelty, feasibility, falsifiability, and evidence readiness.`,
-    );
+    const summary = await this.modelStep(input, {
+      prompt: [
+        `Validate the current hypotheses for: ${input.plan.objective}.`,
+        "Write the output in English. Preserve technical terms, paper titles, method names, URLs, and identifiers in their original form.",
+        "Check novelty, feasibility, falsifiability, and evidence readiness.",
+      ].join("\n"),
+    });
     return {
       stage: this.stage,
       specialistId: this.id,

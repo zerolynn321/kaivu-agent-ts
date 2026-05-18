@@ -14,8 +14,12 @@ export type { ModelProvider, OpenAIResponsesModelProviderOptions } from "./runti
 export { ModelRegistry, defaultAgentModelConfig } from "./runtime/ModelRegistry.js";
 export type * from "./runtime/ModelRegistry.js";
 export { ToolRegistry } from "./runtime/ToolRegistry.js";
-export { createArxivSearchTool } from "./runtime/ArxivSearchTool.js";
-export type * from "./runtime/ArxivSearchTool.js";
+export { createArxivSearchTool } from "./runtime/tools/ArxivSearchTool.js";
+export type * from "./runtime/tools/ArxivSearchTool.js";
+export { createRagArxivRetrieveTool } from "./runtime/tools/RagArxivRetrieveTool.js";
+export type * from "./runtime/tools/RagArxivRetrieveTool.js";
+export { createPaperDownloadTool } from "./runtime/tools/PaperDownloadTool.js";
+export type * from "./runtime/tools/PaperDownloadTool.js";
 export { createResearchToolRegistry } from "./runtime/ResearchToolRegistry.js";
 export { evaluateScientificToolCall } from "./runtime/ToolPolicy.js";
 export type * from "./runtime/ToolPolicy.js";
@@ -29,13 +33,41 @@ export {
   planMemoryMigrations,
 } from "./memory/MemoryGovernance.js";
 export type * from "./memory/MemoryGovernance.js";
-export { LiteratureKnowledgeBase } from "./literature/LiteratureKnowledgeBase.js";
-export type * from "./literature/LiteratureKnowledgeBase.js";
+export { LiteratureReviewRuntimeStore } from "./literature/LiteratureReviewRuntimeStore.js";
+export type * from "./literature/LiteratureReviewRuntimeStore.js";
+export * from "./literature/LiteraturePaths.js";
 export {
-  decideLiteratureIngestPolicy,
-  renderLiteratureDigest,
-} from "./literature/LiteraturePolicy.js";
-export type * from "./literature/LiteraturePolicy.js";
+  literatureWikiPageDirectory,
+  literatureWikiPagePath,
+  renderLiteratureWikiPageMarkdown,
+} from "./literature/LiteratureWikiPage.js";
+export type * from "./literature/LiteratureWikiPage.js";
+export {
+  LITERATURE_LINT_MODEL_OUTPUT_SHAPE,
+  LiteratureLint,
+  renderLiteratureLintPrompt,
+} from "./literature/LiteratureLint.js";
+export type * from "./literature/LiteratureLint.js";
+export { WikiRetrieve } from "./literature/WikiRetrieval.js";
+export type * from "./literature/WikiRetrieval.js";
+export { WikiQuery, WIKI_QUERY_MODEL_OUTPUT_SHAPE, renderWikiQueryPrompt } from "./literature/WikiQuery.js";
+export type * from "./literature/WikiQuery.js";
+export { PaperIngest } from "./literature/PaperIngest.js";
+export type * from "./literature/PaperIngest.js";
+export type * from "./agent/specialists/literature/PaperSource.js";
+export {
+  PAPER_INGEST_BATCH_SUMMARY_MODEL_OUTPUT_SHAPE,
+  PAPER_INGEST_PLAN_MODEL_OUTPUT_SHAPE,
+  renderLiteratureWikiIndex,
+  renderPaperIngestPlanPrompt,
+} from "./literature/PaperIngest.js";
+export {
+  PAPER_DIGEST_MODEL_OUTPUT_SHAPE,
+  PAPER_LITERATURE_USE_VALUES,
+  renderPaperDigestPrompt,
+} from "./literature/PaperDigest.js";
+export type * from "./literature/PaperDigest.js";
+export { PaperDigests } from "./literature/PaperDigest.js";
 export { ContextPackBuilder } from "./context/ContextPack.js";
 export type * from "./context/ContextPack.js";
 export { ScientificContextCompressor } from "./context/ContextCompressor.js";
@@ -93,4 +125,9 @@ export { OpenAIAuthService } from "./auth/OpenAIAuthService.js";
 export type * from "./auth/OpenAIAuthService.js";
 export { KaivuApiServer } from "./server/KaivuApiServer.js";
 export type * from "./server/KaivuApiServer.js";
-export type * from "./shared/types.js";
+export type * from "./shared/ScientificLifecycle.js";
+export type * from "./shared/StageContracts.js";
+export type * from "./shared/ResearchStateTypes.js";
+export type * from "./shared/MemoryTypes.js";
+export type * from "./shared/GraphTypes.js";
+export type * from "./shared/LiteratureSearchTypes.js";

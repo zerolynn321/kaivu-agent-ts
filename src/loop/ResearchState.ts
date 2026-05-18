@@ -1,18 +1,9 @@
-import type { ArtifactRef, EvidenceItem, HypothesisItem, ScientificStage, ScientificTask, StageResult } from "../shared/types.js";
-
-export interface ResearchState {
-  task: ScientificTask;
-  currentStage: ScientificStage;
-  completedStages: ScientificStage[];
-  iteration: number;
-  evidence: EvidenceItem[];
-  hypotheses: HypothesisItem[];
-  artifacts: string[];
-  artifactRefs: ArtifactRef[];
-  blockers: string[];
-  done: boolean;
-  stopReason?: string;
-}
+import type {
+  ScientificStage,
+  ScientificTask,
+} from "../shared/ScientificLifecycle.js";
+import type { ResearchState } from "../shared/ResearchStateTypes.js";
+import type { StageResult } from "../shared/StageContracts.js";
 
 export function createInitialResearchState(task: ScientificTask, initialStage: ScientificStage): ResearchState {
   return {
@@ -24,6 +15,7 @@ export function createInitialResearchState(task: ScientificTask, initialStage: S
     hypotheses: [],
     artifacts: [],
     artifactRefs: [],
+    pendingStageInputs: {},
     blockers: [],
     done: false,
   };
@@ -43,6 +35,11 @@ export function applyStageResult(state: ResearchState, result: StageResult, fall
     hypotheses: [...state.hypotheses, ...result.hypotheses],
     artifacts: [...state.artifacts, ...result.artifacts.map((artifact) => artifact.id)],
     artifactRefs: [...(state.artifactRefs ?? []), ...result.artifacts],
+    pendingStageInputs: {
+      ...(state.pendingStageInputs ?? {}),
+      [result.stage]: [],
+    },
+    pendingStageResult: undefined,
     done,
     stopReason: done ? result.decision.reason : state.stopReason,
   };

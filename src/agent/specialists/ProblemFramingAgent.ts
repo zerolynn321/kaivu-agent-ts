@@ -1,5 +1,6 @@
 import { makeId } from "../../shared/ids.js";
-import type { ScientificTask, StageResult } from "../../shared/types.js";
+import type { ScientificTask } from "../../shared/ScientificLifecycle.js";
+import type { StageResult } from "../../shared/StageContracts.js";
 import {
   parseStructuredOutput,
   repairInstruction,
@@ -7,7 +8,7 @@ import {
   schemaInstruction,
   type StructuredSchema,
 } from "../../structured/StructuredOutput.js";
-import { BaseSpecialistAgent, type SpecialistRunInput } from "../SpecialistAgent.js";
+import { BaseSpecialistAgent, type ModelStepOptions, type ModelStepRunner, type SpecialistRunInput } from "../SpecialistAgent.js";
 
 export class ProblemFramingAgent extends BaseSpecialistAgent {
   id = "problem_framing_agent";
@@ -17,61 +18,108 @@ export class ProblemFramingAgent extends BaseSpecialistAgent {
   async run(input: SpecialistRunInput): Promise<StageResult> {
     const task = input.plan.inputs.task as ScientificTask;
     const disciplineHint = String(input.plan.inputs.discipline ?? task.discipline ?? "to_be_determined");
-    const groundingPlan = planQueryGrounding(task.question);
+    const groundingDiscipline = knownDisciplineForGrounding(disciplineHint);
+    const groundingPlan = planQueryGrounding(input);
     input.onProgress?.({
       label: "Interpret user query",
-      detail: "Identified technical terms and ambiguity that may need grounding before problem framing.",
+      detail: "Prepared the query for a separate grounding-target selection step before problem framing.",
       data: {
         rawQuestion: task.question,
         disciplineHint,
-        candidateTerms: groundingPlan.terms,
+        groundingDiscipline,
+        candidateTerms: [],
         needsGrounding: groundingPlan.needsGrounding,
         requireHostedWebSearch: groundingPlan.requireHostedWebSearch,
         reason: groundingPlan.reason,
       },
     });
-    const groundingResults = await groundQueryConcepts(input, groundingPlan);
+    const modelStep = (options: ModelStepOptions) => this.modelStep(input, options);
+    const groundingTargets = await selectGroundingTargets(input, groundingPlan, groundingDiscipline, modelStep);
+    const groundingDisciplineContext = groundingDisciplineContextFor(groundingDiscipline, groundingTargets.discipline);
+    const groundingResults = await groundQueryConcepts(input, groundingTargets, groundingDisciplineContext, modelStep);
+    const groundingContext = buildGroundingContext(groundingResults, groundingTargets);
     const languagePolicy = detectLanguagePolicy(task.question);
     const framingPrompt = [
-      "Frame this scientific research problem.",
-      `Question: ${task.question}`,
-      `Initial discipline hint: ${disciplineHint}. If the hint is "to_be_determined", infer the discipline from the grounded problem.`,
-      "The returned discipline is the official downstream discipline label for literature review, hypothesis generation, and experiment planning.",
-      "Use one discipline label from: artificial_intelligence, mathematics, chemistry, chemical_engineering, physics, general_science, unknown.",
-      groundingResults.length > 0
-        ? `Concept grounding context:\n${groundingResults.map(formatGroundingResultForPrompt).join("\n")}`
-        : "Concept grounding context: no external grounding results were available; explicitly mark uncertain terminology as assumptions.",
+      "Frame the user request as a scientific research problem.",
+      "",
+      "Your job is to produce a minimal, decision-useful problem frame for downstream literature review, hypothesis generation, and experiment planning.",
+      "",
+      "Do not answer the research question.",
+      "Do not generate literature search queries.",
+      "Do not generate hypotheses.",
+      "Do not propose experiments.",
+      "Do not write a review.",
+      "",
+      "Research framing boundary:",
+      "- Use any existing source, method, result, system, theory, or artifact mentioned by the user as context for the research task.",
+      "- Do not make the frame primarily a summary or interpretation of that existing object.",
+      "- Separate what is already given from what remains to be investigated, compared, explained, improved, validated, generalized, or decided.",
+      "",
+      "Input:",
+      "Original user question:",
+      task.question,
+      "",
+      "Initial discipline hint:",
+      disciplineHint,
+      "",
+      "If the hint is \"to_be_determined\", infer the discipline from the user question and grounding context.",
+      "",
+      "Output language policy:",
+      renderProblemFrameOutputLanguagePolicy(languagePolicy),
+      "",
+      "Allowed discipline labels:",
+      "- artificial_intelligence",
+      "- mathematics",
+      "- chemistry",
+      "- chemical_engineering",
+      "- physics",
+      "- general_science",
+      "- unknown",
+      "",
+      groundingContext
+        ? `Concept grounding context:\n${groundingContext}`
+        : "Concept grounding context: no grounded context is available; explicitly mark uncertain terminology as assumptions.",
+      "",
+      "Framing requirements:",
+      "- Identify the most likely scientific interpretation of the user request.",
+      "- If key terms are ambiguous, state the ambiguity explicitly.",
+      "- Convert the user request into a specific research objective.",
+      "- Define the scope narrowly enough for literature review and hypothesis generation.",
+      "- Extract key variables, mechanisms, objects, systems, methods, datasets, observables, or constraints mentioned or implied by the request.",
+      "- State assumptions only when necessary, and mark them as assumptions.",
+      "- Define success criteria that can later be evaluated by evidence, experiments, simulations, proofs, or benchmarks.",
+      "- Preserve important user intent from the original wording.",
+      "- If the question is too broad, narrow it conservatively instead of expanding it.",
+      "- If the evidence basis is uncertain, reflect that in ambiguities or constraints.",
+      "- Keep the output concise and structured.",
+      "",
+      "Return valid JSON following the schema.",
+      "",
       schemaInstruction(PROBLEM_FRAME_SCHEMA),
-      "All Immediate Literature Queries MUST be written in English, even if the user's query is Chinese or mixed-language.",
-      "Each Immediate Literature Query MUST be a concrete database-ready search string, not a goal, instruction, or vague description.",
-      "Use exact technical terms, aliases, mechanism words, method names, benchmark names, and quoted phrases when useful.",
-      "Return 5-8 queries when possible.",
-      "Good examples:",
-      '- term grounding: "attention residuals" transformer residual stream',
-      '- mechanism: "attention residuals" depth-wise attention transformer layers',
-      '- baseline comparison: "residual connections" transformer attention sublayer prenorm',
-      "Bad examples:",
-      "- find papers about this topic",
-      "- understand attention residual",
-      "- literature review for the research query",
-      `Search language policy: ${languagePolicy.reason}`,
     ].join("\n");
-    const rawSummary = await this.modelSummary(input, framingPrompt);
-    const parsedFrame = await parseOrRepairProblemFrame(input, rawSummary);
+    const rawSummary = await this.modelStep(input, {
+      stepId: this.id,
+      prompt: framingPrompt,
+      includeRenderedContext: false,
+      stageUserInputPolicy: [
+        "Use revision notes together with the original question.",
+        "Keep the original question as provenance, but when revision notes correct or narrow it, frame the corrected topic.",
+        "Apply revision notes directly to this stage's output rather than merely passing them downstream.",
+      ],
+    });
+    const parsedFrame = await parseOrRepairProblemFrame(input, rawSummary, modelStep);
     const framedDiscipline = parsedFrame.discipline || "unknown";
-    const extractedQueries = normalizeStructuredLiteratureQueries(parsedFrame.immediate_literature_queries, languagePolicy);
-    const rejectedQueries = extractedQueries.rejected;
-    const searchQueries = extractedQueries.accepted;
-    const hasRequiredSearchQueries = searchQueries.length > 0;
-    const successCriteria = task.successCriteria?.length
-      ? task.successCriteria
+    const hasRequiredFrame = Boolean(parsedFrame.objective && parsedFrame.scope && parsedFrame.success_criteria.length > 0);
+    const successCriteria = parsedFrame.success_criteria.length
+      ? parsedFrame.success_criteria
+      : task.successCriteria?.length
+        ? task.successCriteria
       : [
           "question is narrowed into a testable research objective",
-          "literature review has explicit search targets",
+          "literature review can generate a grounded search strategy from the framed problem",
           "later hypotheses can be evaluated against stated evidence criteria",
         ];
-    const summary = renderProblemFrameMarkdown(parsedFrame, searchQueries, rejectedQueries);
-
+    const summary = this.renderResultMarkdown(parsedFrame);
     return {
       stage: this.stage,
       specialistId: this.id,
@@ -87,11 +135,14 @@ export class ProblemFramingAgent extends BaseSpecialistAgent {
             title: task.title,
             rawQuestion: task.question,
             disciplineHint,
+            groundingDiscipline,
             framedDiscipline,
             taskType: task.taskType ?? "chat_research",
-            candidateTerms: groundingPlan.terms,
-            requireHostedWebSearch: groundingPlan.requireHostedWebSearch,
+            candidateTerms: groundingTargets.targets.map((target) => target.term),
+            groundingTargetPlan: groundingTargets,
             groundingResults,
+            requireHostedWebSearch: groundingPlan.requireHostedWebSearch,
+            groundingContext,
           },
         },
         {
@@ -99,23 +150,20 @@ export class ProblemFramingAgent extends BaseSpecialistAgent {
           status: "completed",
           detail: "Identified the minimal information downstream stages need.",
           data: {
-            expectedFields: ["objective", "scope", "variables", "constraints", "success criteria", "literature queries"],
+            expectedFields: ["discipline", "objective", "scope", "variables", "constraints", "success criteria", "ambiguities"],
           },
         },
         {
-          label: "Prepare literature search seeds",
-          status: hasRequiredSearchQueries ? "completed" : "blocked",
-          detail: hasRequiredSearchQueries
-            ? "Extracted Immediate Literature Queries from the problem framing output."
-            : "Problem framing output is missing the required Immediate Literature Queries section.",
+          label: "Pass framed problem to literature review",
+          status: hasRequiredFrame ? "completed" : "blocked",
+          detail: hasRequiredFrame
+            ? "Problem framing produced enough structured context for the literature review agent to generate its own search plan."
+            : "Problem framing output is missing required objective, scope, or success criteria fields.",
           data: {
             inputLanguage: languagePolicy.inputLanguage,
             primarySearchLanguage: languagePolicy.primarySearchLanguage,
             reason: languagePolicy.reason,
-            searchQueries,
-            rejectedQueries,
-            querySource: "model_immediate_literature_queries",
-            constraint: "Immediate Literature Queries must be English for scientific database retrieval.",
+            queryGenerationOwner: "literature_review_agent",
           },
         },
       ],
@@ -136,16 +184,10 @@ export class ProblemFramingAgent extends BaseSpecialistAgent {
           uri: "memory://problem_frame",
           metadata: {
             discipline: framedDiscipline,
-            disciplineHint,
             languagePolicy,
-            groundingTerms: groundingPlan.terms,
-            groundingResults,
-            searchQueries,
-            rejectedQueries,
             structuredFrame: parsedFrame,
-            querySource: "model_immediate_literature_queries",
+            renderedProblemFrame: summary,
             successCriteria,
-            schemaSatisfied: hasRequiredSearchQueries,
           },
         },
       ],
@@ -154,7 +196,7 @@ export class ProblemFramingAgent extends BaseSpecialistAgent {
           scope: "project",
           kind: "decision",
           title: "Problem framing",
-          summary: summary.slice(0, 220),
+          summary: parsedFrame.memory_summary || summarizeProblemFrameForMemory(parsedFrame),
           content: summary,
           tags: ["problem-framing", framedDiscipline],
         },
@@ -168,42 +210,53 @@ export class ProblemFramingAgent extends BaseSpecialistAgent {
         },
       ],
       decision: {
-        status: hasRequiredSearchQueries ? "advance" : "needs_human_review",
-        nextStage: hasRequiredSearchQueries ? "literature_review" : "problem_framing",
-        reason: hasRequiredSearchQueries
+        status: hasRequiredFrame ? "advance" : "needs_human_review",
+        nextStage: hasRequiredFrame ? "literature_review" : "problem_framing",
+        reason: hasRequiredFrame
           ? "The research problem is framed enough to drive targeted literature review."
-          : "Problem framing output must include Immediate Literature Queries before literature review can start.",
-        confidence: hasRequiredSearchQueries ? "medium" : "low",
+          : "Problem framing output must include objective, scope, and success criteria before literature review can start.",
+        confidence: hasRequiredFrame ? "medium" : "low",
       },
     };
   }
-}
 
-interface SearchQueryPlan {
-  query: string;
-  language: string;
-  purpose: string;
-}
-
-interface ProblemFrameQuery {
-  purpose: string;
-  query: string;
+  protected override renderResultMarkdown(result: unknown): string {
+    const frame = isProblemFrame(result) ? result : fallbackProblemFrame("", "", undefined);
+    const lines = [
+      "## Discipline",
+      frame.discipline || "unknown",
+      "",
+      "## Objective",
+      frame.objective || "No objective returned.",
+      "",
+      "## Scope",
+      frame.scope || "No scope returned.",
+      "",
+      "## Key Variables",
+      ...renderList(frame.key_variables),
+      "",
+      "## Constraints",
+      ...renderList(frame.constraints),
+      "",
+      "## Success Criteria",
+      ...renderList(frame.success_criteria),
+    ];
+    if (frame.ambiguities.length > 0) {
+      lines.push("", "## Ambiguities", ...renderList(frame.ambiguities));
+    }
+    return lines.join("\n");
+  }
 }
 
 interface ProblemFrame {
   discipline: string;
+  memory_summary?: string;
   objective: string;
   scope: string;
   key_variables: string[];
   constraints: string[];
   success_criteria: string[];
-  immediate_literature_queries: ProblemFrameQuery[];
   ambiguities: string[];
-}
-
-interface ExtractedSearchQueries {
-  accepted: SearchQueryPlan[];
-  rejected: Array<{ query: string; reason: string }>;
 }
 
 interface LanguagePolicy {
@@ -213,10 +266,32 @@ interface LanguagePolicy {
 }
 
 interface GroundingPlan {
-  terms: string[];
   needsGrounding: boolean;
   reason: string;
   requireHostedWebSearch: boolean;
+}
+
+interface GroundingTarget {
+  term: string;
+  reason: string;
+}
+
+interface ProvisionalDiscipline {
+  label: string;
+  confidence: number;
+  rationale: string;
+}
+
+interface GroundingDisciplineContext extends ProvisionalDiscipline {
+  source: "explicit" | "inferred";
+}
+
+interface GroundingTargetPlan {
+  discipline: ProvisionalDiscipline;
+  targets: GroundingTarget[];
+  rationale: string;
+  compatibility: string;
+  no_grounding_reason: string;
 }
 
 const PROBLEM_FRAME_SCHEMA: StructuredSchema = {
@@ -226,12 +301,12 @@ const PROBLEM_FRAME_SCHEMA: StructuredSchema = {
     type: "object",
     required: [
       "discipline",
+      "memory_summary",
       "objective",
       "scope",
       "key_variables",
       "constraints",
       "success_criteria",
-      "immediate_literature_queries",
       "ambiguities",
     ],
     properties: {
@@ -239,28 +314,76 @@ const PROBLEM_FRAME_SCHEMA: StructuredSchema = {
         type: "string",
         description: "Official downstream discipline label: artificial_intelligence, mathematics, chemistry, chemical_engineering, physics, general_science, or unknown.",
       },
+      memory_summary: {
+        type: "string",
+        description: "A concise semantic memory summary of the framed research task for future recall. Do not include markdown headings.",
+      },
       objective: { type: "string" },
       scope: { type: "string" },
       key_variables: { type: "array", items: { type: "string" } },
       constraints: { type: "array", items: { type: "string" } },
       success_criteria: { type: "array", items: { type: "string" } },
-      immediate_literature_queries: {
-        type: "array",
-        items: {
-          type: "object",
-          required: ["purpose", "query"],
-          properties: {
-            purpose: { type: "string" },
-            query: { type: "string" },
-          },
-        },
-      },
       ambiguities: { type: "array", items: { type: "string" } },
     },
   },
 };
 
-async function parseOrRepairProblemFrame(input: SpecialistRunInput, rawText: string): Promise<ProblemFrame> {
+const GROUNDING_TARGET_SCHEMA: StructuredSchema = {
+  name: "grounding_targets",
+  description: "Exact scientific terms or short phrases selected for web grounding before problem framing.",
+  schema: {
+    type: "object",
+    required: ["discipline", "targets", "rationale", "compatibility", "no_grounding_reason"],
+    properties: {
+      discipline: {
+        type: "object",
+        required: ["label", "confidence", "rationale"],
+        properties: {
+          label: {
+            type: "string",
+            description: "Provisional discipline label: artificial_intelligence, mathematics, chemistry, chemical_engineering, physics, general_science, or unknown.",
+          },
+          confidence: {
+            type: "number",
+            description: "Confidence from 0 to 1. This is provisional and not the final problem-framing discipline.",
+          },
+          rationale: {
+            type: "string",
+            description: "Why this provisional discipline fits the query.",
+          },
+        },
+      },
+      targets: {
+        type: "array",
+        items: {
+          type: "object",
+          required: ["term", "reason"],
+          properties: {
+            term: {
+              type: "string",
+              description: "Exact span from the user query that should be grounded.",
+            },
+            reason: {
+              type: "string",
+              description: "Why this term could change the scientific framing if misunderstood.",
+            },
+          },
+        },
+      },
+      rationale: { type: "string" },
+      compatibility: {
+        type: "string",
+        description: "Explain whether selected targets share a consistent or compatible discipline context.",
+      },
+      no_grounding_reason: {
+        type: "string",
+        description: "If targets is empty, explain why no grounding is needed; otherwise use an empty string.",
+      },
+    },
+  },
+};
+
+async function parseOrRepairProblemFrame(input: SpecialistRunInput, rawText: string, modelStep: ModelStepRunner): Promise<ProblemFrame> {
   try {
     return coerceProblemFrame(parseStructuredOutput(rawText, PROBLEM_FRAME_SCHEMA));
   } catch (error) {
@@ -272,50 +395,37 @@ async function parseOrRepairProblemFrame(input: SpecialistRunInput, rawText: str
         rawText,
         error instanceof Error ? error.message : String(error),
       );
-      const repaired = await input.model.complete(
-        [
-          {
-            role: "system",
-            content: "You repair invalid structured scientific agent outputs into valid JSON.",
-          },
-          { role: "user", content: repairPrompt },
-        ],
-        {
-          onStatus: input.onModelStatus,
-          onTextDelta: input.onModelDelta,
-        },
-      );
+      const repaired = await modelStep({
+        stepId: "problem_frame_repair_model",
+        system: "You repair invalid structured scientific agent outputs into valid JSON.",
+        prompt: repairPrompt,
+        includeRenderedContext: false,
+        stream: false,
+      });
       try {
-        return coerceProblemFrame(parseStructuredOutput(repaired.text, PROBLEM_FRAME_SCHEMA));
+        return coerceProblemFrame(parseStructuredOutput(repaired, PROBLEM_FRAME_SCHEMA));
       } catch {
         const task = input.plan.inputs.task as ScientificTask | undefined;
-        return fallbackProblemFrame(rawText, task?.question ?? input.plan.objective);
+        return fallbackProblemFrame(rawText, task?.question ?? input.plan.objective, task?.discipline);
       }
     }
   }
 }
 
-function fallbackProblemFrame(rawText: string, question: string): ProblemFrame {
-  const seed = extractCandidateTechnicalTerms(question)[0] || question.split(/\s+/).filter((token) => token.length > 3).slice(0, 4).join(" ");
+function fallbackProblemFrame(rawText: string, question: string, disciplineHint?: string): ProblemFrame {
+  const seed = question.split(/\s+/).filter((token) => token.length > 3).slice(0, 4).join(" ");
   return {
-    discipline: "unknown",
+    discipline: normalizeDisciplineLabel(disciplineHint ?? "") || "unknown",
+    memory_summary: question || "Fallback problem framing requires review.",
     objective: question || "Frame the scientific research problem.",
     scope: "Fallback frame derived from unstructured model output; requires review before downstream use.",
     key_variables: seed ? [seed] : [],
     constraints: ["Structured problem framing failed and should be reviewed."],
     success_criteria: [
       "question is narrowed into a testable research objective",
-      "literature review has explicit search targets",
+      "literature review can generate a grounded search strategy from the framed problem",
       "later hypotheses can be evaluated against stated evidence criteria",
     ],
-    immediate_literature_queries: seed
-      ? [
-          {
-            purpose: "fallback search",
-            query: `${seed} scientific literature`,
-          },
-        ]
-      : [],
     ambiguities: [rawText.slice(0, 240)],
   };
 }
@@ -323,64 +433,49 @@ function fallbackProblemFrame(rawText: string, question: string): ProblemFrame {
 function coerceProblemFrame(value: Record<string, unknown>): ProblemFrame {
   return {
     discipline: normalizeDisciplineLabel(asString(value.discipline)),
+    memory_summary: asString(value.memory_summary),
     objective: asString(value.objective),
     scope: asString(value.scope),
     key_variables: asStringArray(value.key_variables),
     constraints: asStringArray(value.constraints),
     success_criteria: asStringArray(value.success_criteria),
-    immediate_literature_queries: Array.isArray(value.immediate_literature_queries)
-      ? value.immediate_literature_queries.map((item) => {
-          const record = typeof item === "object" && item !== null ? item as Record<string, unknown> : {};
-          return {
-            purpose: asString(record.purpose),
-            query: asString(record.query),
-          };
-        })
-      : [],
     ambiguities: asStringArray(value.ambiguities),
   };
 }
 
-function renderProblemFrameMarkdown(
-  frame: ProblemFrame,
-  acceptedQueries: SearchQueryPlan[],
-  rejectedQueries: Array<{ query: string; reason: string }>,
-): string {
-  const lines = [
-    "## Discipline",
-    frame.discipline || "unknown",
-    "",
-    "## Objective",
-    frame.objective || "No objective returned.",
-    "",
-    "## Scope",
-    frame.scope || "No scope returned.",
-    "",
-    "## Key Variables",
-    ...renderList(frame.key_variables),
-    "",
-    "## Constraints",
-    ...renderList(frame.constraints),
-    "",
-    "## Success Criteria",
-    ...renderList(frame.success_criteria),
-    "",
-    "## Immediate Literature Queries",
-    ...(acceptedQueries.length
-      ? acceptedQueries.map((item) => `- ${item.purpose}: ${item.query}`)
-      : ["- No valid English database-ready queries returned."]),
-  ];
-  if (rejectedQueries.length > 0) {
-    lines.push("", "## Rejected Literature Queries", ...rejectedQueries.map((item) => `- ${item.query}: ${item.reason}`));
-  }
-  if (frame.ambiguities.length > 0) {
-    lines.push("", "## Ambiguities", ...renderList(frame.ambiguities));
-  }
-  return lines.join("\n");
+function isProblemFrame(value: unknown): value is ProblemFrame {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.discipline === "string" &&
+    typeof value.objective === "string" &&
+    typeof value.scope === "string" &&
+    Array.isArray(value.key_variables) &&
+    Array.isArray(value.constraints) &&
+    Array.isArray(value.success_criteria) &&
+    Array.isArray(value.ambiguities)
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function summarizeProblemFrameForMemory(frame: ProblemFrame): string {
+  const parts = [
+    frame.objective,
+    frame.scope,
+    frame.success_criteria.length ? `Success criteria: ${frame.success_criteria.join("; ")}` : "",
+  ].filter(Boolean);
+  return parts.join(" ").slice(0, 320) || "Problem framing created a research task frame.";
 }
 
 function renderList(items: string[]): string[] {
   return items.length > 0 ? items.map((item) => `- ${item}`) : ["- none"];
+}
+
+function renderProblemFrameOutputLanguagePolicy(policy: LanguagePolicy): string {
+  void policy;
+  return "Write narrative fields in English. Preserve user-provided technical terms, paper titles, method names, URLs, and identifiers in their original form.";
 }
 
 interface GroundingResult {
@@ -390,89 +485,229 @@ interface GroundingResult {
   summary: string;
 }
 
-function planQueryGrounding(question: string): GroundingPlan {
-  const terms = extractCandidateTechnicalTerms(question);
-  const fallbackQuery = normalizeGroundingFallbackQuery(question);
-  const groundingTargets = terms.length > 0 ? terms : fallbackQuery ? [fallbackQuery] : [];
+function planQueryGrounding(input: SpecialistRunInput): GroundingPlan {
+  const task = input.plan.inputs.task as ScientificTask;
+  const question = task.question.trim();
   return {
-    terms: groundingTargets,
-    needsGrounding: groundingTargets.length > 0,
-    requireHostedWebSearch: true,
-    reason: terms.length > 0
-      ? "The query contains domain-specific phrases that may change the research framing if misunderstood."
-      : "No clear domain-specific phrase was detected, so the full research query is grounded before framing.",
+    needsGrounding: question.length >= 4,
+    requireHostedWebSearch: question.length >= 4,
+    reason: question.length >= 4
+      ? "The user query will first be analyzed to select exact grounding targets, then each selected target will be grounded separately."
+      : "The query is empty or too short to ground before framing.",
   };
 }
 
-async function groundQueryConcepts(input: SpecialistRunInput, plan: GroundingPlan): Promise<GroundingResult[]> {
-  if (!plan.needsGrounding) return [];
-  const task = input.plan.inputs.task as ScientificTask;
-  const tools = ["query_literature_wiki", "openai_hosted_web_search"];
-  const results: GroundingResult[] = [];
-  for (const term of plan.terms) {
-    input.onProgress?.({
-      label: "Ground technical term",
-      detail: `Checking whether "${term}" needs external context before framing.`,
-      data: {
-        term,
-        tools,
+async function selectGroundingTargets(
+  input: SpecialistRunInput,
+  plan: GroundingPlan,
+  knownDiscipline: string | undefined,
+  modelStep: ModelStepRunner,
+): Promise<GroundingTargetPlan> {
+  if (!plan.needsGrounding) {
+    return {
+      discipline: {
+        label: "unknown",
+        confidence: 0,
+        rationale: "",
       },
-    });
-    for (const tool of tools) {
-      const result = tool === "openai_hosted_web_search"
-        ? await callHostedWebSearch(input, term, task.question)
-        : await input.tools.call({
-            name: tool,
-            arguments: {
-              query: term,
-              purpose: "problem_framing_concept_grounding",
-              limit: 3,
-            },
-          });
-      input.onProgress?.({
-        label: groundingProgressLabel(tool),
-        detail: groundingProgressDetail(tool, term, result.status),
-        data: {
-          term,
-          tool,
-          status: result.status,
-          resultCount: groundingResultCount(result.output),
-          topResults: groundingTopResults(result.output),
-          note: groundingProgressNote(result.output, result.error),
-          summary: summarizeGroundingOutput(result.output, result.error),
-        },
-      });
-      results.push({
-        term,
-        tool,
-        status: result.status,
-        summary: summarizeGroundingOutput(result.output, result.error),
-      });
-      if (
-        tool !== "query_literature_wiki" &&
-        result.status === "completed" &&
-        groundingOutputIsUseful(result.output)
-      ) {
-        break;
+      targets: [],
+      rationale: "",
+      compatibility: "",
+      no_grounding_reason: plan.reason,
+    };
+  }
+  const task = input.plan.inputs.task as ScientificTask;
+  const originalUserQuestion = task.question;
+  input.onProgress?.({
+    label: "Select grounding terms",
+    detail: "Asking the model to select exact terms or short phrases that need grounding.",
+    data: {
+      originalUserQuestion,
+      step: "grounding_target_selection",
+      status: "started",
+    },
+  });
+  const prompt = [
+    "Select grounding targets before problem framing.",
+    "Full original user query:",
+    originalUserQuestion,
+    ...(knownDiscipline ? [`Known discipline context: ${knownDiscipline}`] : []),
+    "",
+    "Selection instructions:",
+    "",
+    "Grounding target definition:",
+    "- A grounding target is a term whose meaning must be clarified by external generic grounding before the system can frame the research problem.",
+    "- Do not select a term merely because it is important, central, or framing-sensitive.",
+    "- Do not select the user's research object when the user also provides a source, method, paper, system, result, or other context that anchors how the object should be interpreted.",
+    "- Select a term only if the full original query still lacks enough context to interpret it for problem framing.",
+    "- If a term is source-anchored but still uncertain, preserve that uncertainty for problem framing or downstream literature review instead of generic grounding.",
+    "",
+    "Context handling:",
+    "- Use paper links, PDFs, named sources, methods, systems, theories, or artifacts as context anchors.",
+    "- Do not select URLs, DOI strings, arXiv identifiers, PDF filenames, or generic request words as grounding targets.",
+    "",
+    "Valid target scope:",
+    "- A valid grounding target may be a domain term, method name, mechanism, dataset, benchmark, model architecture, theorem, material, observable, or instrument-specific phrase, but only when the full original query does not provide enough context to interpret it.",
+    "- Select 0-4 targets.",
+    "- If the query is already clear and no term needs grounding, return an empty targets array and explain why.",
+    "",
+    "Discipline inference:",
+    "- Infer one provisional discipline label with a confidence score from 0 to 1.",
+    "- If a known discipline context is explicitly provided, use it as the discipline label with high confidence unless the query clearly conflicts.",
+    "- If no known discipline context is provided, infer the discipline from the query only; use low confidence when ambiguous.",
+    "- This provisional discipline is not final; the later problem framing stage will decide the final discipline.",
+    "",
+    "Output rules:",
+    "- Preserve the user's original spelling and casing for each selected span.",
+    "- Write all rationale, compatibility, and no_grounding_reason text in English.",
+    "- For each selected term, explain why external generic grounding is necessary before problem framing.",
+    "- Do not search the web in this step.",
+    "- Do not explain the concept itself; only decide what should be grounded.",
+    "- If multiple targets are selected, prefer targets whose disciplines are consistent or compatible; explain compatibility in the compatibility field.",
+    "",
+    schemaInstruction(GROUNDING_TARGET_SCHEMA),
+  ].join("\n");
+  const raw = await modelStep({
+    stepId: "grounding_target_selection_model",
+    system: "You select exact scientific terms that should be grounded before framing a research problem.",
+    prompt,
+    includeRenderedContext: false,
+    stream: false,
+    stageUserInputPolicy: [
+      "Choose grounding targets for the corrected or narrowed topic described by revision notes.",
+    ],
+  });
+  const targetPlan = await parseOrRepairGroundingTargets(input, raw, modelStep);
+  input.onProgress?.({
+    label: "Select grounding terms",
+    detail: targetPlan.targets.length > 0
+      ? `Selected ${targetPlan.targets.length} grounding target(s).`
+      : "No grounding targets were selected.",
+    data: {
+      originalUserQuestion,
+      step: "grounding_target_selection",
+      status: "completed",
+      terms: targetPlan.targets.map((target) => target.term),
+      provisionalDiscipline: targetPlan.discipline,
+      compatibility: targetPlan.compatibility,
+      rationale: targetPlan.rationale,
+      noGroundingReason: targetPlan.no_grounding_reason,
+    },
+  });
+  return targetPlan;
+}
+
+async function parseOrRepairGroundingTargets(input: SpecialistRunInput, rawText: string, modelStep: ModelStepRunner): Promise<GroundingTargetPlan> {
+  try {
+    return coerceGroundingTargetPlan(parseStructuredOutput(rawText, GROUNDING_TARGET_SCHEMA));
+  } catch (error) {
+    try {
+      return coerceGroundingTargetPlan(salvageStructuredOutput(rawText, GROUNDING_TARGET_SCHEMA));
+    } catch {
+      try {
+        const repaired = await modelStep({
+          stepId: "grounding_target_repair_model",
+          system: "You repair invalid grounding target selection outputs into valid JSON.",
+          prompt: repairInstruction(
+            GROUNDING_TARGET_SCHEMA,
+            rawText,
+            error instanceof Error ? error.message : String(error),
+          ),
+          includeRenderedContext: false,
+          stream: false,
+        });
+        return coerceGroundingTargetPlan(parseStructuredOutput(repaired, GROUNDING_TARGET_SCHEMA));
+      } catch {
+        return {
+          discipline: {
+            label: "unknown",
+            confidence: 0,
+            rationale: "Grounding target selection did not return valid structured output.",
+          },
+          targets: [],
+          rationale: "",
+          compatibility: "",
+          no_grounding_reason: "Grounding target selection did not return valid structured output.",
+        };
       }
     }
+  }
+}
+
+function coerceGroundingTargetPlan(value: Record<string, unknown>): GroundingTargetPlan {
+  const discipline = typeof value.discipline === "object" && value.discipline !== null
+    ? value.discipline as Record<string, unknown>
+    : {};
+  return {
+    discipline: {
+      label: normalizeDisciplineLabel(asString(discipline.label)),
+      confidence: clampConfidence(discipline.confidence),
+      rationale: asString(discipline.rationale),
+    },
+    targets: Array.isArray(value.targets)
+      ? value.targets.map((item) => {
+          const record = typeof item === "object" && item !== null ? item as Record<string, unknown> : {};
+          return {
+            term: asString(record.term),
+            reason: asString(record.reason),
+          };
+        }).filter((target) => target.term)
+      : [],
+    rationale: asString(value.rationale),
+    compatibility: asString(value.compatibility),
+    no_grounding_reason: asString(value.no_grounding_reason),
+  };
+}
+
+async function groundQueryConcepts(
+  input: SpecialistRunInput,
+  targetPlan: GroundingTargetPlan,
+  disciplineContext: GroundingDisciplineContext | undefined,
+  modelStep: ModelStepRunner,
+): Promise<GroundingResult[]> {
+  const targets = targetPlan.targets.filter((target) => target.term.trim());
+  if (targets.length === 0) return [];
+  const results: GroundingResult[] = [];
+  for (const target of targets) {
+    input.onProgress?.({
+      label: "Ground selected term",
+      detail: `Using hosted web search to ground "${target.term}" before framing.`,
+      data: {
+        term: target.term,
+        reason: target.reason,
+        tool: "openai_hosted_web_search",
+      },
+    });
+    const result = await callHostedWebSearch(input, target, disciplineContext, modelStep);
+    input.onProgress?.({
+      label: "Search web with model",
+      detail: `Used hosted web search to ground "${target.term}": ${result.status}.`,
+      data: {
+        term: target.term,
+        tool: "openai_hosted_web_search",
+        status: result.status,
+        resultCount: groundingResultCount(result.output),
+        topResults: groundingTopResults(result.output),
+        note: groundingProgressNote(result.output, result.error),
+        summary: summarizeGroundingOutput(result.output, result.error),
+      },
+    });
+    results.push({
+      term: target.term,
+      tool: "openai_hosted_web_search",
+      status: result.status,
+      summary: summarizeGroundingOutput(result.output, result.error),
+    });
   }
   return results;
 }
 
-function groundingProgressLabel(tool: string): string {
-  if (tool === "query_literature_wiki") return "Search local literature wiki";
-  if (tool === "openai_hosted_web_search") return "Search web with model";
-  return `Run ${tool}`;
-}
-
-function groundingProgressDetail(tool: string, term: string, status: string): string {
-  if (tool === "query_literature_wiki") return `Looked for "${term}" in the local literature wiki: ${status}.`;
-  if (tool === "openai_hosted_web_search") return `Used OpenAI hosted web_search to ground "${term}": ${status}.`;
-  return `Used ${tool} for "${term}": ${status}.`;
-}
-
-async function callHostedWebSearch(input: SpecialistRunInput, term: string, originalQuestion: string) {
+async function callHostedWebSearch(
+  input: SpecialistRunInput,
+  target: GroundingTarget,
+  disciplineContext: GroundingDisciplineContext | undefined,
+  modelStep: ModelStepRunner,
+) {
   if (!input.model.supportsHostedWebSearch) {
     return {
       name: "openai_hosted_web_search",
@@ -482,29 +717,36 @@ async function callHostedWebSearch(input: SpecialistRunInput, term: string, orig
   }
   input.onProgress?.({
     label: "Search web with model",
-    detail: `Starting hosted web_search for "${term}".`,
+    detail: `Starting hosted web_search for "${target.term}".`,
     data: {
-      term,
+      term: target.term,
       tool: "openai_hosted_web_search",
       status: "started",
     },
   });
+  const task = input.plan.inputs.task as ScientificTask;
   const prompt = [
-    "Use web search to ground a scientific term before problem framing.",
-    `Original user research query: ${originalQuestion}`,
-    `Term or phrase to ground exactly: "${term}"`,
+    "Use web search to ground one selected scientific term before problem framing.",
+    "Your goal is to reduce ambiguity for problem framing, not to write a general encyclopedia entry.",
+    "Use the original user query as the interpretation context; do not replace source-anchored or task-specific meaning with broader generic usage.",
+    `Original user research query: ${task.question}`,
+    `Selected grounding term: "${target.term}"`,
+    ...renderGroundingDisciplinePromptLines(disciplineContext),
     "",
-    "Search and reason with the exact phrase first. Then check close variants only if the exact phrase is not established.",
-    "Do not silently conflate the phrase with a broader nearby concept such as residual connections, residual attention, or attention residual learning.",
-    "If the exact phrase is not a standardized term, say that explicitly and explain the most plausible interpretations separately.",
+    "Search the selected term exactly first. Then check close variants only if the exact term is not established.",
+    "Do not silently conflate the selected term with broader nearby concepts. Name distinct meanings separately.",
+    "If the exact term is not standardized, say that explicitly and explain the most plausible interpretations separately.",
+    "Write all narrative text in English. Preserve technical terms, paper titles, method names, URLs, and identifiers in their original form.",
     "",
     "Return concise Markdown using this schema:",
     "## Exact Term Status",
-    "State whether the exact phrase appears to be standardized, emerging, ambiguous, or not found.",
+    "State whether the selected term appears standardized, emerging, ambiguous, or not found.",
     "## Most Plausible Meanings",
     "Separate exact usage from nearby-but-different terms.",
     "## Relevance To The User Query",
     "Explain which interpretation best fits the original query and why.",
+    "## Framing Implication",
+    "State how this grounding should affect problem framing, including whether the term should remain ambiguous, source-specific, or broadly defined.",
     "## Source-Backed Notes",
     "Give 2-4 notes with URLs.",
     "## Caveats",
@@ -516,26 +758,24 @@ async function callHostedWebSearch(input: SpecialistRunInput, term: string, orig
     user: prompt,
   });
   try {
-    const completion = await input.model.complete(
-      [
-        {
-          role: "system",
-          content: "You are a scientific concept grounding assistant. Use web search when available and cite URLs.",
-        },
-        { role: "user", content: prompt },
+    const text = await modelStep({
+      stepId: "openai_hosted_web_search",
+      system: "You are a scientific concept grounding assistant. Use web search when available and cite URLs.",
+      prompt,
+      includeRenderedContext: false,
+      stream: false,
+      hostedWebSearch: true,
+      stageUserInputPolicy: [
+        "Use revision notes to interpret the selected term in the corrected or narrowed research context.",
       ],
-      {
-        hostedWebSearch: true,
-        onStatus: input.onModelStatus,
-      },
-    );
+    });
     return {
       name: "openai_hosted_web_search",
       status: "completed" as const,
       output: {
-        query: term,
-        results: [{ title: `Hosted web grounding for ${term}`, summary: completion.text }],
-        summary: completion.text,
+        query: target.term,
+        results: [{ title: `Hosted web grounding for ${target.term}`, summary: text }],
+        summary: text,
       },
     };
   } catch (error) {
@@ -573,44 +813,6 @@ function groundingProgressNote(output: unknown, error?: string): string | undefi
   return typeof note === "string" ? note : undefined;
 }
 
-function extractCandidateTechnicalTerms(question: string): string[] {
-  const normalized = question.replace(/[“”]/g, "\"").replace(/[‘’]/g, "'");
-  const quoted = [...normalized.matchAll(/["']([^"']{4,80})["']/g)].map((match) => match[1]);
-  const knownPatterns = [
-    /\battention\s+residuals?\b/gi,
-    /\bresidual\s+attention\b/gi,
-    /\btransformer\s+circuits?\b/gi,
-    /\bmechanistic\s+interpretability\b/gi,
-    /\brepresentation\s+engineering\b/gi,
-    /\bsparse\s+autoencoders?\b/gi,
-    /\bactivation\s+patching\b/gi,
-    /\bcausal\s+tracing\b/gi,
-  ];
-  const known = knownPatterns.flatMap((pattern) => [...normalized.matchAll(pattern)].map((match) => match[0]));
-  const slashOrHyphenTerms = [...normalized.matchAll(/\b[A-Za-z][A-Za-z0-9]*(?:[-/][A-Za-z0-9]+){1,3}\b/g)].map((match) => match[0]);
-  const acronymTerms = [...normalized.matchAll(/\b[A-Z]{2,}(?:-[A-Z0-9]+)?\b/g)].map((match) => match[0]);
-  return uniqueTerms([...quoted, ...known, ...slashOrHyphenTerms, ...acronymTerms]).slice(0, 6);
-}
-
-function normalizeGroundingFallbackQuery(question: string): string | undefined {
-  const cleaned = question.replace(/\s+/g, " ").trim();
-  if (cleaned.length < 4) return undefined;
-  return cleaned.length > 160 ? `${cleaned.slice(0, 157)}...` : cleaned;
-}
-
-function uniqueTerms(terms: string[]): string[] {
-  const seen = new Set<string>();
-  const unique: string[] = [];
-  for (const term of terms) {
-    const cleaned = term.replace(/\s+/g, " ").trim();
-    const key = cleaned.toLowerCase();
-    if (!cleaned || cleaned.length < 4 || seen.has(key)) continue;
-    seen.add(key);
-    unique.push(cleaned);
-  }
-  return unique;
-}
-
 function summarizeGroundingOutput(output: unknown, error?: string): string {
   if (error) return error;
   if (output === undefined) return "No output returned.";
@@ -622,113 +824,57 @@ function summarizeGroundingOutput(output: unknown, error?: string): string {
   return JSON.stringify(output);
 }
 
-function groundingOutputIsUseful(output: unknown): boolean {
-  if (output === undefined || output === null) return false;
-  if (typeof output === "string") return !/no matching|not connected|unavailable/i.test(output);
-  if (Array.isArray(output)) return output.length > 0;
-  if (typeof output === "object") {
-    const record = output as Record<string, unknown>;
-    if (Array.isArray(record.results)) return record.results.length > 0;
-    if (typeof record.available === "boolean") return record.available;
+function buildGroundingContext(results: GroundingResult[], targetPlan: GroundingTargetPlan): string {
+  const usefulResults = results.filter((result) => result.status === "completed" && groundingSummaryIsUseful(result.summary));
+  const disciplineContext = renderProvisionalDisciplineContext(targetPlan);
+  if (usefulResults.length === 0) return disciplineContext;
+  const byTerm = new Map<string, GroundingResult[]>();
+  for (const result of usefulResults) {
+    byTerm.set(result.term, [...(byTerm.get(result.term) ?? []), result]);
   }
-  return true;
+  const groundedTerms = [...byTerm.entries()]
+    .map(([term, termResults]) => {
+      const summary = termResults
+        .map((result) => result.summary)
+        .filter(groundingSummaryIsUseful)
+        .join("\n\n")
+        .trim();
+      return `Term: ${term}\nGrounded summary:\n${summary}`;
+    })
+    .filter((item) => item.trim())
+    .join("\n\n");
+  return [disciplineContext, groundedTerms].filter(Boolean).join("\n\n");
 }
 
-function formatGroundingResultForPrompt(result: GroundingResult): string {
-  return `- ${result.term} via ${result.tool}: ${result.status}; ${result.summary}`;
+function groundingSummaryIsUseful(summary: string): boolean {
+  return Boolean(summary.trim()) && !/no matching|not connected|unavailable|not supported|failed/i.test(summary);
 }
 
-function extractImmediateLiteratureQueries(summary: string, languagePolicy: LanguagePolicy): ExtractedSearchQueries {
-  const sectionLines = extractLiteratureQuerySection(summary);
-  return normalizeQueryLines(sectionLines, languagePolicy);
+function renderProvisionalDisciplineContext(targetPlan: GroundingTargetPlan): string {
+  const label = normalizeDisciplineLabel(targetPlan.discipline.label);
+  if (!label || label === "unknown") return "";
+  const confidence = Number.isFinite(targetPlan.discipline.confidence)
+    ? targetPlan.discipline.confidence.toFixed(2)
+    : "0.00";
+  return [
+    "Provisional discipline context from grounding-target selection:",
+    `- label: ${label}`,
+    `- confidence: ${confidence}`,
+    targetPlan.discipline.rationale ? `- rationale: ${targetPlan.discipline.rationale}` : "",
+    targetPlan.compatibility ? `- target compatibility: ${targetPlan.compatibility}` : "",
+    "- note: this is not final; problem framing must decide the final discipline.",
+  ].filter(Boolean).join("\n");
 }
 
-function normalizeStructuredLiteratureQueries(queries: ProblemFrameQuery[], languagePolicy: LanguagePolicy): ExtractedSearchQueries {
-  return normalizeQueryLines(
-    queries.map((item) => `${item.purpose || "framed literature query"}: ${item.query}`),
-    languagePolicy,
-  );
-}
-
-function normalizeQueryLines(lines: string[], languagePolicy: LanguagePolicy): ExtractedSearchQueries {
-  const accepted: SearchQueryPlan[] = [];
-  const rejected: Array<{ query: string; reason: string }> = [];
-  for (const line of lines) {
-    const normalized = normalizeQueryLine(line, languagePolicy);
-    if (!normalized) continue;
-    if (containsCjk(normalized.query)) {
-      rejected.push({
-        query: normalized.query,
-        reason: "Immediate Literature Queries must be English.",
-      });
-      continue;
-    }
-    const qualityRejectionReason = queryQualityRejectionReason(normalized.query);
-    if (qualityRejectionReason) {
-      rejected.push({
-        query: normalized.query,
-        reason: qualityRejectionReason,
-      });
-      continue;
-    }
-    accepted.push(normalized);
-  }
-  return { accepted, rejected };
-}
-
-function extractLiteratureQuerySection(summary: string): string[] {
-  const lines = summary.split(/\r?\n/);
-  const section: string[] = [];
-  let inSection = false;
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    if (!line) {
-      if (inSection && section.length > 0) break;
-      continue;
-    }
-    if (isLiteratureQueryHeading(line)) {
-      inSection = true;
-      const inline = line.replace(/^#{1,6}\s*/, "").replace(/\*\*/g, "").replace(/:?$/, "").trim();
-      const afterColon = inline.split(":").slice(1).join(":").trim();
-      if (afterColon) section.push(afterColon);
-      continue;
-    }
-    if (inSection && (/^#{1,6}\s+/.test(line) || isMarkdownSectionHeading(line))) break;
-    if (inSection) section.push(line);
-  }
-  return section;
-}
-
-function isLiteratureQueryHeading(line: string): boolean {
-  const normalized = line.replace(/^#{1,6}\s*/, "").replace(/\*\*/g, "").toLowerCase();
-  return /immediate\s+literature\s+queries|literature\s+queries|search\s+queries|[\u6587\u732e].*[\u68c0\u7d22]|[\u68c0\u7d22].*[\u95ee\u9898]/u.test(normalized);
-}
-
-function isMarkdownSectionHeading(line: string): boolean {
-  return /^\*\*[^*]+:\*\*$/.test(line) || /^\*\*[^*]+\*\*$/.test(line);
-}
-
-function normalizeQueryLine(line: string, languagePolicy: LanguagePolicy): SearchQueryPlan | undefined {
-  const cleaned = line
-    .replace(/^[-*]\s*/, "")
-    .replace(/^\d+[.)]\s*/, "")
-    .replace(/\*\*/g, "")
-    .replace(/^["']+|["']+$/g, "")
-    .trim();
-  if (!cleaned) return undefined;
-  const parts = cleaned.split(":");
-  const maybePurpose = parts.length > 1 ? parts[0].trim() : "";
-  const query = parts.length > 1 ? parts.slice(1).join(":").trim() : cleaned;
-  if (!query || query.length < 4) return undefined;
-  return {
-    query,
-    language: languagePolicy.primarySearchLanguage,
-    purpose: maybePurpose && maybePurpose.length < 40 ? maybePurpose : "framed literature query",
-  };
-}
-
-function containsCjk(text: string): boolean {
-  return /[\u3400-\u9fff\uf900-\ufaff]/u.test(text);
+function renderGroundingDisciplinePromptLines(context?: GroundingDisciplineContext): string[] {
+  if (!context) return [];
+  const label = normalizeDisciplineLabel(context.label);
+  if (!label || label === "unknown") return [];
+  const prefix = context.source === "explicit" ? "Known discipline context" : "Provisional discipline context";
+  return [
+    `${prefix}: ${label}`,
+    `Discipline confidence: ${context.confidence.toFixed(2)}`,
+  ].filter(Boolean);
 }
 
 function asString(value: unknown): string {
@@ -749,53 +895,47 @@ function normalizeDisciplineLabel(value: string): string {
   return allowed.has(normalized) ? normalized : "unknown";
 }
 
+function knownDisciplineForGrounding(value: string): string | undefined {
+  const normalized = normalizeDisciplineLabel(value);
+  return normalized && normalized !== "unknown" && normalized !== "general_science" ? normalized : undefined;
+}
+
+function inferredDisciplineForGrounding(value: ProvisionalDiscipline): ProvisionalDiscipline | undefined {
+  const label = normalizeDisciplineLabel(value.label);
+  if (!label || label === "unknown" || label === "general_science") return undefined;
+  if (value.confidence < 0.5) return undefined;
+  return {
+    label,
+    confidence: value.confidence,
+    rationale: value.rationale,
+  };
+}
+
+function groundingDisciplineContextFor(
+  explicitDiscipline: string | undefined,
+  inferredDiscipline: ProvisionalDiscipline,
+): GroundingDisciplineContext | undefined {
+  if (explicitDiscipline) {
+    return {
+      label: explicitDiscipline,
+      confidence: 1,
+      rationale: "Discipline was explicitly provided by the task.",
+      source: "explicit",
+    };
+  }
+  const inferred = inferredDisciplineForGrounding(inferredDiscipline);
+  return inferred ? { ...inferred, source: "inferred" } : undefined;
+}
+
+function clampConfidence(value: unknown): number {
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.max(0, Math.min(1, numeric));
+}
+
 function asStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.map(asString).filter(Boolean);
-}
-
-function queryQualityRejectionReason(query: string): string | undefined {
-  const normalized = query.toLowerCase().replace(/\s+/g, " ").trim();
-  if (normalized.length > 180) return "Query is too long to be a focused literature search string.";
-  if (/^(find|search|look for|look up|identify|understand|review|summarize|investigate)\b/.test(normalized)) {
-    return "Query must be concrete search terms, not an instruction.";
-  }
-  if (/\b(this topic|the topic|user query|research query|the problem|this problem)\b/.test(normalized)) {
-    return "Query must name the technical target explicitly.";
-  }
-  if (/^(what|why|how|when|where|which)\b/.test(normalized) || normalized.endsWith("?")) {
-    return "Query must be keyword-style search terms, not a natural-language question.";
-  }
-  const tokens = normalized.match(/[a-z][a-z0-9-]{2,}/g) ?? [];
-  const generic = new Set([
-    "article",
-    "articles",
-    "current",
-    "evidence",
-    "latest",
-    "literature",
-    "method",
-    "methods",
-    "paper",
-    "papers",
-    "problem",
-    "query",
-    "recent",
-    "research",
-    "review",
-    "scientific",
-    "source",
-    "sources",
-    "studies",
-    "study",
-    "topic",
-  ]);
-  const specificTerms = tokens.filter((token) => !generic.has(token) && token.length >= 4);
-  const hasQuotedPhrase = /"[^"]{4,}"/.test(query);
-  if (specificTerms.length < 2 && !hasQuotedPhrase) {
-    return "Query must include at least two concrete technical terms or one quoted exact phrase.";
-  }
-  return undefined;
 }
 
 function detectLanguagePolicy(text: string): LanguagePolicy {

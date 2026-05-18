@@ -12,8 +12,11 @@ import { InMemoryCredentialStore } from "../auth/CredentialStore.js";
 import { OpenAIAuthService } from "../auth/OpenAIAuthService.js";
 import { ScientificCapabilityRegistry } from "../capabilities/ScientificCapabilityRegistry.js";
 import { ResearchGraphRegistry } from "../graph/ResearchGraph.js";
-import { LiteratureKnowledgeBase } from "../literature/LiteratureKnowledgeBase.js";
-import type { ResearchState } from "../loop/ResearchState.js";
+import { PaperDigests } from "../literature/PaperDigest.js";
+import { userLiteratureDigestRoot, userLiteratureWikiRoot } from "../literature/LiteraturePaths.js";
+import { LiteratureReviewRuntimeStore } from "../literature/LiteratureReviewRuntimeStore.js";
+import type { ResearchState } from "../shared/ResearchStateTypes.js";
+import { applyStageResult } from "../loop/ResearchState.js";
 import { SciLoop } from "../loop/SciLoop.js";
 import type { TrajectoryEvent } from "../loop/Trajectory.js";
 import { SciMemory } from "../memory/SciMemory.js";
@@ -28,8 +31,9 @@ import {
 } from "../runtime/ModelProvider.js";
 import { createResearchToolRegistry } from "../runtime/ResearchToolRegistry.js";
 import { SciRuntime } from "../runtime/SciRuntime.js";
-import type { ResearchMode, ScientificTask, ScientificStage } from "../shared/types.js";
+import type { ResearchMode, ScientificTask, ScientificStage } from "../shared/ScientificLifecycle.js";
 import type { AuthIdentity, AuthSession } from "../auth/AuthSession.js";
+import { makeId } from "../shared/ids.js";
 
 export interface KaivuApiServerOptions {
   port?: number;
@@ -46,6 +50,7 @@ export interface OpenAIKeyLoginBody {
 
 export interface ResearchRunBody {
   sessionId?: string;
+  researchSessionId?: string;
   query?: string;
   task?: ScientificTask;
   mode?: ResearchMode;
@@ -54,7 +59,29 @@ export interface ResearchRunBody {
   discipline?: string;
   stageOrder?: ScientificStage[];
   pauseAfterStage?: boolean;
-  initialState?: ResearchState;
+  stageInteraction?: StageInteractionRequest;
+}
+
+export interface ResearchRunResponse extends Awaited<ReturnType<SciLoop["run"]>> {
+  researchSessionId: string;
+}
+
+export interface StageInteractionRequest {
+  action: "revise_current_stage" | "proceed_to_next_stage";
+  message?: string;
+}
+
+interface ResearchSession {
+  id: string;
+  createdAt: string;
+  updatedAt: string;
+  task: ScientificTask;
+  state?: ResearchState;
+  memory: SciMemory;
+  graph: ResearchGraphRegistry;
+  literatureRuntime: LiteratureReviewRuntimeStore;
+  paperDigests: PaperDigests;
+  literatureWikiRoot: string;
 }
 
 export class KaivuApiServer {
@@ -62,6 +89,7 @@ export class KaivuApiServer {
   private readonly auth = new OpenAIAuthService(this.credentialStore);
   private readonly resolver = new CredentialResolver(this.credentialStore);
   private readonly sessions = new Map<string, AuthSession>();
+  private readonly researchSessions = new Map<string, ResearchSession>();
 
   constructor(private readonly options: KaivuApiServerOptions = {}) {}
 
@@ -77,6 +105,10 @@ export class KaivuApiServer {
   private async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
     if (request.method === "OPTIONS") {
       writeJson(response, 204, {});
+      return;
+    }
+    if (request.method === "GET" && request.url?.startsWith("/vendor/marked.esm.js")) {
+      await serveVendorMarked(response);
       return;
     }
     if (request.method === "GET" && (request.url === "/" || request.url?.startsWith("/app.js") || request.url?.startsWith("/styles.css"))) {
@@ -120,16 +152,23 @@ export class KaivuApiServer {
   private async runResearch(
     body: ResearchRunBody,
     onEvent?: (event: TrajectoryEvent) => void,
-  ): Promise<Awaited<ReturnType<SciLoop["run"]>>> {
+  ): Promise<ResearchRunResponse> {
     const model = await this.resolveModel(body);
-    const task = body.task ?? taskFromQuery(body.query ?? "");
+    const session = await this.getOrCreateResearchSession(body);
+    const task = session.task;
     if (!task.question.trim()) {
       throw new Error("query or task.question is required");
     }
-    const literature = new LiteratureKnowledgeBase();
-    const graph = new ResearchGraphRegistry();
-    const memory = new SciMemory();
-    const runtime = new SciRuntime(model, createResearchToolRegistry(literature), literature, new ScientificCapabilityRegistry(), undefined, graph);
+    const runtime = new SciRuntime(
+      model,
+      createResearchToolRegistry(),
+      session.literatureRuntime,
+      session.paperDigests,
+      session.literatureWikiRoot,
+      new ScientificCapabilityRegistry(),
+      undefined,
+      session.graph,
+    );
     const agent = new SciAgent({
       id: "chief_scientific_agent",
       discipline: task.discipline ?? "to_be_determined",
@@ -142,11 +181,9 @@ export class KaivuApiServer {
       ],
       stageOrder: body.stageOrder ?? ["problem_framing", "literature_review", "hypothesis_generation", "hypothesis_validation", "experiment_design"],
     });
-    const loop = new SciLoop(runtime, memory, graph);
-    const initialState = body.initialState?.stopReason?.startsWith("paused_after_")
-      ? { ...body.initialState, done: false, stopReason: undefined }
-      : body.initialState;
-    return await loop.run({
+    const loop = new SciLoop(runtime, session.memory, session.graph);
+    const initialState = await prepareInteractiveState(session.state, body.stageInteraction, agent, session.memory, session.graph);
+    const result = await loop.run({
       task,
       agent,
       mode: body.mode ?? "interactive",
@@ -155,6 +192,53 @@ export class KaivuApiServer {
       initialState,
       onEvent,
     });
+    session.state = result.state;
+    session.updatedAt = new Date().toISOString();
+    return {
+      ...result,
+      researchSessionId: session.id,
+      state: stateForClient(result.state),
+    };
+  }
+
+  private async getOrCreateResearchSession(body: ResearchRunBody): Promise<ResearchSession> {
+    if (body.researchSessionId) {
+      const existing = this.researchSessions.get(body.researchSessionId);
+      if (existing) return existing;
+      if (!body.task && !body.query?.trim()) {
+        throw new Error("Unknown or expired research session. Start a new research run.");
+      }
+    }
+
+    const task = body.task ?? taskFromQuery(body.query ?? "");
+    const now = new Date().toISOString();
+    const sessionId = body.researchSessionId || makeId("research-session");
+    const userId = this.resolveResearchUserId(body);
+    const session: ResearchSession = {
+      id: sessionId,
+      createdAt: now,
+      updatedAt: now,
+      task,
+      memory: new SciMemory(),
+      graph: new ResearchGraphRegistry(),
+      literatureRuntime: new LiteratureReviewRuntimeStore(),
+      paperDigests: await PaperDigests.load(userLiteratureDigestRoot(process.cwd(), userId)),
+      literatureWikiRoot: userLiteratureWikiRoot(process.cwd(), userId),
+    };
+    this.researchSessions.set(session.id, session);
+    return session;
+  }
+
+  private resolveResearchUserId(body: ResearchRunBody): string {
+    const taskUserId = readTaskUserId(body.task);
+    if (taskUserId) return taskUserId;
+    if (body.sessionId) {
+      const authSession = this.sessions.get(body.sessionId);
+      if (authSession?.identity.userId?.trim()) {
+        return authSession.identity.userId.trim();
+      }
+    }
+    return "anonymous-user";
   }
 
   private async streamResearch(body: ResearchRunBody, response: ServerResponse): Promise<void> {
@@ -190,7 +274,7 @@ export class KaivuApiServer {
   }
 
   private async resolveModel(body: ResearchRunBody): Promise<ModelProvider> {
-    const withRetry = (provider: ModelProvider) => new RetryingModelProvider(provider, { maxAttempts: 5 });
+    const withRetry = (provider: ModelProvider) => new RetryingModelProvider(provider, { maxAttempts: 10 });
     if (!body.model || body.model === "local-echo") {
       return new EchoModelProvider();
     }
@@ -282,6 +366,12 @@ function describeTrajectoryEvent(event: TrajectoryEvent): string {
   return event.type;
 }
 
+function readTaskUserId(task: ScientificTask | undefined): string | undefined {
+  if (!task || typeof task.constraints !== "object" || task.constraints === null) return undefined;
+  const userId = (task.constraints as Record<string, unknown>).userId;
+  return typeof userId === "string" && userId.trim() ? userId.trim() : undefined;
+}
+
 function trajectoryEventDetails(event: TrajectoryEvent): Record<string, unknown> {
   const payload = event.payload;
   if (event.type === "stage_plan") {
@@ -311,11 +401,11 @@ function trajectoryEventDetails(event: TrajectoryEvent): Record<string, unknown>
     const input = typeof payload.input === "object" && payload.input !== null ? payload.input as Record<string, unknown> : {};
     const output = typeof payload.output === "object" && payload.output !== null ? payload.output as Record<string, unknown> : {};
     const runtime = typeof payload.runtime === "object" && payload.runtime !== null ? payload.runtime as Record<string, unknown> : {};
+    const observability = typeof payload.observability === "object" && payload.observability !== null ? payload.observability as Record<string, unknown> : {};
     return {
       input: pickDefined(input),
       output: pickDefined({
         summary: output.summary,
-        process: output.process,
         evidence: summarizeEvidence(output.evidence),
         hypotheses: summarizeHypotheses(output.hypotheses),
         artifacts: summarizeArtifacts(output.artifacts),
@@ -324,8 +414,10 @@ function trajectoryEventDetails(event: TrajectoryEvent): Record<string, unknown>
       runtime: pickDefined({
         model: runtime.model,
         tools: summarizeRuntimeTools(runtime.tools),
-        prompts: summarizePrompts(runtime.prompts),
         contextPack: runtime.contextPack,
+      }),
+      observability: pickDefined({
+        processTraceCount: Array.isArray(observability.processTrace) ? observability.processTrace.length : undefined,
       }),
       review: payload.review,
     };
@@ -669,6 +761,20 @@ async function servePublic(url: string | undefined, response: ServerResponse): P
   }
 }
 
+async function serveVendorMarked(response: ServerResponse): Promise<void> {
+  try {
+    const content = await readFile(join(process.cwd(), "node_modules", "marked", "lib", "marked.esm.js"));
+    response.writeHead(200, {
+      "Content-Type": "text/javascript; charset=utf-8",
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-store",
+    });
+    response.end(content);
+  } catch {
+    writeJson(response, 404, { error: "marked vendor bundle not found; run npm install" });
+  }
+}
+
 function contentType(path: string): string {
   if (extname(path) === ".html") return "text/html; charset=utf-8";
   if (extname(path) === ".css") return "text/css; charset=utf-8";
@@ -684,4 +790,82 @@ function taskFromQuery(query: string): ScientificTask {
     question,
     taskType: "chat_research",
   };
+}
+
+function stateForClient(state: ResearchState): ResearchState {
+  return state;
+}
+
+async function prepareInteractiveState(
+  state: ResearchState | undefined,
+  interaction: StageInteractionRequest | undefined,
+  agent: SciAgent,
+  memory: SciMemory,
+  graph: ResearchGraphRegistry,
+): Promise<ResearchState | undefined> {
+  if (!state) return undefined;
+  let preparedState = state.stopReason?.startsWith("paused_after_")
+    ? { ...state, done: false, stopReason: undefined }
+    : { ...state };
+  if (!interaction) return preparedState;
+
+  const reviewedStage = preparedState.pendingStageResult?.stage ?? preparedState.currentStage;
+  if (interaction.action === "proceed_to_next_stage" && preparedState.pendingStageResult) {
+    preparedState = await acceptPendingStageResult(preparedState, agent, memory, graph);
+  } else if (interaction.action === "revise_current_stage") {
+    preparedState = {
+      ...preparedState,
+      pendingStageResult: undefined,
+      currentStage: reviewedStage,
+    };
+  }
+
+  const targetStage = preparedState.currentStage;
+  const message = interaction.message?.trim();
+  const pendingStageInputs = { ...(preparedState.pendingStageInputs ?? {}) };
+  if (message) {
+    const sourceStage = interaction.action === "revise_current_stage"
+      ? reviewedStage
+      : reviewedStage;
+    pendingStageInputs[targetStage] = [
+      ...(pendingStageInputs[targetStage] ?? []),
+      {
+        id: `stage_input_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        createdAt: new Date().toISOString(),
+        sourceStage,
+        targetStage,
+        action: interaction.action,
+        message,
+      },
+    ];
+  }
+
+  return {
+    ...preparedState,
+    currentStage: targetStage,
+    pendingStageInputs,
+  };
+}
+
+async function acceptPendingStageResult(
+  state: ResearchState,
+  agent: SciAgent,
+  memory: SciMemory,
+  graph: ResearchGraphRegistry,
+): Promise<ResearchState> {
+  const result = state.pendingStageResult;
+  if (!result) return state;
+  const source = `${agent.id}:${result.specialistId}:${result.stage}`;
+  await memory.commit(result.memoryProposals, source);
+  if (result.graphProposals.length > 0) {
+    graph.applyGraphProposals(result.graphProposals, source);
+  }
+  return applyStageResult(
+    {
+      ...state,
+      pendingStageResult: undefined,
+    },
+    result,
+    agent.nextStageAfter(result.stage),
+  );
 }

@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
 import process from "node:process";
 
@@ -38,11 +38,22 @@ export interface ModelCompleteOptions {
   hostedWebSearch?: boolean;
   webSearchDomains?: string[];
   maxOutputTokens?: number;
+  attachments?: ModelInputAttachment[];
+}
+
+export interface ModelInputAttachment {
+  kind: "pdf_url" | "pdf_file";
+  url?: string;
+  path?: string;
+  filename?: string;
+  mediaType?: "application/pdf";
 }
 
 export interface ModelProvider {
   readonly label?: string;
   readonly supportsHostedWebSearch?: boolean;
+  readonly pdfUrlReadSupport?: "hosted_web_search" | "native" | "unsupported";
+  readonly pdfFileReadSupport?: "native" | "unsupported";
   complete(messages: ModelMessage[], options?: ModelCompleteOptions): Promise<ModelCompletion>;
 }
 
@@ -55,6 +66,8 @@ export interface RetryingModelProviderOptions {
 export class RetryingModelProvider implements ModelProvider {
   readonly label: string;
   readonly supportsHostedWebSearch?: boolean;
+  readonly pdfUrlReadSupport?: "hosted_web_search" | "native" | "unsupported";
+  readonly pdfFileReadSupport?: "native" | "unsupported";
   private readonly maxAttempts: number;
   private readonly baseDelayMs: number;
   private readonly shouldRetry: (error: unknown) => boolean;
@@ -65,6 +78,8 @@ export class RetryingModelProvider implements ModelProvider {
   ) {
     this.label = `retry(${inner.label ?? "model"})`;
     this.supportsHostedWebSearch = inner.supportsHostedWebSearch;
+    this.pdfUrlReadSupport = inner.pdfUrlReadSupport;
+    this.pdfFileReadSupport = inner.pdfFileReadSupport;
     this.maxAttempts = options.maxAttempts ?? 5;
     this.baseDelayMs = options.baseDelayMs ?? 750;
     this.shouldRetry = options.shouldRetry ?? isRetryableModelError;
@@ -150,11 +165,16 @@ export class FallbackModelProvider implements ModelProvider {
 
 export class EchoModelProvider implements ModelProvider {
   readonly label = "local-echo";
+  readonly pdfUrlReadSupport = "unsupported" as const;
+  readonly pdfFileReadSupport = "unsupported" as const;
 
   async complete(messages: ModelMessage[], options: ModelCompleteOptions = {}): Promise<ModelCompletion> {
+    if (options.attachments?.length) {
+      throw new Error("EchoModelProvider does not support file attachments.");
+    }
     const last = messages.at(-1)?.content ?? "";
     const inputTokens = messages.reduce((count, message) => count + message.content.length, 0);
-    const text = `Echo model response for: ${last.slice(0, 200)}`;
+    const text = echoStructuredResponse(last) ?? `Echo model response for: ${last.slice(0, 200)}`;
     await emitTextDeltas(text, options);
     return {
       text,
@@ -167,6 +187,68 @@ export class EchoModelProvider implements ModelProvider {
   }
 }
 
+function echoStructuredResponse(prompt: string): string | undefined {
+  if (prompt.includes("Schema name: grounding_targets")) {
+    return JSON.stringify({
+      discipline: {
+        label: prompt.toLowerCase().includes("attention residual") ? "artificial_intelligence" : "artificial_intelligence",
+        confidence: prompt.toLowerCase().includes("known discipline context") ? 0.95 : 0.72,
+        rationale: "The query uses AI/ML terminology and asks for research directions in an AI context.",
+      },
+      targets: [
+        {
+          term: prompt.toLowerCase().includes("attention residual")
+            ? "attention residual"
+            : "benchmark-driven AI research loop",
+          reason: "This phrase is likely to affect the scientific framing and downstream literature search scope.",
+        },
+      ],
+      rationale: "Select the central technical phrase and leave grounding itself to the hosted web search step.",
+      compatibility: "Selected targets share an artificial_intelligence context.",
+      no_grounding_reason: "",
+    });
+  }
+  if (prompt.includes("Schema name: literature_query_plan")) {
+    return JSON.stringify({
+      search_strategy: "Use broad-to-focused AI research queries derived from the framed problem; avoid invented acronyms or brittle aliases.",
+      queries: [
+        {
+          purpose: "broad conceptual coverage",
+          query: "benchmark driven AI research reproducibility evaluation",
+          scope: "broad",
+          rationale: "Covers the general research loop and reproducibility framing.",
+        },
+        {
+          purpose: "data leakage and validity",
+          query: "AI benchmark data leakage evaluation protocol",
+          scope: "focused",
+          rationale: "Targets benchmark validity risks.",
+        },
+        {
+          purpose: "seed sensitivity",
+          query: "machine learning benchmark seed sensitivity reproducibility",
+          scope: "focused",
+          rationale: "Targets robustness and variance across runs.",
+        },
+        {
+          purpose: "evidence standards",
+          query: "machine learning ablation study evidence quality benchmark",
+          scope: "focused",
+          rationale: "Targets evidence quality and ablation requirements.",
+        },
+        {
+          purpose: "systematic review angle",
+          query: "AI benchmark evaluation systematic review reproducibility",
+          scope: "broad",
+          rationale: "Adds systematic review coverage for prior work.",
+        },
+      ],
+      exclusions: ["Do not invent project-specific acronyms.", "Do not use natural-language questions as queries."],
+    });
+  }
+  return undefined;
+}
+
 export interface CodexCliModelProviderOptions {
   model?: string;
   command?: string;
@@ -177,6 +259,8 @@ export interface CodexCliModelProviderOptions {
 
 export class CodexCliModelProvider implements ModelProvider {
   readonly label: string;
+  readonly pdfUrlReadSupport = "unsupported" as const;
+  readonly pdfFileReadSupport = "unsupported" as const;
   private readonly model: string;
   private readonly command: string;
   private readonly timeoutMs: number;
@@ -193,6 +277,9 @@ export class CodexCliModelProvider implements ModelProvider {
   }
 
   async complete(messages: ModelMessage[], options: ModelCompleteOptions = {}): Promise<ModelCompletion> {
+    if (options.attachments?.length) {
+      throw new Error("CodexCliModelProvider does not support file attachments.");
+    }
     const system = messages.find((message) => message.role === "system")?.content;
     const prompt = messages
       .filter((message) => message.role !== "system")
@@ -285,6 +372,8 @@ const OPENAI_CODEX_DEFAULT_RESPONSES_PATH = "/codex/responses";
 export class OpenAIResponsesModelProvider implements ModelProvider {
   readonly label: string;
   readonly supportsHostedWebSearch = true;
+  readonly pdfUrlReadSupport = "native" as const;
+  readonly pdfFileReadSupport = "native" as const;
   private readonly model: string;
   private readonly apiKey: string;
   private readonly baseUrl: string;
@@ -363,9 +452,12 @@ export class OpenAIResponsesModelProvider implements ModelProvider {
 
   private buildPayload(messages: ModelMessage[], options: ModelCompleteOptions = {}): Record<string, unknown> {
     const system = messages.find((message) => message.role === "system")?.content;
-    const input = messages
-      .filter((message) => message.role !== "system")
-      .map((message) => ({ role: message.role === "tool" ? "user" : message.role, content: message.content }));
+    const nonSystemMessages = messages.filter((message) => message.role !== "system");
+    const lastUserIndex = nonSystemMessages.length - 1;
+    const input = nonSystemMessages.map((message, index) => ({
+      role: message.role === "tool" ? "user" : message.role,
+      content: buildResponseInputContent(message.content, index === lastUserIndex ? options.attachments : undefined),
+    }));
     const payload: Record<string, unknown> = {
       model: this.model,
       input,
@@ -391,6 +483,8 @@ export class OpenAIResponsesModelProvider implements ModelProvider {
 export class OpenAICodexResponsesModelProvider implements ModelProvider {
   readonly label: string;
   readonly supportsHostedWebSearch = true;
+  readonly pdfUrlReadSupport = "native" as const;
+  readonly pdfFileReadSupport = "native" as const;
   private readonly model: string;
   private readonly baseUrl: string;
   private readonly responsesPath: string;
@@ -482,9 +576,12 @@ export class OpenAICodexResponsesModelProvider implements ModelProvider {
 
   private buildPayload(messages: ModelMessage[], options: ModelCompleteOptions = {}): Record<string, unknown> {
     const system = messages.find((message) => message.role === "system")?.content;
-    const input = messages
-      .filter((message) => message.role !== "system")
-      .map((message) => ({ role: message.role === "tool" ? "user" : message.role, content: message.content }));
+    const nonSystemMessages = messages.filter((message) => message.role !== "system");
+    const lastUserIndex = nonSystemMessages.length - 1;
+    const input = nonSystemMessages.map((message, index) => ({
+      role: message.role === "tool" ? "user" : message.role,
+      content: buildResponseInputContent(message.content, index === lastUserIndex ? options.attachments : undefined),
+    }));
     const payload: Record<string, unknown> = {
       model: this.model,
       input,
@@ -514,6 +611,41 @@ function buildCodexNativeWebSearchTool(options: ModelCompleteOptions): Record<st
     tool.filters = { allowed_domains: options.webSearchDomains };
   }
   return tool;
+}
+
+function buildResponseInputContent(text: string, attachments?: ModelInputAttachment[]): Array<Record<string, unknown>> {
+  const content: Array<Record<string, unknown>> = [
+    {
+      type: "input_text",
+      text,
+    },
+  ];
+  for (const attachment of attachments ?? []) {
+    if (attachment.kind === "pdf_url") {
+      const fileUrl = attachment.url?.trim();
+      if (!fileUrl) continue;
+      content.push({
+        type: "input_file",
+        file_url: fileUrl,
+        filename: attachment.filename ?? "paper.pdf",
+      });
+      continue;
+    }
+    const filePath = attachment.path?.trim();
+    if (!filePath) continue;
+    const bytes = readFileSync(filePath);
+    const base64 = bytes.toString("base64");
+    content.push({
+      type: "input_file",
+      filename: attachment.filename ?? basenameForAttachment(filePath),
+      file_data: `data:${attachment.mediaType ?? "application/pdf"};base64,${base64}`,
+    });
+  }
+  return content;
+}
+
+function basenameForAttachment(filePath: string): string {
+  return basename(filePath) || "paper.pdf";
 }
 
 function extractResponseText(payload: Record<string, unknown>): string {

@@ -2,11 +2,13 @@ import type { SciAgent } from "../agent/SciAgent.js";
 import type { SpecialistAgent } from "../agent/SpecialistAgent.js";
 import { ScientificCapabilityRegistry } from "../capabilities/ScientificCapabilityRegistry.js";
 import { ContextPackBuilder } from "../context/ContextPack.js";
+import type { PaperDigests } from "../literature/PaperDigest.js";
 import type { ResearchGraphRegistry } from "../graph/ResearchGraph.js";
-import type { LiteratureKnowledgeBase } from "../literature/LiteratureKnowledgeBase.js";
+import type { LiteratureReviewRuntimeStore } from "../literature/LiteratureReviewRuntimeStore.js";
 import type { SciMemory } from "../memory/SciMemory.js";
 import { makeId } from "../shared/ids.js";
-import type { StagePlan, StageResult } from "../shared/types.js";
+import type { ResearchState } from "../shared/ResearchStateTypes.js";
+import type { StagePlan, StageResult } from "../shared/StageContracts.js";
 import type { ModelProvider } from "./ModelProvider.js";
 import type { ModelRegistry } from "./ModelRegistry.js";
 import type { RuntimeEvent } from "./RuntimeEvent.js";
@@ -17,7 +19,7 @@ export interface RuntimeStageInput {
   agent: SciAgent;
   specialist: SpecialistAgent;
   plan: StagePlan;
-  researchState: Record<string, unknown>;
+  researchState: ResearchState;
   memory: SciMemory;
   onEvent?: (event: RuntimeEvent) => void;
 }
@@ -37,7 +39,9 @@ export class SciRuntime {
   constructor(
     private readonly model: ModelProvider,
     private readonly tools: ToolRegistry,
-    private readonly literature?: LiteratureKnowledgeBase,
+    private readonly literature?: LiteratureReviewRuntimeStore,
+    private readonly paperDigests?: PaperDigests,
+    private readonly literatureWikiRoot?: string,
     private readonly capabilities = new ScientificCapabilityRegistry(),
     private readonly modelRegistry?: ModelRegistry,
     private readonly graph?: ResearchGraphRegistry,
@@ -118,6 +122,8 @@ export class SciRuntime {
       contextPack,
       renderedContext: contextPack.renderPromptContext(Math.floor(contextPack.policy.budget.targetTokens * 4)),
       literature: this.literature,
+      paperDigests: this.paperDigests,
+      literatureWikiRoot: this.literatureWikiRoot,
       model,
       tools: this.tools,
       onProgress: (progress) => {
@@ -166,7 +172,6 @@ export class SciRuntime {
       this.event("stage_completed", input.plan.stage, {
         specialistId: input.specialist.id,
         summary: stageResult.summary,
-        processTrace: stageResult.processTrace ?? [],
         decision: stageResult.decision,
         evidenceCount: stageResult.evidence.length,
         hypothesisCount: stageResult.hypotheses.length,

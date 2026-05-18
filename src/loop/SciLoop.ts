@@ -2,8 +2,9 @@ import type { SciAgent } from "../agent/SciAgent.js";
 import type { ResearchGraphRegistry } from "../graph/ResearchGraph.js";
 import type { SciMemory } from "../memory/SciMemory.js";
 import type { SciRuntime } from "../runtime/SciRuntime.js";
-import type { ResearchMode, ScientificTask } from "../shared/types.js";
-import { applyStageResult, createInitialResearchState, type ResearchState } from "./ResearchState.js";
+import type { ResearchMode, ScientificTask } from "../shared/ScientificLifecycle.js";
+import type { ResearchState } from "../shared/ResearchStateTypes.js";
+import { applyStageResult, createInitialResearchState } from "./ResearchState.js";
 import { ResearchTrajectory, type TrajectoryEvent } from "./Trajectory.js";
 
 export interface ResearchRunInput {
@@ -37,7 +38,7 @@ export class SciLoop {
     while (!state.done && iterationsThisRun < maxIterations) {
       const stage = state.currentStage;
       this.emit(input, trajectory.recordLoopDecision(stage, `Selected stage ${stage} at iteration ${state.iteration}.`));
-      const plan = input.agent.buildStagePlan(input.task, stage, { ...state });
+      const plan = input.agent.buildStagePlan(state.task, stage, state);
       this.emit(
         input,
         trajectory.record("stage_plan", {
@@ -53,7 +54,7 @@ export class SciLoop {
         agent: input.agent,
         specialist,
         plan,
-        researchState: { ...state },
+        researchState: state,
         memory: this.memory,
         onEvent: (event) => {
           this.emit(input, trajectory.recordRuntimeEvents([event]));
@@ -71,23 +72,36 @@ export class SciLoop {
           },
           output: {
             summary: runtimeResult.stageResult.summary,
-            process: runtimeResult.stageResult.processTrace ?? [],
+            decision: runtimeResult.stageResult.decision,
+            artifacts: runtimeResult.stageResult.artifacts,
             evidence: runtimeResult.stageResult.evidence,
             hypotheses: runtimeResult.stageResult.hypotheses,
-            artifacts: runtimeResult.stageResult.artifacts,
-            decision: runtimeResult.stageResult.decision,
           },
-          runtime: runtimeResult.runtime,
+          observability: {
+            processTrace: runtimeResult.stageResult.processTrace ?? [],
+          },
+          runtime: summarizeRuntimeForStageOutput(runtimeResult.runtime),
           review: input.pauseAfterStage
             ? {
                 required: true,
-                message: "Review this stage output before continuing to the next research stage.",
+                message: "Review this stage output. Continue the current stage with notes, or continue to the next stage with optional handoff notes.",
               }
             : {
                 required: false,
               },
         }),
       );
+      if (input.pauseAfterStage && input.mode === "interactive") {
+        state = {
+          ...state,
+          pendingStageResult: runtimeResult.stageResult,
+          done: true,
+          stopReason: `paused_after_${stage}`,
+        };
+        iterationsThisRun += 1;
+        continue;
+      }
+
       const memoryCommit = await this.memory.commit(
         runtimeResult.stageResult.memoryProposals,
         `${input.agent.id}:${specialist.id}:${stage}`,
@@ -140,9 +154,6 @@ export class SciLoop {
       if (runtimeResult.stageResult.decision.status === "needs_human_review") {
         state = { ...state, done: true, stopReason: runtimeResult.stageResult.decision.reason };
       }
-      if (!state.done && input.pauseAfterStage && input.mode === "interactive") {
-        state = { ...state, done: true, stopReason: `paused_after_${stage}` };
-      }
       iterationsThisRun += 1;
     }
 
@@ -164,4 +175,12 @@ export class SciLoop {
   private emit(input: ResearchRunInput, event: TrajectoryEvent): void {
     input.onEvent?.(event);
   }
+}
+
+function summarizeRuntimeForStageOutput(runtime: { model: string; tools: Record<string, unknown>; contextPack?: Record<string, unknown> }): Record<string, unknown> {
+  return {
+    model: runtime.model,
+    tools: runtime.tools,
+    contextPack: runtime.contextPack,
+  };
 }
