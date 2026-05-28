@@ -1,0 +1,19 @@
+[project]
+name = "autosota-lab"
+version = "0.1.0"
+description = "Prototype AutoSOTA framework with onboard, research, Docker evaluation, and Claude Code orchestration."
+requires-python = ">=3.10"
+dependencies = [
+  "matplotlib>=3.8",
+  "openai>=1.40",
+  "pydantic>=2.7",
+  "pyyaml>=6.0",
+]
+
+[project.scripts]
+autosota-lab = "autosota_lab.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
