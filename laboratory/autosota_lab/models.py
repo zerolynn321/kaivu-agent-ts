@@ -29,16 +29,35 @@ class IdeaType(str, Enum):
     leap = "LEAP"
 
 
+class ResourceType(str, Enum):
+    dataset = "dataset"
+    model = "model"
+    checkpoint = "checkpoint"
+    misc = "misc"
+
+
+class ResourceStatus(str, Enum):
+    discovered = "DISCOVERED"
+    available = "AVAILABLE"
+    missing = "MISSING"
+    failed = "FAILED"
+
+
 class PaperConfig(BaseModel):
     paper_name: str
     paper_title: str = ""
     repo_path: Path
+    paper_pdf_path: str = ""
+    resource_root: str = ""
     execution_backend: Literal["local", "docker"] = "local"
     docker_image: str = "node:22-bookworm"
     conda_env: str = ""
     conda_executable: str = "conda"
     venv_path: str = ""
     env_vars: dict[str, str] = Field(default_factory=dict)
+    setup_commands: list[str] = Field(default_factory=list)
+    pre_eval_commands: list[str] = Field(default_factory=list)
+    auto_prepare: bool = True
     eval_command: str
     eval_timeout_seconds: int = 1800
     primary_metric: str
@@ -80,6 +99,43 @@ class PaperConfig(BaseModel):
                 raise ValueError("Invalid env_vars entry with an empty key")
             env[key] = item_value
         return env
+
+
+class ResourceSpec(BaseModel):
+    name: str
+    type: ResourceType = ResourceType.misc
+    source_url: str = ""
+    local_path: str = ""
+    expected_size_bytes: int | None = None
+    required: bool = True
+    status: ResourceStatus = ResourceStatus.discovered
+    notes: str = ""
+
+
+class ResourceManifest(BaseModel):
+    resources: list[ResourceSpec] = Field(default_factory=list)
+    unresolved_requirements: list[str] = Field(default_factory=list)
+    repo_assumptions: list[str] = Field(default_factory=list)
+    notes: str = ""
+
+
+class EnvironmentPlan(BaseModel):
+    python_version: str = ""
+    cuda_version: str = ""
+    package_manager: str = ""
+    install_commands: list[str] = Field(default_factory=list)
+    validation_commands: list[str] = Field(default_factory=list)
+    env_vars: dict[str, str] = Field(default_factory=dict)
+    notes: str = ""
+
+
+class PrepareReport(BaseModel):
+    resource_manifest: ResourceManifest = Field(default_factory=ResourceManifest)
+    environment_plan: EnvironmentPlan = Field(default_factory=EnvironmentPlan)
+    readiness_status: Literal["ready", "partial", "blocked"] = "partial"
+    eval_command: str = ""
+    next_steps: list[str] = Field(default_factory=list)
+    notes: str = ""
 
 
 class ResearchReport(BaseModel):

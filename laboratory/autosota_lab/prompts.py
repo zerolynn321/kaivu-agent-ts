@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .models import Idea, PaperConfig, ResearchReport, RunPaths
+from .models import EnvironmentPlan, Idea, PaperConfig, PrepareReport, ResourceManifest, ResearchReport, RunPaths
 
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
@@ -51,6 +51,86 @@ Tasks:
 4. Write a concise baseline summary to {output_dir}/memory/baseline.md.
 
 Do not modify datasets, metric code, or evaluation logic.
+"""
+
+
+def resource_discovery_prompt(config: PaperConfig, repo_dir: str, output_dir: str) -> str:
+    return f"""
+You are AgentResource running the Resource Discovery stage of AutoSOTA Laboratory.
+
+Repository path: {repo_dir}
+Paper title: {config.paper_title or config.paper_name}
+Paper PDF path, if available: {config.paper_pdf_path or "(not provided)"}
+Resource root, if available: {config.resource_root or "(not provided)"}
+Evaluation command: {config.eval_command}
+
+Tasks:
+1. Inspect the repository without downloading files or modifying source code.
+2. Read README files, dependency files, config files, scripts, examples, and evaluation entrypoints.
+3. Identify required datasets, pretrained models, checkpoints, caches, local path assumptions, API tokens, and external URLs.
+4. Prefer concrete evidence from the repository over guesses. Put uncertain items in unresolved_requirements.
+5. Write a JSON resource manifest to {output_dir}/memory/resource_manifest.json.
+
+Return only valid JSON matching the ResourceManifest schema. Do not execute downloads,
+do not install packages, and do not edit the repository.
+
+ResourceManifest schema:
+{ResourceManifest.model_json_schema()}
+"""
+
+
+def environment_planning_prompt(config: PaperConfig, repo_dir: str, output_dir: str) -> str:
+    return f"""
+You are AgentInit running the Environment Planning stage of AutoSOTA Laboratory.
+
+Repository path: {repo_dir}
+Paper title: {config.paper_title or config.paper_name}
+Evaluation command: {config.eval_command}
+Configured setup commands: {config.setup_commands}
+Configured pre-eval commands: {config.pre_eval_commands}
+Configured conda env: {config.conda_env or "(not provided)"}
+Configured venv path: {config.venv_path or "(not provided)"}
+Configured environment variables: {config.env_vars}
+
+Tasks:
+1. Inspect the repository and infer the intended Python, CUDA, PyTorch, package manager, and dependency setup.
+2. Produce a conservative setup plan that a user or later agent can execute.
+3. Include validation commands that are cheap and diagnostic, such as Python import checks, CUDA visibility checks, and command help checks.
+4. Preserve the scientific protocol: do not propose changes to datasets, metric computation, evaluation splits, or target metric semantics.
+5. Write a JSON environment plan to {output_dir}/memory/environment_plan.json.
+
+Return only valid JSON matching the EnvironmentPlan schema. Do not install packages,
+do not run long training/evaluation, and do not edit the repository.
+
+EnvironmentPlan schema:
+{EnvironmentPlan.model_json_schema()}
+"""
+
+
+def readiness_check_prompt(config: PaperConfig, repo_dir: str, output_dir: str) -> str:
+    return f"""
+You are AgentInit running the Readiness Check stage of AutoSOTA Laboratory.
+
+Repository path: {repo_dir}
+Output directory: {output_dir}
+Evaluation command: {config.eval_command}
+Primary metric: {config.primary_metric} ({config.metric_direction.value} is better)
+
+Available prepare artifacts, if present:
+- {output_dir}/memory/resource_manifest.json
+- {output_dir}/memory/environment_plan.json
+
+Tasks:
+1. Inspect the prepare artifacts and the repository.
+2. Decide whether the repository is ready for baseline evaluation, partially ready, or blocked.
+3. Identify the next concrete steps required before running the baseline.
+4. Write a JSON prepare report to {output_dir}/memory/prepare_report.json.
+
+Return only valid JSON matching the PrepareReport schema. Do not download resources,
+do not install packages, do not run long evaluations, and do not edit the repository.
+
+PrepareReport schema:
+{PrepareReport.model_json_schema()}
 """
 
 

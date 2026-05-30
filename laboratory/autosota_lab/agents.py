@@ -4,8 +4,121 @@ from pathlib import Path
 
 from .code_agent import CodeAgentRunner
 from .io import read_jsonl, write_text
-from .models import CodeAnalysis, Idea, IdeaLibrary, IdeaStatus, IdeaType, PaperConfig, ResearchReport, SupervisorDecision
+from .models import (
+    CodeAnalysis,
+    EnvironmentPlan,
+    Idea,
+    IdeaLibrary,
+    IdeaStatus,
+    IdeaType,
+    PaperConfig,
+    PrepareReport,
+    ResearchReport,
+    ResourceManifest,
+    SupervisorDecision,
+)
 from .research_agent import DeepResearchRunner
+
+
+class AgentResource:
+    def __init__(self, code_agent: CodeAgentRunner) -> None:
+        self.code_agent = code_agent
+
+    def discover(
+        self,
+        prompt: str,
+        output_path: Path,
+        log_path: Path,
+        timeout_seconds: int | None = None,
+        dry_run: bool = False,
+    ) -> ResourceManifest:
+        try:
+            manifest = self.code_agent.complete_structured(
+                phase="agent_resource_discovery",
+                prompt=prompt,
+                schema=ResourceManifest,
+                log_path=log_path,
+                timeout_seconds=timeout_seconds,
+                dry_run=dry_run,
+            )
+        except Exception as exc:
+            manifest = ResourceManifest(
+                resources=[],
+                unresolved_requirements=[
+                    "Resource discovery did not produce a valid structured manifest.",
+                ],
+                repo_assumptions=[],
+                notes=f"Fallback manifest generated because Code Agent failed: {exc}",
+            )
+        write_text(output_path, manifest.model_dump_json(indent=2))
+        return manifest
+
+
+class AgentInit:
+    def __init__(self, code_agent: CodeAgentRunner) -> None:
+        self.code_agent = code_agent
+
+    def plan_environment(
+        self,
+        prompt: str,
+        output_path: Path,
+        log_path: Path,
+        timeout_seconds: int | None = None,
+        dry_run: bool = False,
+    ) -> EnvironmentPlan:
+        try:
+            plan = self.code_agent.complete_structured(
+                phase="agent_init_environment_plan",
+                prompt=prompt,
+                schema=EnvironmentPlan,
+                log_path=log_path,
+                timeout_seconds=timeout_seconds,
+                dry_run=dry_run,
+            )
+        except Exception as exc:
+            plan = EnvironmentPlan(
+                install_commands=[],
+                validation_commands=[],
+                notes=f"Fallback environment plan generated because Code Agent failed: {exc}",
+            )
+        write_text(output_path, plan.model_dump_json(indent=2))
+        return plan
+
+    def check_readiness(
+        self,
+        prompt: str,
+        output_path: Path,
+        log_path: Path,
+        resource_manifest: ResourceManifest,
+        environment_plan: EnvironmentPlan,
+        eval_command: str,
+        timeout_seconds: int | None = None,
+        dry_run: bool = False,
+    ) -> PrepareReport:
+        try:
+            report = self.code_agent.complete_structured(
+                phase="agent_init_readiness_check",
+                prompt=prompt,
+                schema=PrepareReport,
+                log_path=log_path,
+                timeout_seconds=timeout_seconds,
+                dry_run=dry_run,
+            )
+        except Exception as exc:
+            status = "partial" if resource_manifest.resources or environment_plan.install_commands else "blocked"
+            report = PrepareReport(
+                resource_manifest=resource_manifest,
+                environment_plan=environment_plan,
+                readiness_status=status,
+                eval_command=eval_command,
+                next_steps=[
+                    "Review resource_manifest.json and environment_plan.json manually.",
+                    "Rerun prepare with a working Code Agent for a fuller readiness check.",
+                ],
+                notes=f"Fallback prepare report generated because Code Agent failed: {exc}",
+            )
+        write_text(output_path, report.model_dump_json(indent=2))
+        return report
 
 
 class AgentMonitor:
