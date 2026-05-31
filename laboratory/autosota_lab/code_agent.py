@@ -173,9 +173,14 @@ def _strict_json_schema(schema: type[BaseModel]) -> dict[str, object]:
 
     def visit(node: object) -> None:
         if isinstance(node, dict):
+            if "$ref" in node:
+                for key in list(node.keys()):
+                    if key != "$ref":
+                        node.pop(key)
+                return
             if node.get("type") == "object" or "properties" in node:
                 node["additionalProperties"] = False
-                properties = node.get("properties")
+                properties = node.setdefault("properties", {})
                 if isinstance(properties, dict):
                     node["required"] = list(properties.keys())
             for value in node.values():

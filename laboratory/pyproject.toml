@@ -13,6 +13,10 @@ dependencies = [
 [project.scripts]
 autosota-lab = "autosota_lab.cli:main"
 
+[tool.setuptools.packages.find]
+include = ["autosota_lab*"]
+exclude = ["paper_repos*"]
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
