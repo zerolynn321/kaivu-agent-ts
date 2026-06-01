@@ -72,6 +72,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Shell template with {command} and {prompt}; defaults are backend-specific.",
     )
     prep_p.add_argument("--timeout-seconds", type=int, help="Per-stage Code Agent timeout.")
+    prep_p.add_argument("--setup-timeout-seconds", type=int, help="Timeout for setup command execution.")
+    prep_p.add_argument("--execute-setup", action="store_true", help="Execute setup commands after environment planning.")
+    prep_p.add_argument(
+        "--execute-validation",
+        action="store_true",
+        help="Execute validation commands after environment planning. Implied by --execute-setup.",
+    )
     prep_p.add_argument("--dry-run", action="store_true")
 
     opt_p = sub.add_parser("optimize", help="Run the prototype optimization pipeline.")
@@ -150,8 +157,10 @@ def main(argv: list[str] | None = None) -> int:
             code_agent=args.code_agent,
             code_agent_command=args.code_agent_command,
             code_agent_command_template=args.code_agent_command_template,
+            execute_setup=args.execute_setup,
+            execute_validation=args.execute_validation,
             dry_run=args.dry_run,
-        ).run(timeout_seconds=args.timeout_seconds)
+        ).run(timeout_seconds=args.timeout_seconds, setup_timeout_seconds=args.setup_timeout_seconds)
         print(f"[prepare] run dir: {run_dir}")
         return 0
 

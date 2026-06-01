@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import time
+import shlex
 from pathlib import Path
 
 if __package__ in (None, ""):
@@ -9,7 +10,7 @@ if __package__ in (None, ""):
     from autosota_lab.agents import AgentInit, AgentResource
     from autosota_lab.code_agent import create_code_agent
     from autosota_lab.docker_runner import DockerRunner
-    from autosota_lab.io import read_yaml, write_yaml
+    from autosota_lab.io import read_yaml, write_text, write_yaml
     from autosota_lab.local_runner import LocalRunner
     from autosota_lab.models import PaperConfig
     from autosota_lab.prompts import environment_planning_prompt, readiness_check_prompt, resource_discovery_prompt
@@ -18,7 +19,7 @@ else:
     from .agents import AgentInit, AgentResource
     from .code_agent import create_code_agent
     from .docker_runner import DockerRunner
-    from .io import read_yaml, write_yaml
+    from .io import read_yaml, write_text, write_yaml
     from .local_runner import LocalRunner
     from .models import PaperConfig
     from .prompts import environment_planning_prompt, readiness_check_prompt, resource_discovery_prompt
@@ -39,6 +40,8 @@ class Preparer:
         code_agent: str = "claude",
         code_agent_command: str | None = None,
         code_agent_command_template: str | None = None,
+        execute_setup: bool = False,
+        execute_validation: bool = False,
         dry_run: bool = False,
     ) -> None:
         self.workspace = workspace.resolve()
@@ -59,9 +62,11 @@ class Preparer:
         self.code_agent = code_agent
         self.code_agent_command = code_agent_command
         self.code_agent_command_template = code_agent_command_template
+        self.execute_setup = execute_setup
+        self.execute_validation = execute_validation or execute_setup
         self.dry_run = dry_run
 
-    def run(self, timeout_seconds: int | None = None) -> Path:
+    def run(self, timeout_seconds: int | None = None, setup_timeout_seconds: int | None = None) -> Path:
         paths = create_run_paths(self.workspace, self.paper_name)
         write_yaml(paths.logs_dir / "effective_config.yaml", self.config)
 
@@ -100,6 +105,29 @@ class Preparer:
         )
         self._announce("environment_planning", f"Finished with {len(environment_plan.install_commands)} install command(s).")
 
+        if self.execute_setup:
+            setup_commands = self.config.setup_commands or environment_plan.install_commands
+            self._announce("environment_setup", f"Executing {len(setup_commands)} setup command(s).")
+            setup_result = self._execute_commands(
+                runner=runner,
+                commands=setup_commands,
+                script_rel="logs/setup_commands.sh",
+                log_path=paths.logs_dir / "setup_commands.log",
+                timeout_seconds=setup_timeout_seconds,
+            )
+            self._announce("environment_setup", f"Finished with exit={setup_result.returncode}.")
+
+        if self.execute_validation and environment_plan.validation_commands:
+            self._announce("environment_validation", f"Executing {len(environment_plan.validation_commands)} validation command(s).")
+            validation_result = self._execute_commands(
+                runner=runner,
+                commands=environment_plan.validation_commands,
+                script_rel="logs/validation_commands.sh",
+                log_path=paths.logs_dir / "validation_commands.log",
+                timeout_seconds=timeout_seconds,
+            )
+            self._announce("environment_validation", f"Finished with exit={validation_result.returncode}.")
+
         self._announce("readiness_check", "Summarizing whether the repository is ready for baseline evaluation.")
         report = init_agent.check_readiness(
             readiness_check_prompt(self.config, runner.repo_workdir, runner.output_dir),
@@ -136,6 +164,39 @@ class Preparer:
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         print(f"\n[autosota:prepare] {timestamp} | {stage} | {message}", flush=True)
 
+    def _execute_commands(
+        self,
+        runner,
+        commands: list[str],
+        script_rel: str,
+        log_path: Path,
+        timeout_seconds: int | None = None,
+    ):
+        script_path = runner.run_dir / script_rel
+        script = self._shell_script(commands)
+        write_text(script_path, script)
+        command = f"bash {shlex.quote(runner.prompt_path(script_rel))}"
+        preview = runner.preview(command)
+        if self.dry_run:
+            write_text(log_path, f"$ {preview}\n\nDRY RUN\n\n{script}")
+            return type("DryRunResult", (), {"returncode": 0})()
+        proc = runner.run(command, timeout_seconds=timeout_seconds, stream_output=True)
+        stderr_text = "\nSTDERR:\n" + proc.stderr if proc.stderr else ""
+        write_text(log_path, f"$ {preview}\n\nSCRIPT:\n{script}\n\nSTDOUT:\n{proc.stdout}{stderr_text}")
+        return proc
+
+    def _shell_script(self, commands: list[str]) -> str:
+        lines = [
+            "#!/usr/bin/env bash",
+            "set -eo pipefail",
+            'if command -v conda >/dev/null 2>&1; then eval "$(conda shell.bash hook)"; fi',
+        ]
+        for command in commands:
+            lines.append("")
+            lines.append(f"echo '+ {command}'")
+            lines.append(command)
+        return "\n".join(lines) + "\n"
+
 
 def main(argv: list[str] | None = None) -> int:
     import argparse
@@ -165,6 +226,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Shell template with {command} and {prompt}; defaults are backend-specific.",
     )
     parser.add_argument("--timeout-seconds", type=int, help="Per-stage Code Agent timeout.")
+    parser.add_argument("--setup-timeout-seconds", type=int, help="Timeout for setup command execution.")
+    parser.add_argument("--execute-setup", action="store_true", help="Execute setup commands after environment planning.")
+    parser.add_argument(
+        "--execute-validation",
+        action="store_true",
+        help="Execute validation commands after environment planning. Implied by --execute-setup.",
+    )
     parser.add_argument("--dry-run", action="store_true", help="Build prompts and preview commands only.")
     args = parser.parse_args(argv)
 
@@ -180,8 +248,10 @@ def main(argv: list[str] | None = None) -> int:
         code_agent=args.code_agent,
         code_agent_command=args.code_agent_command,
         code_agent_command_template=args.code_agent_command_template,
+        execute_setup=args.execute_setup,
+        execute_validation=args.execute_validation,
         dry_run=args.dry_run,
-    ).run(timeout_seconds=args.timeout_seconds)
+    ).run(timeout_seconds=args.timeout_seconds, setup_timeout_seconds=args.setup_timeout_seconds)
     print(f"[prepare] run dir: {run_dir}")
     return 0
 
