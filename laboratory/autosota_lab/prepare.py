@@ -3,6 +3,7 @@ from __future__ import annotations
 import sys
 import time
 import shlex
+import re
 from pathlib import Path
 
 if __package__ in (None, ""):
@@ -118,6 +119,9 @@ class Preparer:
             self._announce("environment_setup", f"Finished with exit={setup_result.returncode}.")
 
         if self.execute_validation and environment_plan.validation_commands:
+            validation_conda_env = self.config.conda_env or self._infer_conda_env(
+                self.config.setup_commands or environment_plan.install_commands
+            )
             self._announce("environment_validation", f"Executing {len(environment_plan.validation_commands)} validation command(s).")
             validation_result = self._execute_commands(
                 runner=runner,
@@ -125,6 +129,7 @@ class Preparer:
                 script_rel="logs/validation_commands.sh",
                 log_path=paths.logs_dir / "validation_commands.log",
                 timeout_seconds=timeout_seconds,
+                conda_env=validation_conda_env,
             )
             self._announce("environment_validation", f"Finished with exit={validation_result.returncode}.")
 
@@ -171,9 +176,10 @@ class Preparer:
         script_rel: str,
         log_path: Path,
         timeout_seconds: int | None = None,
+        conda_env: str = "",
     ):
         script_path = runner.run_dir / script_rel
-        script = self._shell_script(commands)
+        script = self._shell_script(commands, conda_env=conda_env)
         write_text(script_path, script)
         command = f"bash {shlex.quote(runner.prompt_path(script_rel))}"
         preview = runner.preview(command)
@@ -185,17 +191,30 @@ class Preparer:
         write_text(log_path, f"$ {preview}\n\nSCRIPT:\n{script}\n\nSTDOUT:\n{proc.stdout}{stderr_text}")
         return proc
 
-    def _shell_script(self, commands: list[str]) -> str:
+    def _shell_script(self, commands: list[str], conda_env: str = "") -> str:
         lines = [
             "#!/usr/bin/env bash",
             "set -eo pipefail",
             'if command -v conda >/dev/null 2>&1; then eval "$(conda shell.bash hook)"; fi',
         ]
+        if conda_env:
+            lines.extend(["", f"conda activate {shlex.quote(conda_env)}"])
         for command in commands:
             lines.append("")
             lines.append(f"echo '+ {command}'")
             lines.append(command)
         return "\n".join(lines) + "\n"
+
+    def _infer_conda_env(self, commands: list[str]) -> str:
+        for command in commands:
+            match = re.search(r"\bconda\s+activate\s+([A-Za-z0-9_.-]+)", command)
+            if match:
+                return match.group(1)
+        for command in commands:
+            match = re.search(r"\bconda\s+create\b.*(?:-n|--name)\s+([A-Za-z0-9_.-]+)", command)
+            if match:
+                return match.group(1)
+        return ""
 
 
 def main(argv: list[str] | None = None) -> int:
