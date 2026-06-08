@@ -2,10 +2,43 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .models import EnvironmentPlan, Idea, PaperConfig, PrepareReport, ResourceManifest, ResearchReport, RunPaths
+from .models import EnvironmentFixPlan, EnvironmentPlan, Idea, OnboardPlan, PaperConfig, PrepareReport, ResourceManifest, ResearchReport, RunPaths
 
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
+
+
+def onboard_discovery_prompt(
+    paper_name: str,
+    repo_dir: str,
+    paper_pdf_path: str = "",
+    resource_root: str = "",
+) -> str:
+    return f"""
+You are AgentOnboard running the AutoSOTA Laboratory onboarding discovery stage.
+
+Repository path: {repo_dir}
+Paper name: {paper_name}
+Paper PDF path, if available: {paper_pdf_path or "(not provided)"}
+Resource root, if available: {resource_root or "(not provided)"}
+
+Tasks:
+1. Inspect the local repository without modifying files.
+2. Find the most likely evaluation or baseline command for a quick reference run.
+3. Identify the primary metric printed or saved by that evaluation, and whether higher or lower is better.
+4. Infer a paper title, useful setup commands, pre-eval commands, conda env name, and protected paths when there is clear repo evidence.
+5. Prefer README, scripts, config files, examples, and entrypoint code over guesses.
+
+Rules:
+- Do not install dependencies, download resources, start training, or run long evaluations.
+- Do not edit the repository.
+- If multiple eval commands are plausible, choose the safest baseline/inference command and explain alternatives in warnings.
+- Keep commands relative to the repository root.
+- Return only valid JSON matching the OnboardPlan schema.
+
+OnboardPlan schema:
+{OnboardPlan.model_json_schema()}
+"""
 
 
 def build_master_prompt(
@@ -119,9 +152,14 @@ Primary metric: {config.primary_metric} ({config.metric_direction.value} is bett
 Available prepare artifacts, if present:
 - {output_dir}/memory/resource_manifest.json
 - {output_dir}/memory/environment_plan.json
+- {output_dir}/memory/setup_status.json
+- {output_dir}/logs/setup_commands.log
+- {output_dir}/logs/validation_commands.log
+- {output_dir}/logs/baseline_eval.log
+- {output_dir}/results/baseline_metrics.json
 
 Tasks:
-1. Inspect the prepare artifacts and the repository.
+1. Inspect the prepare artifacts, command logs, setup_status.json, and the repository.
 2. Decide whether the repository is ready for baseline evaluation, partially ready, or blocked.
 3. Identify the next concrete steps required before running the baseline.
 4. Write a JSON prepare report to {output_dir}/memory/prepare_report.json.
@@ -131,6 +169,60 @@ do not install packages, do not run long evaluations, and do not edit the reposi
 
 PrepareReport schema:
 {PrepareReport.model_json_schema()}
+"""
+
+
+def environment_fix_prompt(
+    config: PaperConfig,
+    repo_dir: str,
+    output_dir: str,
+    failed_stage: str,
+    failed_commands: list[str],
+    stdout: str,
+    stderr: str,
+    previous_fix_plans: list[EnvironmentFixPlan] | None = None,
+) -> str:
+    previous = [plan.model_dump(mode="json") for plan in previous_fix_plans or []]
+    return f"""
+You are AgentFix repairing an AutoSOTA environment preparation failure.
+
+Repository path: {repo_dir}
+Output directory: {output_dir}
+Paper title: {config.paper_title or config.paper_name}
+Evaluation command: {config.eval_command}
+Configured conda env: {config.conda_env or "(not provided)"}
+Resource root: {config.resource_root or "(not provided)"}
+Failed stage: {failed_stage}
+Failed commands:
+{failed_commands}
+
+Previous fix plans:
+{previous}
+
+STDOUT excerpt:
+{stdout[-7000:]}
+
+STDERR excerpt:
+{stderr[-7000:]}
+
+Tasks:
+1. Diagnose the smallest environment/resource issue that blocks setup or validation.
+2. Propose only protocol-preserving environment fixes. Prefer dependency, CUDA/PyTorch,
+   NumPy/faiss ABI, conda/pip, missing resource path, and GPU selection fixes.
+3. For PyTorch/CUDA/GPU errors, infer a compatible install or validation command.
+4. For GPU OOM, prefer a command that selects an available GPU or sets CUDA_VISIBLE_DEVICES.
+5. For missing resources, propose download or symlink/path-binding commands only when the
+   source or resource_root is explicit.
+
+Rules:
+- Do not modify datasets, labels, evaluation scripts, metric computation, or train/test splits.
+- Do not propose git reset, git checkout, git clean, git commit, or destructive deletes.
+- Set safe_to_execute=false unless every command is limited to environment setup,
+  resource placement, or validation.
+- Return only valid JSON matching the EnvironmentFixPlan schema.
+
+EnvironmentFixPlan schema:
+{EnvironmentFixPlan.model_json_schema()}
 """
 
 

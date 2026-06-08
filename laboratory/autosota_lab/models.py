@@ -101,6 +101,21 @@ class PaperConfig(BaseModel):
         return env
 
 
+class OnboardPlan(BaseModel):
+    paper_title: str = ""
+    eval_command: str = ""
+    primary_metric: str = ""
+    metric_direction: MetricDirection = MetricDirection.higher
+    conda_env: str = ""
+    setup_commands: list[str] = Field(default_factory=list)
+    pre_eval_commands: list[str] = Field(default_factory=list)
+    protected_paths: list[str] = Field(default_factory=list)
+    confidence: Literal["high", "medium", "low"] = "low"
+    evidence: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    notes: str = ""
+
+
 class ResourceSpec(BaseModel):
     name: str
     type: ResourceType = ResourceType.misc
@@ -127,6 +142,56 @@ class EnvironmentPlan(BaseModel):
     validation_commands: list[str] = Field(default_factory=list)
     env_vars: dict[str, str] = Field(default_factory=dict)
     notes: str = ""
+
+
+class EnvironmentFixPlan(BaseModel):
+    diagnosis: str = ""
+    failure_type: Literal[
+        "package_install",
+        "cuda_pytorch_mismatch",
+        "numpy_abi_mismatch",
+        "missing_resource",
+        "gpu_oom",
+        "path_error",
+        "command_error",
+        "unknown",
+    ] = "unknown"
+    fix_commands: list[str] = Field(default_factory=list)
+    validation_commands: list[str] = Field(default_factory=list)
+    env_vars: dict[str, str] = Field(default_factory=dict)
+    safe_to_execute: bool = False
+    notes: str = ""
+
+
+class CommandExecutionSummary(BaseModel):
+    stage: str
+    commands: list[str] = Field(default_factory=list)
+    returncode: int = 0
+    log_path: str = ""
+    attempted_fix: bool = False
+    fix_attempts: int = 0
+    notes: str = ""
+
+
+class BaselineRunSummary(BaseModel):
+    command: str = ""
+    pre_eval_commands: list[str] = Field(default_factory=list)
+    returncode: int = 0
+    status: Literal["success", "metrics_captured", "failed", "skipped"] = "skipped"
+    metrics: dict[str, float] = Field(default_factory=dict)
+    primary_metric: float | None = None
+    log_path: str = ""
+    started_at: str = ""
+    finished_at: str = ""
+    notes: str = ""
+
+
+class PrepareExecutionStatus(BaseModel):
+    setup: CommandExecutionSummary | None = None
+    validation: CommandExecutionSummary | None = None
+    baseline: BaselineRunSummary | None = None
+    readiness_status: Literal["ready", "partial", "blocked"] = "partial"
+    notes: list[str] = Field(default_factory=list)
 
 
 class PrepareReport(BaseModel):

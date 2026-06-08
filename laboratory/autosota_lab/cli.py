@@ -7,12 +7,12 @@ from pathlib import Path
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from autosota_lab.models import MetricDirection
-    from autosota_lab.onboard import onboard
+    from autosota_lab.onboard import AutoOnboarder, onboard
     from autosota_lab.optimize import Optimizer
     from autosota_lab.prepare import Preparer
 else:
     from .models import MetricDirection
-    from .onboard import onboard
+    from .onboard import AutoOnboarder, onboard
     from .optimize import Optimizer
     from .prepare import Preparer
 
@@ -30,16 +30,25 @@ def build_parser() -> argparse.ArgumentParser:
     onboard_p = sub.add_parser("onboard", help="Create a paper config for a local repository.")
     onboard_p.add_argument("paper_name")
     onboard_p.add_argument("--repo", type=Path, required=True)
+    onboard_p.add_argument("--auto", action="store_true", help="Ask a Code Agent to infer eval command, metric, and setup hints.")
     onboard_p.add_argument("--paper-title", default="")
     onboard_p.add_argument("--paper-pdf", default="")
     onboard_p.add_argument("--resource-root", default="")
-    onboard_p.add_argument("--eval-command", required=True)
-    onboard_p.add_argument("--primary-metric", required=True)
-    onboard_p.add_argument("--metric-direction", choices=[m.value for m in MetricDirection], default="higher")
+    onboard_p.add_argument("--eval-command")
+    onboard_p.add_argument("--primary-metric")
+    onboard_p.add_argument("--metric-direction", choices=[m.value for m in MetricDirection])
     onboard_p.add_argument("--baseline-metric", type=float)
     onboard_p.add_argument("--docker-image", default="node:22-bookworm")
     onboard_p.add_argument("--max-iterations", type=int, default=5)
     onboard_p.add_argument("--max-ideas", type=int, default=8)
+    onboard_p.add_argument("--code-agent", choices=["claude", "codex"], default="codex")
+    onboard_p.add_argument("--code-agent-command")
+    onboard_p.add_argument(
+        "--code-agent-command-template",
+        help="Shell template with {command} and {prompt}; defaults are backend-specific.",
+    )
+    onboard_p.add_argument("--timeout-seconds", type=int, help="Code Agent timeout for --auto onboard.")
+    onboard_p.add_argument("--dry-run", action="store_true")
     onboard_p.add_argument(
         "--setup-command",
         action="append",
@@ -73,12 +82,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     prep_p.add_argument("--timeout-seconds", type=int, help="Per-stage Code Agent timeout.")
     prep_p.add_argument("--setup-timeout-seconds", type=int, help="Timeout for setup command execution.")
+    prep_p.add_argument("--fix-timeout-seconds", type=int, help="Timeout for each AgentFix planning or command execution attempt.")
+    prep_p.add_argument("--baseline-timeout-seconds", type=int, help="Timeout for the optional baseline check.")
     prep_p.add_argument("--execute-setup", action="store_true", help="Execute setup commands after environment planning.")
     prep_p.add_argument(
         "--execute-validation",
         action="store_true",
         help="Execute validation commands after environment planning. Implied by --execute-setup.",
     )
+    prep_p.add_argument("--execute-baseline", action="store_true", help="Run the configured eval command once and capture current-run baseline metrics.")
+    prep_p.add_argument("--auto-fix-setup", action="store_true", help="Let AgentFix propose and execute safe setup/validation repair commands after failures.")
+    prep_p.add_argument("--max-fix-attempts", type=int, default=1, help="Maximum AgentFix attempts per failed setup or validation stage.")
     prep_p.add_argument("--dry-run", action="store_true")
 
     opt_p = sub.add_parser("optimize", help="Run the prototype optimization pipeline.")
@@ -123,13 +137,43 @@ def main(argv: list[str] | None = None) -> int:
     workspace = args.workspace.resolve()
 
     if args.cmd == "onboard":
+        if args.auto:
+            config = AutoOnboarder(
+                workspace=workspace,
+                paper_name=args.paper_name,
+                repo_path=args.repo,
+                paper_pdf_path=args.paper_pdf,
+                resource_root=args.resource_root,
+                docker_image=args.docker_image,
+                code_agent=args.code_agent,
+                code_agent_command=args.code_agent_command,
+                code_agent_command_template=args.code_agent_command_template,
+                dry_run=args.dry_run,
+            ).run(
+                timeout_seconds=args.timeout_seconds,
+                paper_title=args.paper_title,
+                eval_command=args.eval_command or "",
+                primary_metric=args.primary_metric or "",
+                metric_direction=MetricDirection(args.metric_direction) if args.metric_direction else None,
+                baseline_metric=args.baseline_metric,
+                max_iterations=args.max_iterations,
+                max_ideas=args.max_ideas,
+                setup_commands=args.setup_command,
+                pre_eval_commands=args.pre_eval_command,
+            )
+            print(f"[onboard] wrote {workspace / '.autosota' / 'papers' / args.paper_name / 'config.yaml'}")
+            print(config.model_dump_json(indent=2))
+            return 0
+
+        if not args.eval_command or not args.primary_metric:
+            raise SystemExit("manual onboard requires --eval-command and --primary-metric; use --auto to let a Code Agent infer them")
         config = onboard(
             workspace=workspace,
             paper_name=args.paper_name,
             repo_path=args.repo,
             eval_command=args.eval_command,
             primary_metric=args.primary_metric,
-            metric_direction=MetricDirection(args.metric_direction),
+            metric_direction=MetricDirection(args.metric_direction or "higher"),
             paper_title=args.paper_title,
             paper_pdf_path=args.paper_pdf,
             resource_root=args.resource_root,
@@ -159,8 +203,16 @@ def main(argv: list[str] | None = None) -> int:
             code_agent_command_template=args.code_agent_command_template,
             execute_setup=args.execute_setup,
             execute_validation=args.execute_validation,
+            execute_baseline=args.execute_baseline,
+            auto_fix_setup=args.auto_fix_setup,
+            max_fix_attempts=args.max_fix_attempts,
             dry_run=args.dry_run,
-        ).run(timeout_seconds=args.timeout_seconds, setup_timeout_seconds=args.setup_timeout_seconds)
+        ).run(
+            timeout_seconds=args.timeout_seconds,
+            setup_timeout_seconds=args.setup_timeout_seconds,
+            fix_timeout_seconds=args.fix_timeout_seconds,
+            baseline_timeout_seconds=args.baseline_timeout_seconds,
+        )
         print(f"[prepare] run dir: {run_dir}")
         return 0
 

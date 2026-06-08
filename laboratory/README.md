@@ -77,7 +77,7 @@ runs/<paper>/
       master_prompt.md
       claude_phase0.log
       claude_phase1.log
-      claude_phase3_iter_001.log
+      claude_phase3_iter_001.log 
     memory/
       research_report.md
       code_analysis.md

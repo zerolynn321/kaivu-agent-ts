@@ -6,18 +6,52 @@ from .code_agent import CodeAgentRunner
 from .io import read_jsonl, write_text
 from .models import (
     CodeAnalysis,
+    EnvironmentFixPlan,
     EnvironmentPlan,
     Idea,
     IdeaLibrary,
     IdeaStatus,
     IdeaType,
+    OnboardPlan,
     PaperConfig,
     PrepareReport,
     ResearchReport,
     ResourceManifest,
     SupervisorDecision,
 )
+from .prompts import environment_fix_prompt
 from .research_agent import DeepResearchRunner
+
+
+class AgentOnboard:
+    def __init__(self, code_agent: CodeAgentRunner) -> None:
+        self.code_agent = code_agent
+
+    def discover(
+        self,
+        prompt: str,
+        output_path: Path,
+        log_path: Path,
+        timeout_seconds: int | None = None,
+        dry_run: bool = False,
+    ) -> OnboardPlan:
+        try:
+            plan = self.code_agent.complete_structured(
+                phase="agent_onboard_discovery",
+                prompt=prompt,
+                schema=OnboardPlan,
+                log_path=log_path,
+                timeout_seconds=timeout_seconds,
+                dry_run=dry_run,
+            )
+        except Exception as exc:
+            plan = OnboardPlan(
+                confidence="low",
+                warnings=["AgentOnboard did not produce a valid structured onboarding plan."],
+                notes=f"Fallback onboarding plan generated because Code Agent failed: {exc}",
+            )
+        write_text(output_path, plan.model_dump_json(indent=2))
+        return plan
 
 
 class AgentResource:
@@ -315,6 +349,59 @@ class AgentSupervisor:
 
 
 class AgentFix:
+    def __init__(self, code_agent: CodeAgentRunner | None = None) -> None:
+        self.code_agent = code_agent
+
+    def plan_environment_fix(
+        self,
+        config: PaperConfig,
+        repo_dir: str,
+        output_dir: str,
+        failed_stage: str,
+        failed_commands: list[str],
+        stdout: str,
+        stderr: str,
+        output_path: Path,
+        log_path: Path,
+        timeout_seconds: int | None = None,
+        dry_run: bool = False,
+        previous_fix_plans: list[EnvironmentFixPlan] | None = None,
+    ) -> EnvironmentFixPlan:
+        if self.code_agent is None:
+            plan = EnvironmentFixPlan(
+                diagnosis="No Code Agent is configured for environment repair.",
+                safe_to_execute=False,
+                notes="AgentFix cannot run without a CodeAgentRunner.",
+            )
+            write_text(output_path, plan.model_dump_json(indent=2))
+            return plan
+        try:
+            plan = self.code_agent.complete_structured(
+                phase="agent_fix_environment",
+                prompt=environment_fix_prompt(
+                    config=config,
+                    repo_dir=repo_dir,
+                    output_dir=output_dir,
+                    failed_stage=failed_stage,
+                    failed_commands=failed_commands,
+                    stdout=stdout,
+                    stderr=stderr,
+                    previous_fix_plans=previous_fix_plans,
+                ),
+                schema=EnvironmentFixPlan,
+                log_path=log_path,
+                timeout_seconds=timeout_seconds,
+                dry_run=dry_run,
+            )
+        except Exception as exc:
+            plan = EnvironmentFixPlan(
+                diagnosis="AgentFix did not produce a valid environment fix plan.",
+                safe_to_execute=False,
+                notes=f"Fallback fix plan generated because Code Agent failed: {exc}",
+            )
+        write_text(output_path, plan.model_dump_json(indent=2))
+        return plan
+
     def build_debug_prompt(self, idea: Idea, error_text: str) -> str:
         return f"""
 You are AgentFix. The experiment for {idea.idea_id}: {idea.title} failed.
