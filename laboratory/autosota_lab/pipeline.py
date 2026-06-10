@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import time
 from pathlib import Path
 
@@ -21,11 +22,17 @@ class ZerolinePipeline:
         code_agent: str = "codex",
         code_agent_command: str | None = None,
         code_agent_command_template: str | None = None,
+        repo_copy_root: Path | None = None,
+        refresh_repo_copy: bool = False,
         dry_run: bool = False,
     ) -> None:
         self.workspace = workspace.resolve()
         self.paper_name = paper_name
-        self.repo_path = repo_path.expanduser().resolve()
+        self.source_repo_path = repo_path.expanduser().resolve()
+        self.repo_copy_root = repo_copy_root.expanduser().resolve() if repo_copy_root else None
+        self.refresh_repo_copy = refresh_repo_copy
+        self.dry_run = dry_run
+        self.repo_path = self._prepare_repo_path()
         self.paper_pdf_path = paper_pdf_path
         self.resource_root = resource_root
         self.execution_backend = execution_backend
@@ -33,7 +40,6 @@ class ZerolinePipeline:
         self.code_agent = code_agent
         self.code_agent_command = code_agent_command
         self.code_agent_command_template = code_agent_command_template
-        self.dry_run = dry_run
 
     def run(
         self,
@@ -126,3 +132,46 @@ class ZerolinePipeline:
     def _announce(self, stage: str, message: str) -> None:
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         print(f"\n[autosota:zeroline] {timestamp} | {stage} | {message}", flush=True)
+
+    def _prepare_repo_path(self) -> Path:
+        if self.repo_copy_root is None:
+            return self.source_repo_path
+        if not self.source_repo_path.exists():
+            raise FileNotFoundError(f"source repo does not exist: {self.source_repo_path}")
+        copy_root = self.repo_copy_root
+        copy_root.mkdir(parents=True, exist_ok=True)
+        destination = (copy_root / self.source_repo_path.name).resolve()
+        try:
+            destination.relative_to(copy_root.resolve())
+        except ValueError as exc:
+            raise ValueError(f"Refusing to copy repo outside copy root: {destination}") from exc
+        if destination == self.source_repo_path:
+            raise ValueError("repo copy destination must be different from source repo")
+        if destination.exists() and self.refresh_repo_copy:
+            self._remove_repo_copy(destination, copy_root)
+        if not destination.exists():
+            self._announce("repo_copy", f"Copying {self.source_repo_path} -> {destination}")
+            if not self.dry_run:
+                shutil.copytree(
+                    self.source_repo_path,
+                    destination,
+                    symlinks=True,
+                    ignore=shutil.ignore_patterns(
+                        ".autosota_resource_backups",
+                        "__pycache__",
+                        ".pytest_cache",
+                    ),
+                )
+        else:
+            self._announce("repo_copy", f"Using existing repo copy: {destination}")
+        return destination
+
+    def _remove_repo_copy(self, destination: Path, copy_root: Path) -> None:
+        try:
+            destination.resolve().relative_to(copy_root.resolve())
+        except ValueError as exc:
+            raise ValueError(f"Refusing to remove repo copy outside copy root: {destination}") from exc
+        if destination.is_dir() and not destination.is_symlink():
+            shutil.rmtree(destination)
+        else:
+            destination.unlink()

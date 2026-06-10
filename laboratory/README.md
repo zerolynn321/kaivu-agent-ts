@@ -76,6 +76,7 @@ evaluation knowledge:
 ```bash
 autosota-lab zeroline my-paper \
   --repo /absolute/path/to/paper/repo \
+  --repo-copy-root /absolute/path/to/laboratory/paper_repos_work \
   --resource-root /absolute/path/to/laboratory/resources \
   --code-agent codex \
   --timeout-seconds 900 \
@@ -92,6 +93,8 @@ local acquired copy under `resource_root`. `--use-acquired-resources` backs up
 existing repository resource files/directories under
 `.autosota_resource_backups/` and replaces the original paths with symlinks to
 the acquired copies, so later evaluation commands read from `resource_root`.
+Use `--repo-copy-root` when the source paper repository is read-only or owned by
+another user; AutoSOTA will operate on the writable copy instead of the source.
 
 ## Optimize
 

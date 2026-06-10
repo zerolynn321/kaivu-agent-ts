@@ -115,6 +115,16 @@ def build_parser() -> argparse.ArgumentParser:
     zero_p = sub.add_parser("zeroline", help="Run auto onboard, resource acquisition, environment setup, validation, and baseline.")
     zero_p.add_argument("paper_name")
     zero_p.add_argument("--repo", type=Path, required=True)
+    zero_p.add_argument(
+        "--repo-copy-root",
+        type=Path,
+        help="Optional writable directory where zeroline copies the source repo before onboarding and preparation.",
+    )
+    zero_p.add_argument(
+        "--refresh-repo-copy",
+        action="store_true",
+        help="Delete and recreate the repo copy under --repo-copy-root before running zeroline.",
+    )
     zero_p.add_argument("--paper-title", default="")
     zero_p.add_argument("--paper-pdf", default="")
     zero_p.add_argument("--resource-root", required=True, help="Root directory where discovered resources are copied/downloaded.")
@@ -294,6 +304,8 @@ def main(argv: list[str] | None = None) -> int:
             code_agent=args.code_agent,
             code_agent_command=args.code_agent_command,
             code_agent_command_template=args.code_agent_command_template,
+            repo_copy_root=args.repo_copy_root,
+            refresh_repo_copy=args.refresh_repo_copy,
             dry_run=args.dry_run,
         ).run(
             timeout_seconds=args.timeout_seconds,
