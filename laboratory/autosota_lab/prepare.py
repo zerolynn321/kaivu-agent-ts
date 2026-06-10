@@ -4,6 +4,8 @@ import sys
 import time
 import shlex
 import re
+import shutil
+import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -14,7 +16,7 @@ if __package__ in (None, ""):
     from autosota_lab.docker_runner import DockerRunner
     from autosota_lab.io import read_yaml, write_text, write_yaml
     from autosota_lab.local_runner import LocalRunner
-    from autosota_lab.models import BaselineRunSummary, CommandExecutionSummary, EnvironmentFixPlan, PaperConfig, PrepareExecutionStatus
+    from autosota_lab.models import BaselineRunSummary, CommandExecutionSummary, EnvironmentFixPlan, FixAttemptSummary, FixRunSummary, PaperConfig, PrepareExecutionStatus, ResourceAcquisitionItem, ResourceAcquisitionReport, ResourceManifest, ResourceStatus
     from autosota_lab.prompts import environment_planning_prompt, readiness_check_prompt, resource_discovery_prompt
     from autosota_lab.state import config_path, create_run_paths
 else:
@@ -23,7 +25,7 @@ else:
     from .docker_runner import DockerRunner
     from .io import read_yaml, write_text, write_yaml
     from .local_runner import LocalRunner
-    from .models import BaselineRunSummary, CommandExecutionSummary, EnvironmentFixPlan, PaperConfig, PrepareExecutionStatus
+    from .models import BaselineRunSummary, CommandExecutionSummary, EnvironmentFixPlan, FixAttemptSummary, FixRunSummary, PaperConfig, PrepareExecutionStatus, ResourceAcquisitionItem, ResourceAcquisitionReport, ResourceManifest, ResourceStatus
     from .prompts import environment_planning_prompt, readiness_check_prompt, resource_discovery_prompt
     from .state import config_path, create_run_paths
 
@@ -45,7 +47,8 @@ class Preparer:
         execute_setup: bool = False,
         execute_validation: bool = False,
         execute_baseline: bool = False,
-        auto_fix_setup: bool = False,
+        acquire_resources: bool = True,
+        auto_fix: bool = False,
         max_fix_attempts: int = 1,
         dry_run: bool = False,
     ) -> None:
@@ -70,7 +73,8 @@ class Preparer:
         self.execute_setup = execute_setup
         self.execute_validation = execute_validation or execute_setup
         self.execute_baseline = execute_baseline
-        self.auto_fix_setup = auto_fix_setup
+        self.acquire_resources = acquire_resources
+        self.auto_fix = auto_fix
         self.max_fix_attempts = max(0, max_fix_attempts)
         self.dry_run = dry_run
 
@@ -111,6 +115,17 @@ class Preparer:
         )
         self._announce("resource_discovery", f"Finished with {len(manifest.resources)} resource(s).")
 
+        if self.acquire_resources and self.config.resource_root:
+            self._announce("resource_acquisition", f"Copying discovered local resources into {self.config.resource_root}.")
+            acquisition_report = self._acquire_resources(manifest, paths)
+            write_text(paths.memory_dir / "resource_acquisition_report.json", acquisition_report.model_dump_json(indent=2))
+            write_text(paths.memory_dir / "resource_manifest.json", manifest.model_dump_json(indent=2))
+            acquired = [item for item in acquisition_report.items if item.status == ResourceStatus.available]
+            failed = [item for item in acquisition_report.items if item.status == ResourceStatus.failed]
+            self._announce("resource_acquisition", f"Finished with available={len(acquired)}, failed={len(failed)}.")
+        elif self.acquire_resources:
+            self._announce("resource_acquisition", "Skipped because resource_root is not configured.")
+
         self._announce("environment_planning", "Inferring dependency setup and cheap validation commands.")
         environment_plan = init_agent.plan_environment(
             environment_planning_prompt(self.config, runner.repo_workdir, runner.output_dir),
@@ -124,7 +139,7 @@ class Preparer:
         if self.execute_setup:
             setup_commands = self.config.setup_commands or environment_plan.install_commands
             self._announce("environment_setup", f"Executing {len(setup_commands)} setup command(s).")
-            setup_result = self._execute_with_fix_loop(
+            setup_result = self._execute_with_agent_fix(
                 runner=runner,
                 fix_agent=fix_agent,
                 paths=paths,
@@ -144,7 +159,7 @@ class Preparer:
                 self.config.setup_commands or environment_plan.install_commands
             )
             self._announce("environment_validation", f"Executing {len(environment_plan.validation_commands)} validation command(s).")
-            validation_result = self._execute_with_fix_loop(
+            validation_result = self._execute_with_agent_fix(
                 runner=runner,
                 fix_agent=fix_agent,
                 paths=paths,
@@ -168,8 +183,10 @@ class Preparer:
             self._announce("baseline_check", "Executing the configured baseline command and capturing current-run metrics.")
             execution_status.baseline = self._execute_baseline(
                 runner=runner,
+                fix_agent=fix_agent,
                 paths=paths,
                 timeout_seconds=baseline_timeout_seconds or self.config.eval_timeout_seconds,
+                fix_timeout_seconds=fix_timeout_seconds or timeout_seconds,
             )
             self._announce(
                 "baseline_check",
@@ -215,7 +232,6 @@ class Preparer:
             repo_path=self.config.repo_path,
             run_dir=run_dir,
             env=self.config.env_vars,
-            conda_env=self.config.conda_env,
             conda_executable=self.config.conda_executable,
             venv_path=self.config.venv_path,
         )
@@ -223,6 +239,143 @@ class Preparer:
     def _announce(self, stage: str, message: str) -> None:
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         print(f"\n[autosota:prepare] {timestamp} | {stage} | {message}", flush=True)
+
+    def _acquire_resources(self, manifest: ResourceManifest, paths) -> ResourceAcquisitionReport:
+        resource_root = Path(self.config.resource_root).expanduser()
+        store_root = resource_root / self.config.paper_name
+        report = ResourceAcquisitionReport(resource_root=str(store_root))
+        if self.dry_run:
+            report.notes = "Dry run: resource acquisition was planned but not executed."
+            for resource in manifest.resources:
+                report.items.append(
+                    ResourceAcquisitionItem(
+                        name=resource.name,
+                        type=resource.type,
+                        source=resource.source_url or resource.local_path,
+                        repo_path=resource.local_path,
+                        action="skipped",
+                        status=ResourceStatus.discovered,
+                        notes="dry run",
+                    )
+                )
+            return report
+
+        store_root.mkdir(parents=True, exist_ok=True)
+        for resource in manifest.resources:
+            item = self._acquire_one_resource(resource, store_root)
+            report.items.append(item)
+        return report
+
+    def _acquire_one_resource(self, resource, store_root: Path) -> ResourceAcquisitionItem:
+        repo_resource_path = self._repo_resource_path(resource.local_path)
+        acquired_path = store_root / self._resource_destination_rel(resource)
+        item = ResourceAcquisitionItem(
+            name=resource.name,
+            type=resource.type,
+            source=resource.source_url or str(repo_resource_path),
+            repo_path=str(repo_resource_path) if repo_resource_path is not None else resource.local_path,
+            acquired_path=str(acquired_path),
+        )
+        try:
+            source_path = self._resource_source_path(resource, repo_resource_path)
+            if acquired_path.exists():
+                item.action = "reused"
+                item.status = ResourceStatus.available
+                item.notes = "Existing acquired resource reused."
+            elif source_path is not None and source_path.exists():
+                self._copy_resource(source_path, acquired_path)
+                item.action = "copied"
+                item.status = ResourceStatus.available
+                item.notes = f"Copied from {source_path}."
+            elif resource.source_url:
+                self._download_resource(resource.source_url, acquired_path)
+                item.action = "downloaded"
+                item.status = ResourceStatus.available
+                item.notes = f"Downloaded from {resource.source_url}."
+            else:
+                item.action = "skipped"
+                item.status = ResourceStatus.missing
+                item.notes = "No existing local path or source_url was available."
+
+            if item.status == ResourceStatus.available:
+                resource.acquired_path = str(acquired_path)
+                resource.status = ResourceStatus.available
+                resource.notes = self._append_note(resource.notes, item.notes)
+                link_note = self._bind_repo_resource(repo_resource_path, acquired_path)
+                if link_note:
+                    item.action = "linked" if item.action == "reused" else item.action
+                    item.notes = self._append_note(item.notes, link_note)
+                    resource.notes = self._append_note(resource.notes, link_note)
+        except Exception as exc:
+            item.action = "failed"
+            item.status = ResourceStatus.failed
+            item.notes = str(exc)
+            resource.status = ResourceStatus.failed
+            resource.notes = self._append_note(resource.notes, f"Acquisition failed: {exc}")
+        return item
+
+    def _repo_resource_path(self, local_path: str) -> Path | None:
+        if not local_path:
+            return None
+        path = Path(local_path).expanduser()
+        if path.is_absolute():
+            return path
+        return self.config.repo_path / path
+
+    def _resource_source_path(self, resource, repo_resource_path: Path | None) -> Path | None:
+        if repo_resource_path is None:
+            return None
+        if repo_resource_path.exists():
+            return repo_resource_path.resolve()
+        if repo_resource_path.is_symlink():
+            return repo_resource_path.resolve()
+        return None
+
+    def _resource_destination_rel(self, resource) -> Path:
+        raw = resource.local_path or resource.name or resource.type.value
+        path = Path(raw)
+        if path.is_absolute():
+            parts = [part for part in path.parts if part not in (path.anchor, "/", "\\")]
+            path = Path(*parts) if parts else Path(self._safe_resource_name(resource.name or resource.type.value))
+        safe_parts = [self._safe_resource_name(part) for part in path.parts if part not in ("", ".", "..")]
+        if not safe_parts:
+            safe_parts = [self._safe_resource_name(resource.name or resource.type.value)]
+        return Path(*safe_parts)
+
+    def _safe_resource_name(self, value: str) -> str:
+        safe = re.sub(r"[^A-Za-z0-9._-]+", "_", value.strip())
+        return safe.strip("._") or "resource"
+
+    def _copy_resource(self, source_path: Path, acquired_path: Path) -> None:
+        acquired_path.parent.mkdir(parents=True, exist_ok=True)
+        if source_path.is_dir():
+            shutil.copytree(source_path, acquired_path, symlinks=False)
+        else:
+            shutil.copy2(source_path, acquired_path)
+
+    def _download_resource(self, source_url: str, acquired_path: Path) -> None:
+        acquired_path.parent.mkdir(parents=True, exist_ok=True)
+        urllib.request.urlretrieve(source_url, acquired_path)
+
+    def _bind_repo_resource(self, repo_resource_path: Path | None, acquired_path: Path) -> str:
+        if repo_resource_path is None:
+            return ""
+        if repo_resource_path.is_symlink():
+            repo_resource_path.unlink()
+            repo_resource_path.symlink_to(acquired_path, target_is_directory=acquired_path.is_dir())
+            return f"Replaced repository symlink with acquired resource link: {repo_resource_path} -> {acquired_path}."
+        if not repo_resource_path.exists():
+            repo_resource_path.parent.mkdir(parents=True, exist_ok=True)
+            repo_resource_path.symlink_to(acquired_path, target_is_directory=acquired_path.is_dir())
+            return f"Created repository resource link: {repo_resource_path} -> {acquired_path}."
+        return "Repository path already exists as a regular file/directory; acquired copy recorded but repo path was not replaced."
+
+    def _append_note(self, current: str, note: str) -> str:
+        if not current:
+            return note
+        if not note:
+            return current
+        return f"{current}\n{note}"
 
     def _execute_commands(
         self,
@@ -242,13 +395,13 @@ class Preparer:
         preview = runner.preview(command)
         if self.dry_run:
             write_text(log_path, f"$ {preview}\n\nDRY RUN\n\n{script}")
-            return type("DryRunResult", (), {"returncode": 0})()
+            return type("DryRunResult", (), {"returncode": 0, "stdout": "", "stderr": ""})()
         proc = runner.run(command, timeout_seconds=timeout_seconds, stream_output=True)
         stderr_text = "\nSTDERR:\n" + proc.stderr if proc.stderr else ""
         write_text(log_path, f"$ {preview}\n\nSCRIPT:\n{script}\n\nSTDOUT:\n{proc.stdout}{stderr_text}")
         return proc
 
-    def _execute_with_fix_loop(
+    def _execute_with_agent_fix(
         self,
         runner,
         fix_agent: AgentFix,
@@ -260,8 +413,10 @@ class Preparer:
         timeout_seconds: int | None = None,
         fix_timeout_seconds: int | None = None,
         conda_env: str = "",
+        env_vars: dict[str, str] | None = None,
         idempotent: bool = False,
     ):
+        summary = FixRunSummary(stage=stage, max_attempts=self.max_fix_attempts)
         result = self._execute_commands(
             runner=runner,
             commands=commands,
@@ -269,15 +424,27 @@ class Preparer:
             log_path=log_path,
             timeout_seconds=timeout_seconds,
             conda_env=conda_env,
+            env_vars=env_vars,
             idempotent=idempotent,
         )
-        if result.returncode == 0 or not self.auto_fix_setup or self.max_fix_attempts <= 0:
+        if result.returncode == 0:
+            summary.resolved = True
+            summary.stopped_reason = "initial command succeeded"
+            write_text(paths.memory_dir / f"agent_fix_summary_{stage}.json", summary.model_dump_json(indent=2))
+            self._attach_fix_summary(result, summary)
+            return result
+        if not self.auto_fix or self.max_fix_attempts <= 0:
+            summary.stopped_reason = "agent fix disabled" if not self.auto_fix else "max fix attempts is zero"
+            write_text(paths.memory_dir / f"agent_fix_summary_{stage}.json", summary.model_dump_json(indent=2))
+            self._attach_fix_summary(result, summary)
             return result
 
         previous_fix_plans: list[EnvironmentFixPlan] = []
+        previous_attempts: list[FixAttemptSummary] = []
         last_result = result
         for attempt in range(1, self.max_fix_attempts + 1):
             self._announce("agent_fix", f"stage={stage}, attempt={attempt}")
+            plan_path = paths.memory_dir / f"environment_fix_plan_{stage}_attempt_{attempt:03d}.json"
             fix_plan = fix_agent.plan_environment_fix(
                 config=self.config,
                 repo_dir=runner.repo_workdir,
@@ -286,16 +453,34 @@ class Preparer:
                 failed_commands=commands,
                 stdout=last_result.stdout,
                 stderr=last_result.stderr,
-                output_path=paths.memory_dir / f"environment_fix_plan_{stage}_attempt_{attempt:03d}.json",
+                output_path=plan_path,
                 log_path=paths.logs_dir / f"{self.code_agent}_agent_fix_{stage}_attempt_{attempt:03d}.log",
                 timeout_seconds=fix_timeout_seconds,
                 dry_run=self.dry_run,
                 previous_fix_plans=previous_fix_plans,
+                previous_attempts=previous_attempts,
             )
             previous_fix_plans.append(fix_plan)
             unsafe_reason = self._unsafe_fix_reason(fix_plan.fix_commands)
+            attempt_summary = FixAttemptSummary(
+                attempt=attempt,
+                failed_stage=stage,
+                failure_returncode=int(last_result.returncode),
+                plan_path=str(plan_path),
+                fix_commands=fix_plan.fix_commands,
+                rejected_reason=unsafe_reason,
+            )
             if not fix_plan.safe_to_execute or not fix_plan.fix_commands or unsafe_reason:
                 self._announce("agent_fix", f"stage={stage}, attempt={attempt} did not produce safe commands.")
+                attempt_summary.rejected_reason = unsafe_reason or (
+                    "safe_to_execute=false" if not fix_plan.safe_to_execute else "no fix commands"
+                )
+                attempt_summary.notes = fix_plan.notes or fix_plan.diagnosis
+                previous_attempts.append(attempt_summary)
+                summary.attempts = previous_attempts
+                summary.stopped_reason = attempt_summary.rejected_reason
+                write_text(paths.memory_dir / f"agent_fix_summary_{stage}.json", summary.model_dump_json(indent=2))
+                self._attach_fix_summary(last_result, summary)
                 if unsafe_reason:
                     write_text(
                         paths.logs_dir / f"fix_{stage}_attempt_{attempt:03d}_rejected.log",
@@ -310,10 +495,16 @@ class Preparer:
                 log_path=paths.logs_dir / f"fix_{stage}_attempt_{attempt:03d}.log",
                 timeout_seconds=fix_timeout_seconds,
                 conda_env=conda_env,
-                env_vars=fix_plan.env_vars,
+                env_vars={**(env_vars or {}), **fix_plan.env_vars},
                 idempotent=True,
             )
+            attempt_summary.fix_returncode = int(fix_result.returncode)
             if fix_result.returncode != 0:
+                attempt_summary.notes = "fix commands failed; next attempt will receive this failure output"
+                previous_attempts.append(attempt_summary)
+                summary.attempts = previous_attempts
+                write_text(paths.memory_dir / f"agent_fix_summary_{stage}.json", summary.model_dump_json(indent=2))
+                self._attach_fix_summary(fix_result, summary)
                 last_result = fix_result
                 continue
 
@@ -325,12 +516,37 @@ class Preparer:
                 log_path=paths.logs_dir / f"{stage}_retry_attempt_{attempt:03d}.log",
                 timeout_seconds=timeout_seconds,
                 conda_env=conda_env,
-                env_vars=fix_plan.env_vars,
+                env_vars={**(env_vars or {}), **fix_plan.env_vars},
                 idempotent=False,
             )
+            attempt_summary.retry_commands = retry_commands
+            attempt_summary.retry_returncode = int(last_result.returncode)
             if last_result.returncode == 0:
+                attempt_summary.notes = "retry succeeded"
+                previous_attempts.append(attempt_summary)
+                summary.attempts = previous_attempts
+                summary.resolved = True
+                summary.stopped_reason = f"resolved after attempt {attempt}"
+                write_text(paths.memory_dir / f"agent_fix_summary_{stage}.json", summary.model_dump_json(indent=2))
+                self._attach_fix_summary(last_result, summary)
                 return last_result
+            attempt_summary.notes = "retry failed; next attempt will receive retry output"
+            previous_attempts.append(attempt_summary)
+            summary.attempts = previous_attempts
+            write_text(paths.memory_dir / f"agent_fix_summary_{stage}.json", summary.model_dump_json(indent=2))
+        if not summary.stopped_reason:
+            summary.stopped_reason = f"reached max_fix_attempts={self.max_fix_attempts}"
+        summary.resolved = False
+        summary.attempts = previous_attempts
+        write_text(paths.memory_dir / f"agent_fix_summary_{stage}.json", summary.model_dump_json(indent=2))
+        self._attach_fix_summary(last_result, summary)
         return last_result
+
+    def _attach_fix_summary(self, result, summary: FixRunSummary) -> None:
+        try:
+            result.autosota_fix_summary = summary
+        except Exception:
+            pass
 
     def _shell_script(
         self,
@@ -407,19 +623,30 @@ class Preparer:
                 return match.group(1)
         return ""
 
-    def _execute_baseline(self, runner, paths, timeout_seconds: int | None = None) -> BaselineRunSummary:
+    def _execute_baseline(
+        self,
+        runner,
+        fix_agent: AgentFix,
+        paths,
+        timeout_seconds: int | None = None,
+        fix_timeout_seconds: int | None = None,
+    ) -> BaselineRunSummary:
         started_at = datetime.now(timezone.utc).isoformat()
         commands = [
             *self.config.pre_eval_commands,
             self.config.eval_command,
         ]
         log_path = paths.logs_dir / "baseline_eval.log"
-        result = self._execute_commands(
+        result = self._execute_with_agent_fix(
             runner=runner,
+            fix_agent=fix_agent,
+            paths=paths,
+            stage="baseline",
             commands=commands,
             script_rel="logs/baseline_eval.sh",
             log_path=log_path,
             timeout_seconds=timeout_seconds,
+            fix_timeout_seconds=fix_timeout_seconds,
             conda_env=self.config.conda_env,
             env_vars={
                 "AUTOSOTA_RUN_DIR": runner.output_dir,
@@ -493,14 +720,22 @@ class Preparer:
         return None
 
     def _command_summary(self, stage: str, commands: list[str], result, log_path: Path) -> CommandExecutionSummary:
+        fix_summary: FixRunSummary | None = getattr(result, "autosota_fix_summary", None)
+        fix_attempts = len(fix_summary.attempts) if fix_summary is not None else 0
+        if int(result.returncode) == 0:
+            notes = "ok"
+        elif fix_summary is not None and fix_attempts:
+            notes = f"failed after AgentFix attempts; stopped_reason={fix_summary.stopped_reason}"
+        else:
+            notes = "failed; inspect command logs"
         return CommandExecutionSummary(
             stage=stage,
             commands=commands,
             returncode=int(result.returncode),
             log_path=str(log_path),
-            attempted_fix=self.auto_fix_setup and int(result.returncode) != 0,
-            fix_attempts=self.max_fix_attempts if self.auto_fix_setup and int(result.returncode) != 0 else 0,
-            notes="ok" if int(result.returncode) == 0 else "failed; inspect logs and environment_fix_plan files",
+            attempted_fix=fix_attempts > 0,
+            fix_attempts=fix_attempts,
+            notes=notes,
         )
 
     def _execution_readiness(self, status: PrepareExecutionStatus) -> str:
@@ -559,6 +794,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--conda-env", help="Run local commands with `conda run -n <env>`.")
     parser.add_argument("--paper-pdf", default=None, help="Optional local paper PDF path for context.")
     parser.add_argument("--resource-root", default=None, help="Optional root directory for datasets/models/checkpoints.")
+    parser.add_argument("--skip-resource-acquisition", action="store_true", help="Skip copying discovered resources into resource_root.")
     parser.add_argument("--code-agent", choices=["claude", "codex"], default="claude")
     parser.add_argument("--code-agent-command", help="Code Agent executable or command prefix.")
     parser.add_argument(
@@ -576,8 +812,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Execute validation commands after environment planning. Implied by --execute-setup.",
     )
     parser.add_argument("--execute-baseline", action="store_true", help="Run the configured eval command once and capture current-run baseline metrics.")
-    parser.add_argument("--auto-fix-setup", action="store_true", help="Let AgentFix propose and execute safe setup/validation repair commands after failures.")
-    parser.add_argument("--max-fix-attempts", type=int, default=1, help="Maximum AgentFix attempts per failed setup or validation stage.")
+    parser.add_argument(
+        "--auto-fix",
+        "--auto-fix-setup",
+        dest="auto_fix",
+        action="store_true",
+        help="Let AgentFix propose and execute safe repair commands after failed setup, validation, or baseline stages.",
+    )
+    parser.add_argument("--max-fix-attempts", type=int, default=1, help="Maximum AgentFix attempts per failed execution stage.")
     parser.add_argument("--dry-run", action="store_true", help="Build prompts and preview commands only.")
     args = parser.parse_args(argv)
 
@@ -596,7 +838,8 @@ def main(argv: list[str] | None = None) -> int:
         execute_setup=args.execute_setup,
         execute_validation=args.execute_validation,
         execute_baseline=args.execute_baseline,
-        auto_fix_setup=args.auto_fix_setup,
+        acquire_resources=not args.skip_resource_acquisition,
+        auto_fix=args.auto_fix,
         max_fix_attempts=args.max_fix_attempts,
         dry_run=args.dry_run,
     ).run(

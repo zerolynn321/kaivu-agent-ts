@@ -121,9 +121,27 @@ class ResourceSpec(BaseModel):
     type: ResourceType = ResourceType.misc
     source_url: str = ""
     local_path: str = ""
+    acquired_path: str = ""
     expected_size_bytes: int | None = None
     required: bool = True
     status: ResourceStatus = ResourceStatus.discovered
+    notes: str = ""
+
+
+class ResourceAcquisitionItem(BaseModel):
+    name: str
+    type: ResourceType = ResourceType.misc
+    source: str = ""
+    repo_path: str = ""
+    acquired_path: str = ""
+    action: Literal["copied", "downloaded", "linked", "reused", "skipped", "failed"] = "skipped"
+    status: ResourceStatus = ResourceStatus.discovered
+    notes: str = ""
+
+
+class ResourceAcquisitionReport(BaseModel):
+    resource_root: str = ""
+    items: list[ResourceAcquisitionItem] = Field(default_factory=list)
     notes: str = ""
 
 
@@ -161,6 +179,27 @@ class EnvironmentFixPlan(BaseModel):
     env_vars: dict[str, str] = Field(default_factory=dict)
     safe_to_execute: bool = False
     notes: str = ""
+
+
+class FixAttemptSummary(BaseModel):
+    attempt: int
+    failed_stage: str
+    failure_returncode: int
+    plan_path: str = ""
+    fix_commands: list[str] = Field(default_factory=list)
+    fix_returncode: int | None = None
+    retry_commands: list[str] = Field(default_factory=list)
+    retry_returncode: int | None = None
+    rejected_reason: str = ""
+    notes: str = ""
+
+
+class FixRunSummary(BaseModel):
+    stage: str
+    max_attempts: int = 0
+    attempts: list[FixAttemptSummary] = Field(default_factory=list)
+    resolved: bool = False
+    stopped_reason: str = ""
 
 
 class CommandExecutionSummary(BaseModel):

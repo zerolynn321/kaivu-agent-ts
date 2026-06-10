@@ -8,6 +8,7 @@ from .models import (
     CodeAnalysis,
     EnvironmentFixPlan,
     EnvironmentPlan,
+    FixAttemptSummary,
     Idea,
     IdeaLibrary,
     IdeaStatus,
@@ -366,6 +367,7 @@ class AgentFix:
         timeout_seconds: int | None = None,
         dry_run: bool = False,
         previous_fix_plans: list[EnvironmentFixPlan] | None = None,
+        previous_attempts: list[FixAttemptSummary] | None = None,
     ) -> EnvironmentFixPlan:
         if self.code_agent is None:
             plan = EnvironmentFixPlan(
@@ -387,6 +389,7 @@ class AgentFix:
                     stdout=stdout,
                     stderr=stderr,
                     previous_fix_plans=previous_fix_plans,
+                    previous_attempts=previous_attempts,
                 ),
                 schema=EnvironmentFixPlan,
                 log_path=log_path,

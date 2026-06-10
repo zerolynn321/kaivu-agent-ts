@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .models import EnvironmentFixPlan, EnvironmentPlan, Idea, OnboardPlan, PaperConfig, PrepareReport, ResourceManifest, ResearchReport, RunPaths
+from .models import EnvironmentFixPlan, EnvironmentPlan, FixAttemptSummary, Idea, OnboardPlan, PaperConfig, PrepareReport, ResourceManifest, ResearchReport, RunPaths
 
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
@@ -101,8 +101,9 @@ Tasks:
 1. Inspect the repository without downloading files or modifying source code.
 2. Read README files, dependency files, config files, scripts, examples, and evaluation entrypoints.
 3. Identify required datasets, pretrained models, checkpoints, caches, local path assumptions, API tokens, and external URLs.
-4. Prefer concrete evidence from the repository over guesses. Put uncertain items in unresolved_requirements.
-5. Write a JSON resource manifest to {output_dir}/memory/resource_manifest.json.
+4. For every resource the repository expects to read, set local_path to the path as seen from the repository root, especially symlinked paths.
+5. Prefer concrete evidence from the repository over guesses. Put uncertain items in unresolved_requirements.
+6. Write a JSON resource manifest to {output_dir}/memory/resource_manifest.json.
 
 Return only valid JSON matching the ResourceManifest schema. Do not execute downloads,
 do not install packages, and do not edit the repository.
@@ -151,6 +152,7 @@ Primary metric: {config.primary_metric} ({config.metric_direction.value} is bett
 
 Available prepare artifacts, if present:
 - {output_dir}/memory/resource_manifest.json
+- {output_dir}/memory/resource_acquisition_report.json
 - {output_dir}/memory/environment_plan.json
 - {output_dir}/memory/setup_status.json
 - {output_dir}/logs/setup_commands.log
@@ -181,8 +183,10 @@ def environment_fix_prompt(
     stdout: str,
     stderr: str,
     previous_fix_plans: list[EnvironmentFixPlan] | None = None,
+    previous_attempts: list[FixAttemptSummary] | None = None,
 ) -> str:
     previous = [plan.model_dump(mode="json") for plan in previous_fix_plans or []]
+    attempts = [attempt.model_dump(mode="json") for attempt in previous_attempts or []]
     return f"""
 You are AgentFix repairing an AutoSOTA environment preparation failure.
 
@@ -199,6 +203,9 @@ Failed commands:
 Previous fix plans:
 {previous}
 
+Previous fix attempts and results:
+{attempts}
+
 STDOUT excerpt:
 {stdout[-7000:]}
 
@@ -206,19 +213,21 @@ STDERR excerpt:
 {stderr[-7000:]}
 
 Tasks:
-1. Diagnose the smallest environment/resource issue that blocks setup or validation.
+1. Diagnose the smallest environment/resource issue that blocks the failed stage.
 2. Propose only protocol-preserving environment fixes. Prefer dependency, CUDA/PyTorch,
    NumPy/faiss ABI, conda/pip, missing resource path, and GPU selection fixes.
 3. For PyTorch/CUDA/GPU errors, infer a compatible install or validation command.
 4. For GPU OOM, prefer a command that selects an available GPU or sets CUDA_VISIBLE_DEVICES.
 5. For missing resources, propose download or symlink/path-binding commands only when the
    source or resource_root is explicit.
+6. If previous attempts already tried the obvious fix, propose a different next step or set safe_to_execute=false.
 
 Rules:
 - Do not modify datasets, labels, evaluation scripts, metric computation, or train/test splits.
 - Do not propose git reset, git checkout, git clean, git commit, or destructive deletes.
+- Do not propose source-code edits unless they are narrow path/output compatibility fixes outside protected paths.
 - Set safe_to_execute=false unless every command is limited to environment setup,
-  resource placement, or validation.
+  resource placement, path/output compatibility, or validation.
 - Return only valid JSON matching the EnvironmentFixPlan schema.
 
 EnvironmentFixPlan schema:

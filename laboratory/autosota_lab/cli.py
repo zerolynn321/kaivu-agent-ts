@@ -9,11 +9,13 @@ if __package__ in (None, ""):
     from autosota_lab.models import MetricDirection
     from autosota_lab.onboard import AutoOnboarder, onboard
     from autosota_lab.optimize import Optimizer
+    from autosota_lab.pipeline import ZerolinePipeline
     from autosota_lab.prepare import Preparer
 else:
     from .models import MetricDirection
     from .onboard import AutoOnboarder, onboard
     from .optimize import Optimizer
+    from .pipeline import ZerolinePipeline
     from .prepare import Preparer
 
 
@@ -74,6 +76,7 @@ def build_parser() -> argparse.ArgumentParser:
     prep_p.add_argument("--conda-env", help="Run local commands with `conda run -n <env>`.")
     prep_p.add_argument("--paper-pdf", default=None, help="Optional local paper PDF path for context.")
     prep_p.add_argument("--resource-root", default=None, help="Optional root directory for datasets/models/checkpoints.")
+    prep_p.add_argument("--skip-resource-acquisition", action="store_true", help="Skip copying discovered resources into resource_root.")
     prep_p.add_argument("--code-agent", choices=["claude", "codex"], default="claude")
     prep_p.add_argument("--code-agent-command")
     prep_p.add_argument(
@@ -91,9 +94,49 @@ def build_parser() -> argparse.ArgumentParser:
         help="Execute validation commands after environment planning. Implied by --execute-setup.",
     )
     prep_p.add_argument("--execute-baseline", action="store_true", help="Run the configured eval command once and capture current-run baseline metrics.")
-    prep_p.add_argument("--auto-fix-setup", action="store_true", help="Let AgentFix propose and execute safe setup/validation repair commands after failures.")
-    prep_p.add_argument("--max-fix-attempts", type=int, default=1, help="Maximum AgentFix attempts per failed setup or validation stage.")
+    prep_p.add_argument(
+        "--auto-fix",
+        "--auto-fix-setup",
+        dest="auto_fix",
+        action="store_true",
+        help="Let AgentFix propose and execute safe repair commands after failed setup, validation, or baseline stages.",
+    )
+    prep_p.add_argument("--max-fix-attempts", type=int, default=1, help="Maximum AgentFix attempts per failed execution stage.")
     prep_p.add_argument("--dry-run", action="store_true")
+
+    zero_p = sub.add_parser("zeroline", help="Run auto onboard, resource acquisition, environment setup, validation, and baseline.")
+    zero_p.add_argument("paper_name")
+    zero_p.add_argument("--repo", type=Path, required=True)
+    zero_p.add_argument("--paper-title", default="")
+    zero_p.add_argument("--paper-pdf", default="")
+    zero_p.add_argument("--resource-root", required=True, help="Root directory where discovered resources are copied/downloaded.")
+    zero_p.add_argument("--eval-command", help="Optional override if auto onboard should not infer it.")
+    zero_p.add_argument("--primary-metric", help="Optional override if auto onboard should not infer it.")
+    zero_p.add_argument("--metric-direction", choices=[m.value for m in MetricDirection])
+    zero_p.add_argument("--baseline-metric", type=float)
+    zero_p.add_argument("--execution-backend", choices=["local", "docker"])
+    zero_p.add_argument("--docker-image", default="node:22-bookworm")
+    zero_p.add_argument("--code-agent", choices=["claude", "codex"], default="codex")
+    zero_p.add_argument("--code-agent-command")
+    zero_p.add_argument(
+        "--code-agent-command-template",
+        help="Shell template with {command} and {prompt}; defaults are backend-specific.",
+    )
+    zero_p.add_argument("--timeout-seconds", type=int, help="Per-agent stage timeout.")
+    zero_p.add_argument("--setup-timeout-seconds", type=int, help="Timeout for environment setup command execution.")
+    zero_p.add_argument("--fix-timeout-seconds", type=int, help="Timeout for each AgentFix planning or command execution attempt.")
+    zero_p.add_argument("--baseline-timeout-seconds", type=int, help="Timeout for zeroline baseline execution.")
+    zero_p.add_argument("--max-iterations", type=int, default=5)
+    zero_p.add_argument("--max-ideas", type=int, default=8)
+    zero_p.add_argument("--setup-command", action="append", default=[], help="Optional setup command override. Can be passed multiple times.")
+    zero_p.add_argument("--pre-eval-command", action="append", default=[], help="Optional pre-eval command. Can be passed multiple times.")
+    zero_p.add_argument("--no-auto-fix", action="store_true", help="Disable AgentFix retries during setup, validation, and baseline.")
+    zero_p.add_argument("--max-fix-attempts", type=int, default=2, help="Maximum AgentFix attempts per failed execution stage.")
+    zero_p.add_argument("--skip-setup", action="store_true", help="Skip executing environment setup commands.")
+    zero_p.add_argument("--skip-validation", action="store_true", help="Skip executing validation commands.")
+    zero_p.add_argument("--skip-baseline", action="store_true", help="Skip zeroline baseline execution.")
+    zero_p.add_argument("--skip-resource-acquisition", action="store_true", help="Skip copying/downloading resources into resource_root.")
+    zero_p.add_argument("--dry-run", action="store_true")
 
     opt_p = sub.add_parser("optimize", help="Run the prototype optimization pipeline.")
     opt_p.add_argument("paper_name")
@@ -204,7 +247,8 @@ def main(argv: list[str] | None = None) -> int:
             execute_setup=args.execute_setup,
             execute_validation=args.execute_validation,
             execute_baseline=args.execute_baseline,
-            auto_fix_setup=args.auto_fix_setup,
+            acquire_resources=not args.skip_resource_acquisition,
+            auto_fix=args.auto_fix,
             max_fix_attempts=args.max_fix_attempts,
             dry_run=args.dry_run,
         ).run(
@@ -214,6 +258,43 @@ def main(argv: list[str] | None = None) -> int:
             baseline_timeout_seconds=args.baseline_timeout_seconds,
         )
         print(f"[prepare] run dir: {run_dir}")
+        return 0
+
+    if args.cmd == "zeroline":
+        run_dir = ZerolinePipeline(
+            workspace=workspace,
+            paper_name=args.paper_name,
+            repo_path=args.repo,
+            paper_pdf_path=args.paper_pdf,
+            resource_root=args.resource_root,
+            execution_backend=args.execution_backend,
+            docker_image=args.docker_image,
+            code_agent=args.code_agent,
+            code_agent_command=args.code_agent_command,
+            code_agent_command_template=args.code_agent_command_template,
+            dry_run=args.dry_run,
+        ).run(
+            timeout_seconds=args.timeout_seconds,
+            setup_timeout_seconds=args.setup_timeout_seconds,
+            fix_timeout_seconds=args.fix_timeout_seconds,
+            baseline_timeout_seconds=args.baseline_timeout_seconds,
+            paper_title=args.paper_title,
+            eval_command=args.eval_command or "",
+            primary_metric=args.primary_metric or "",
+            metric_direction=MetricDirection(args.metric_direction) if args.metric_direction else None,
+            baseline_metric=args.baseline_metric,
+            max_iterations=args.max_iterations,
+            max_ideas=args.max_ideas,
+            setup_commands=args.setup_command,
+            pre_eval_commands=args.pre_eval_command,
+            auto_fix=not args.no_auto_fix,
+            max_fix_attempts=args.max_fix_attempts,
+            skip_setup=args.skip_setup,
+            skip_validation=args.skip_validation,
+            skip_baseline=args.skip_baseline,
+            skip_resource_acquisition=args.skip_resource_acquisition,
+        )
+        print(f"[zeroline] run dir: {run_dir}")
         return 0
 
     if args.cmd == "optimize":
