@@ -79,6 +79,7 @@ autosota-lab zeroline my-paper \
   --repo-copy-root /absolute/path/to/laboratory/paper_repos_work \
   --resource-root /absolute/path/to/laboratory/resources \
   --code-agent codex \
+  --environment-profile rtx5090-cu128 \
   --timeout-seconds 900 \
   --baseline-timeout-seconds 1800 \
   --refresh-resources \
@@ -95,6 +96,9 @@ existing repository resource files/directories under
 the acquired copies, so later evaluation commands read from `resource_root`.
 Use `--repo-copy-root` when the source paper repository is read-only or owned by
 another user; AutoSOTA will operate on the writable copy instead of the source.
+Use `--environment-profile rtx5090-cu128` on RTX 5090 hosts to apply the
+previously validated setup: Python 3.10, CUDA 12.8 PyTorch, and numpy/pillow
+pins compatible with faiss and AutoGluon.
 
 ## Optimize
 

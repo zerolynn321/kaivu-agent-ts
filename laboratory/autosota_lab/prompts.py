@@ -133,6 +133,11 @@ Tasks:
 4. Preserve the scientific protocol: do not propose changes to datasets, metric computation, evaluation splits, or target metric semantics.
 5. Write a JSON environment plan to {output_dir}/memory/environment_plan.json.
 
+If configured setup commands are provided, treat them as user-approved environment
+policy and preserve them unless the repository clearly proves they are invalid.
+For RTX 5090 / sm_120 CUDA failures, prefer a CUDA 12.8-capable PyTorch setup in
+a Python 3.10 environment, then validate that faiss imports with numpy<2.0.
+
 Return only valid JSON matching the EnvironmentPlan schema. Do not install packages,
 do not run long training/evaluation, and do not edit the repository.
 

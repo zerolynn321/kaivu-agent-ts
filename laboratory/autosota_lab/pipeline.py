@@ -4,6 +4,7 @@ import shutil
 import time
 from pathlib import Path
 
+from .environment_profiles import environment_profile_commands
 from .models import MetricDirection, PaperConfig
 from .onboard import AutoOnboarder
 from .prepare import Preparer
@@ -53,6 +54,7 @@ class ZerolinePipeline:
         metric_direction: MetricDirection | None = None,
         baseline_metric: float | None = None,
         conda_env: str | None = None,
+        environment_profile: str = "",
         max_iterations: int = 5,
         max_ideas: int = 8,
         setup_commands: list[str] | None = None,
@@ -69,6 +71,12 @@ class ZerolinePipeline:
         use_acquired_resources: bool = False,
     ) -> Path:
         self._announce("onboard", "Inferring paper config with the Code Agent.")
+        profile_conda_env = conda_env or ("tsrag5090" if environment_profile == "rtx5090-cu128" else None)
+        profile_setup_commands = (
+            environment_profile_commands(environment_profile, profile_conda_env, self.repo_path)
+            if environment_profile and profile_conda_env
+            else None
+        )
         config = AutoOnboarder(
             workspace=self.workspace,
             paper_name=self.paper_name,
@@ -89,11 +97,11 @@ class ZerolinePipeline:
             baseline_metric=baseline_metric,
             max_iterations=max_iterations,
             max_ideas=max_ideas,
-            setup_commands=setup_commands,
+            setup_commands=setup_commands or profile_setup_commands,
             pre_eval_commands=pre_eval_commands,
         )
-        if conda_env is not None:
-            config.conda_env = conda_env
+        if profile_conda_env is not None:
+            config.conda_env = profile_conda_env
         self._announce("onboard", f"Config ready: eval_command={config.eval_command!r}, metric={config.primary_metric}.")
 
         self._announce("prepare", "Discovering/acquiring resources, preparing environment, and running zeroline baseline.")

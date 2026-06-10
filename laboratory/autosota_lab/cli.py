@@ -6,12 +6,14 @@ from pathlib import Path
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from autosota_lab.environment_profiles import available_environment_profiles
     from autosota_lab.models import MetricDirection
     from autosota_lab.onboard import AutoOnboarder, onboard
     from autosota_lab.optimize import Optimizer
     from autosota_lab.pipeline import ZerolinePipeline
     from autosota_lab.prepare import Preparer
 else:
+    from .environment_profiles import available_environment_profiles
     from .models import MetricDirection
     from .onboard import AutoOnboarder, onboard
     from .optimize import Optimizer
@@ -133,6 +135,12 @@ def build_parser() -> argparse.ArgumentParser:
     zero_p.add_argument("--metric-direction", choices=[m.value for m in MetricDirection])
     zero_p.add_argument("--baseline-metric", type=float)
     zero_p.add_argument("--conda-env", help="Override the conda environment used for validation and baseline execution.")
+    zero_p.add_argument(
+        "--environment-profile",
+        choices=available_environment_profiles(),
+        default="",
+        help="Apply a known environment setup profile discovered from previous successful runs.",
+    )
     zero_p.add_argument("--execution-backend", choices=["local", "docker"])
     zero_p.add_argument("--docker-image", default="node:22-bookworm")
     zero_p.add_argument("--code-agent", choices=["claude", "codex"], default="codex")
@@ -250,6 +258,7 @@ def main(argv: list[str] | None = None) -> int:
             docker_image=args.docker_image,
             baseline_metric=args.baseline_metric,
             conda_env=args.conda_env,
+            environment_profile=args.environment_profile,
             max_iterations=args.max_iterations,
             max_ideas=args.max_ideas,
             setup_commands=args.setup_command,
