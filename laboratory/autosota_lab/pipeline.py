@@ -5,9 +5,11 @@ import time
 from pathlib import Path
 
 from .environment_profiles import environment_profile_commands
+from .io import write_yaml
 from .models import MetricDirection, PaperConfig
 from .onboard import AutoOnboarder
 from .prepare import Preparer
+from .state import config_path
 
 
 class ZerolinePipeline:
@@ -102,6 +104,10 @@ class ZerolinePipeline:
         )
         if profile_conda_env is not None:
             config.conda_env = profile_conda_env
+        if profile_setup_commands:
+            config.setup_commands = profile_setup_commands
+        if profile_conda_env is not None or profile_setup_commands:
+            write_yaml(config_path(self.workspace, self.paper_name), config)
         self._announce("onboard", f"Config ready: eval_command={config.eval_command!r}, metric={config.primary_metric}.")
 
         self._announce("prepare", "Discovering/acquiring resources, preparing environment, and running zeroline baseline.")
