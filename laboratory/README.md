@@ -100,6 +100,20 @@ Use `--environment-profile rtx5090-cu128` on RTX 5090 hosts to apply the
 previously validated setup: Python 3.10, CUDA 12.8 PyTorch, and numpy/pillow
 pins compatible with faiss and AutoGluon.
 
+## Baseline
+
+Use `baseline` for checkpoint recovery after onboarding, resource binding, and
+environment setup are already done. It does not call a Code Agent and only runs
+the configured evaluation command, captures stdout/stderr, parses metrics, and
+writes `results/baseline_metrics.json`.
+
+```bash
+autosota-lab baseline my-paper \
+  --repo /absolute/path/to/laboratory/paper_repos_work/paper-repo \
+  --conda-env tsrag5090 \
+  --baseline-timeout-seconds 1800
+```
+
 ## Optimize
 
 ```bash

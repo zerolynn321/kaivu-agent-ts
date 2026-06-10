@@ -6,6 +6,7 @@ from pathlib import Path
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from autosota_lab.baseline import BaselineRunner
     from autosota_lab.environment_profiles import available_environment_profiles
     from autosota_lab.models import MetricDirection
     from autosota_lab.onboard import AutoOnboarder, onboard
@@ -13,6 +14,7 @@ if __package__ in (None, ""):
     from autosota_lab.pipeline import ZerolinePipeline
     from autosota_lab.prepare import Preparer
 else:
+    from .baseline import BaselineRunner
     from .environment_profiles import available_environment_profiles
     from .models import MetricDirection
     from .onboard import AutoOnboarder, onboard
@@ -172,6 +174,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Back up existing repo resource paths and replace them with symlinks to acquired resources.",
     )
     zero_p.add_argument("--dry-run", action="store_true")
+
+    base_p = sub.add_parser("baseline", help="Run only the configured baseline command and capture metrics.")
+    base_p.add_argument("paper_name")
+    base_p.add_argument("--repo", type=Path, help="Override repo_path from the paper config.")
+    base_p.add_argument("--conda-env", help="Override the conda environment used for baseline execution.")
+    base_p.add_argument("--baseline-timeout-seconds", type=int, help="Timeout for baseline execution.")
+    base_p.add_argument("--dry-run", action="store_true")
 
     opt_p = sub.add_parser("optimize", help="Run the prototype optimization pipeline.")
     opt_p.add_argument("paper_name")
@@ -342,6 +351,17 @@ def main(argv: list[str] | None = None) -> int:
             use_acquired_resources=args.use_acquired_resources,
         )
         print(f"[zeroline] run dir: {run_dir}")
+        return 0
+
+    if args.cmd == "baseline":
+        run_dir = BaselineRunner(
+            workspace=workspace,
+            paper_name=args.paper_name,
+            repo_path=args.repo,
+            conda_env=args.conda_env,
+            dry_run=args.dry_run,
+        ).run(timeout_seconds=args.baseline_timeout_seconds)
+        print(f"[baseline] run dir: {run_dir}")
         return 0
 
     if args.cmd == "optimize":
