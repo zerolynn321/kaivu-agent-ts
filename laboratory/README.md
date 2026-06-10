@@ -36,6 +36,22 @@ pip install -e .
 
 ## Onboard
 
+Auto onboard should be the default for a cloned paper repository. It asks the
+Code Agent to infer the evaluation command, primary metric, conda environment,
+setup commands, and protected paths from the repository itself:
+
+```bash
+autosota-lab onboard my-paper \
+  --auto \
+  --repo /absolute/path/to/paper/repo \
+  --resource-root /absolute/path/to/laboratory/resources \
+  --code-agent codex
+```
+
+Only pass `--eval-command` and metric overrides when debugging or pinning a
+known command for a regression run. Those values should not be required for a
+true first-pass zeroline flow.
+
 ```bash
 autosota-lab onboard my-paper \
   --repo /absolute/path/to/paper/repo \
@@ -48,6 +64,25 @@ This writes:
 
 ```text
 runs/my-paper/config.yaml
+```
+
+## Zeroline
+
+`zeroline` runs auto onboard followed by resource discovery/acquisition,
+environment planning, optional setup/validation, baseline execution, and a
+readiness report. For a real first-pass run, do not provide repository-specific
+evaluation knowledge:
+
+```bash
+autosota-lab zeroline my-paper \
+  --repo /absolute/path/to/paper/repo \
+  --resource-root /absolute/path/to/laboratory/resources \
+  --code-agent codex \
+  --timeout-seconds 900 \
+  --baseline-timeout-seconds 1800 \
+  --skip-setup \
+  --skip-validation \
+  --fix-plan-only
 ```
 
 ## Optimize

@@ -101,6 +101,8 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Let AgentFix propose and execute safe repair commands after failed setup, validation, or baseline stages.",
     )
+    prep_p.add_argument("--fix-plan-only", action="store_true", help="Ask AgentFix for repair plans but do not execute fix commands.")
+    prep_p.add_argument("--allow-risky-fix", action="store_true", help="Allow high-risk dependency repair commands such as PyTorch upgrades.")
     prep_p.add_argument("--max-fix-attempts", type=int, default=1, help="Maximum AgentFix attempts per failed execution stage.")
     prep_p.add_argument("--dry-run", action="store_true")
 
@@ -131,6 +133,8 @@ def build_parser() -> argparse.ArgumentParser:
     zero_p.add_argument("--setup-command", action="append", default=[], help="Optional setup command override. Can be passed multiple times.")
     zero_p.add_argument("--pre-eval-command", action="append", default=[], help="Optional pre-eval command. Can be passed multiple times.")
     zero_p.add_argument("--no-auto-fix", action="store_true", help="Disable AgentFix retries during setup, validation, and baseline.")
+    zero_p.add_argument("--fix-plan-only", action="store_true", help="Ask AgentFix for repair plans but do not execute fix commands.")
+    zero_p.add_argument("--allow-risky-fix", action="store_true", help="Allow high-risk dependency repair commands such as PyTorch upgrades.")
     zero_p.add_argument("--max-fix-attempts", type=int, default=2, help="Maximum AgentFix attempts per failed execution stage.")
     zero_p.add_argument("--skip-setup", action="store_true", help="Skip executing environment setup commands.")
     zero_p.add_argument("--skip-validation", action="store_true", help="Skip executing validation commands.")
@@ -249,6 +253,8 @@ def main(argv: list[str] | None = None) -> int:
             execute_baseline=args.execute_baseline,
             acquire_resources=not args.skip_resource_acquisition,
             auto_fix=args.auto_fix,
+            fix_plan_only=args.fix_plan_only,
+            allow_risky_fix=args.allow_risky_fix,
             max_fix_attempts=args.max_fix_attempts,
             dry_run=args.dry_run,
         ).run(
@@ -288,6 +294,8 @@ def main(argv: list[str] | None = None) -> int:
             setup_commands=args.setup_command,
             pre_eval_commands=args.pre_eval_command,
             auto_fix=not args.no_auto_fix,
+            fix_plan_only=args.fix_plan_only,
+            allow_risky_fix=args.allow_risky_fix,
             max_fix_attempts=args.max_fix_attempts,
             skip_setup=args.skip_setup,
             skip_validation=args.skip_validation,

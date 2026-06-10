@@ -51,6 +51,8 @@ class ZerolinePipeline:
         setup_commands: list[str] | None = None,
         pre_eval_commands: list[str] | None = None,
         auto_fix: bool = True,
+        fix_plan_only: bool = False,
+        allow_risky_fix: bool = False,
         max_fix_attempts: int = 2,
         skip_setup: bool = False,
         skip_validation: bool = False,
@@ -101,6 +103,8 @@ class ZerolinePipeline:
             execute_baseline=not skip_baseline,
             acquire_resources=not skip_resource_acquisition,
             auto_fix=auto_fix,
+            fix_plan_only=fix_plan_only,
+            allow_risky_fix=allow_risky_fix,
             max_fix_attempts=max_fix_attempts,
             dry_run=self.dry_run,
         ).run(

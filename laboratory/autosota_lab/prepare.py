@@ -49,6 +49,8 @@ class Preparer:
         execute_baseline: bool = False,
         acquire_resources: bool = True,
         auto_fix: bool = False,
+        fix_plan_only: bool = False,
+        allow_risky_fix: bool = False,
         max_fix_attempts: int = 1,
         dry_run: bool = False,
     ) -> None:
@@ -75,6 +77,8 @@ class Preparer:
         self.execute_baseline = execute_baseline
         self.acquire_resources = acquire_resources
         self.auto_fix = auto_fix
+        self.fix_plan_only = fix_plan_only
+        self.allow_risky_fix = allow_risky_fix
         self.max_fix_attempts = max(0, max_fix_attempts)
         self.dry_run = dry_run
 
@@ -462,17 +466,18 @@ class Preparer:
             )
             previous_fix_plans.append(fix_plan)
             unsafe_reason = self._unsafe_fix_reason(fix_plan.fix_commands)
+            plan_only_reason = "fix plan only mode enabled" if self.fix_plan_only else ""
             attempt_summary = FixAttemptSummary(
                 attempt=attempt,
                 failed_stage=stage,
                 failure_returncode=int(last_result.returncode),
                 plan_path=str(plan_path),
                 fix_commands=fix_plan.fix_commands,
-                rejected_reason=unsafe_reason,
+                rejected_reason=plan_only_reason or unsafe_reason,
             )
-            if not fix_plan.safe_to_execute or not fix_plan.fix_commands or unsafe_reason:
+            if self.fix_plan_only or not fix_plan.safe_to_execute or not fix_plan.fix_commands or unsafe_reason:
                 self._announce("agent_fix", f"stage={stage}, attempt={attempt} did not produce safe commands.")
-                attempt_summary.rejected_reason = unsafe_reason or (
+                attempt_summary.rejected_reason = plan_only_reason or unsafe_reason or (
                     "safe_to_execute=false" if not fix_plan.safe_to_execute else "no fix commands"
                 )
                 attempt_summary.notes = fix_plan.notes or fix_plan.diagnosis
@@ -481,10 +486,10 @@ class Preparer:
                 summary.stopped_reason = attempt_summary.rejected_reason
                 write_text(paths.memory_dir / f"agent_fix_summary_{stage}.json", summary.model_dump_json(indent=2))
                 self._attach_fix_summary(last_result, summary)
-                if unsafe_reason:
+                if unsafe_reason or self.fix_plan_only:
                     write_text(
                         paths.logs_dir / f"fix_{stage}_attempt_{attempt:03d}_rejected.log",
-                        f"Rejected AgentFix commands: {unsafe_reason}\n\n{fix_plan.model_dump_json(indent=2)}",
+                        f"Rejected AgentFix commands: {attempt_summary.rejected_reason}\n\n{fix_plan.model_dump_json(indent=2)}",
                     )
                 break
 
@@ -591,6 +596,16 @@ class Preparer:
             r"\bformat\s+",
             r"\bmkfs\b",
         ]
+        risky_patterns = [
+            (r"\b--pre\b", "pre-release package install"),
+            (r"\bnightly\b", "nightly package index or build"),
+            (r"\bpip\s+install\b.*\b--upgrade\b.*\b(torch|torchvision|torchaudio)\b", "PyTorch package upgrade"),
+            (r"\bpip\s+install\b.*\b(torch|torchvision|torchaudio)\b.*\b--upgrade\b", "PyTorch package upgrade"),
+            (r"\bconda\s+(install|update)\b.*\b(torch|pytorch|torchvision|torchaudio|cuda|cudatoolkit|pytorch-cuda)\b", "CUDA/PyTorch conda change"),
+            (r"\bconda\s+(install|update)\b.*\s(-n|--name)\s+(base|root)\b", "base conda environment change"),
+            (r"\bpip\s+install\b.*\s-U\b.*\b(torch|torchvision|torchaudio)\b", "PyTorch package upgrade"),
+            (r"\bpip\s+install\b.*\b(torch|torchvision|torchaudio)\b.*\s-U\b", "PyTorch package upgrade"),
+        ]
         protected_terms = [
             "eval.py",
             "evaluation",
@@ -606,6 +621,10 @@ class Preparer:
             for pattern in banned_patterns:
                 if re.search(pattern, lowered):
                     return f"banned command pattern {pattern!r} in {command!r}"
+            if not self.allow_risky_fix:
+                for pattern, reason in risky_patterns:
+                    if re.search(pattern, lowered):
+                        return f"risky fix blocked ({reason}) in {command!r}; rerun with --allow-risky-fix to execute it"
             if re.search(r"\b(sed|perl|python|python3)\b.*\b(-i|write_text|open\()", lowered):
                 for term in protected_terms:
                     if term in lowered:
@@ -819,6 +838,8 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Let AgentFix propose and execute safe repair commands after failed setup, validation, or baseline stages.",
     )
+    parser.add_argument("--fix-plan-only", action="store_true", help="Ask AgentFix for repair plans but do not execute fix commands.")
+    parser.add_argument("--allow-risky-fix", action="store_true", help="Allow high-risk dependency repair commands such as PyTorch upgrades.")
     parser.add_argument("--max-fix-attempts", type=int, default=1, help="Maximum AgentFix attempts per failed execution stage.")
     parser.add_argument("--dry-run", action="store_true", help="Build prompts and preview commands only.")
     args = parser.parse_args(argv)
@@ -840,6 +861,8 @@ def main(argv: list[str] | None = None) -> int:
         execute_baseline=args.execute_baseline,
         acquire_resources=not args.skip_resource_acquisition,
         auto_fix=args.auto_fix,
+        fix_plan_only=args.fix_plan_only,
+        allow_risky_fix=args.allow_risky_fix,
         max_fix_attempts=args.max_fix_attempts,
         dry_run=args.dry_run,
     ).run(
