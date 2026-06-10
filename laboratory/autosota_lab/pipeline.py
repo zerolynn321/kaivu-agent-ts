@@ -46,6 +46,7 @@ class ZerolinePipeline:
         primary_metric: str = "",
         metric_direction: MetricDirection | None = None,
         baseline_metric: float | None = None,
+        conda_env: str | None = None,
         max_iterations: int = 5,
         max_ideas: int = 8,
         setup_commands: list[str] | None = None,
@@ -58,6 +59,8 @@ class ZerolinePipeline:
         skip_validation: bool = False,
         skip_baseline: bool = False,
         skip_resource_acquisition: bool = False,
+        refresh_resources: bool = False,
+        use_acquired_resources: bool = False,
     ) -> Path:
         self._announce("onboard", "Inferring paper config with the Code Agent.")
         config = AutoOnboarder(
@@ -83,6 +86,8 @@ class ZerolinePipeline:
             setup_commands=setup_commands,
             pre_eval_commands=pre_eval_commands,
         )
+        if conda_env is not None:
+            config.conda_env = conda_env
         self._announce("onboard", f"Config ready: eval_command={config.eval_command!r}, metric={config.primary_metric}.")
 
         self._announce("prepare", "Discovering/acquiring resources, preparing environment, and running zeroline baseline.")
@@ -102,6 +107,8 @@ class ZerolinePipeline:
             execute_validation=not skip_validation,
             execute_baseline=not skip_baseline,
             acquire_resources=not skip_resource_acquisition,
+            refresh_resources=refresh_resources,
+            use_acquired_resources=use_acquired_resources,
             auto_fix=auto_fix,
             fix_plan_only=fix_plan_only,
             allow_risky_fix=allow_risky_fix,

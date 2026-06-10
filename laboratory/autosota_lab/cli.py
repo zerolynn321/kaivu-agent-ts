@@ -77,6 +77,12 @@ def build_parser() -> argparse.ArgumentParser:
     prep_p.add_argument("--paper-pdf", default=None, help="Optional local paper PDF path for context.")
     prep_p.add_argument("--resource-root", default=None, help="Optional root directory for datasets/models/checkpoints.")
     prep_p.add_argument("--skip-resource-acquisition", action="store_true", help="Skip copying discovered resources into resource_root.")
+    prep_p.add_argument("--refresh-resources", action="store_true", help="Re-copy or re-download resources even when acquired_path already exists.")
+    prep_p.add_argument(
+        "--use-acquired-resources",
+        action="store_true",
+        help="Back up existing repo resource paths and replace them with symlinks to acquired resources.",
+    )
     prep_p.add_argument("--code-agent", choices=["claude", "codex"], default="claude")
     prep_p.add_argument("--code-agent-command")
     prep_p.add_argument(
@@ -116,6 +122,7 @@ def build_parser() -> argparse.ArgumentParser:
     zero_p.add_argument("--primary-metric", help="Optional override if auto onboard should not infer it.")
     zero_p.add_argument("--metric-direction", choices=[m.value for m in MetricDirection])
     zero_p.add_argument("--baseline-metric", type=float)
+    zero_p.add_argument("--conda-env", help="Override the conda environment used for validation and baseline execution.")
     zero_p.add_argument("--execution-backend", choices=["local", "docker"])
     zero_p.add_argument("--docker-image", default="node:22-bookworm")
     zero_p.add_argument("--code-agent", choices=["claude", "codex"], default="codex")
@@ -140,6 +147,12 @@ def build_parser() -> argparse.ArgumentParser:
     zero_p.add_argument("--skip-validation", action="store_true", help="Skip executing validation commands.")
     zero_p.add_argument("--skip-baseline", action="store_true", help="Skip zeroline baseline execution.")
     zero_p.add_argument("--skip-resource-acquisition", action="store_true", help="Skip copying/downloading resources into resource_root.")
+    zero_p.add_argument("--refresh-resources", action="store_true", help="Re-copy or re-download resources even when acquired_path already exists.")
+    zero_p.add_argument(
+        "--use-acquired-resources",
+        action="store_true",
+        help="Back up existing repo resource paths and replace them with symlinks to acquired resources.",
+    )
     zero_p.add_argument("--dry-run", action="store_true")
 
     opt_p = sub.add_parser("optimize", help="Run the prototype optimization pipeline.")
@@ -226,6 +239,7 @@ def main(argv: list[str] | None = None) -> int:
             resource_root=args.resource_root,
             docker_image=args.docker_image,
             baseline_metric=args.baseline_metric,
+            conda_env=args.conda_env,
             max_iterations=args.max_iterations,
             max_ideas=args.max_ideas,
             setup_commands=args.setup_command,
@@ -252,6 +266,8 @@ def main(argv: list[str] | None = None) -> int:
             execute_validation=args.execute_validation,
             execute_baseline=args.execute_baseline,
             acquire_resources=not args.skip_resource_acquisition,
+            refresh_resources=args.refresh_resources,
+            use_acquired_resources=args.use_acquired_resources,
             auto_fix=args.auto_fix,
             fix_plan_only=args.fix_plan_only,
             allow_risky_fix=args.allow_risky_fix,
@@ -301,6 +317,8 @@ def main(argv: list[str] | None = None) -> int:
             skip_validation=args.skip_validation,
             skip_baseline=args.skip_baseline,
             skip_resource_acquisition=args.skip_resource_acquisition,
+            refresh_resources=args.refresh_resources,
+            use_acquired_resources=args.use_acquired_resources,
         )
         print(f"[zeroline] run dir: {run_dir}")
         return 0

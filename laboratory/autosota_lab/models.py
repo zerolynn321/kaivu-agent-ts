@@ -134,7 +134,7 @@ class ResourceAcquisitionItem(BaseModel):
     source: str = ""
     repo_path: str = ""
     acquired_path: str = ""
-    action: Literal["copied", "downloaded", "linked", "reused", "skipped", "failed"] = "skipped"
+    action: Literal["copied", "downloaded", "linked", "reused", "skipped", "failed", "backed_up_and_linked"] = "skipped"
     status: ResourceStatus = ResourceStatus.discovered
     notes: str = ""
 

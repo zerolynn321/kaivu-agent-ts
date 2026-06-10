@@ -48,6 +48,8 @@ class Preparer:
         execute_validation: bool = False,
         execute_baseline: bool = False,
         acquire_resources: bool = True,
+        refresh_resources: bool = False,
+        use_acquired_resources: bool = False,
         auto_fix: bool = False,
         fix_plan_only: bool = False,
         allow_risky_fix: bool = False,
@@ -76,6 +78,9 @@ class Preparer:
         self.execute_validation = execute_validation or execute_setup
         self.execute_baseline = execute_baseline
         self.acquire_resources = acquire_resources
+        self.refresh_resources = refresh_resources
+        self.use_acquired_resources = use_acquired_resources
+        self.resource_backup_id = time.strftime("%Y%m%d_%H%M%S")
         self.auto_fix = auto_fix
         self.fix_plan_only = fix_plan_only
         self.allow_risky_fix = allow_risky_fix
@@ -282,10 +287,16 @@ class Preparer:
         )
         try:
             source_path = self._resource_source_path(resource, repo_resource_path)
+            if acquired_path.exists() and self.refresh_resources:
+                if source_path is not None and self._same_path(source_path, acquired_path):
+                    item.notes = "Refresh skipped because repository path already resolves to the acquired resource."
+                else:
+                    self._remove_acquired_path(acquired_path, store_root)
+
             if acquired_path.exists():
                 item.action = "reused"
                 item.status = ResourceStatus.available
-                item.notes = "Existing acquired resource reused."
+                item.notes = self._append_note(item.notes, "Existing acquired resource reused.")
             elif source_path is not None and source_path.exists():
                 self._copy_resource(source_path, acquired_path)
                 item.action = "copied"
@@ -307,7 +318,10 @@ class Preparer:
                 resource.notes = self._append_note(resource.notes, item.notes)
                 link_note = self._bind_repo_resource(repo_resource_path, acquired_path)
                 if link_note:
-                    item.action = "linked" if item.action == "reused" else item.action
+                    if "Backed up repository resource" in link_note:
+                        item.action = "backed_up_and_linked"
+                    elif item.action == "reused":
+                        item.action = "linked"
                     item.notes = self._append_note(item.notes, link_note)
                     resource.notes = self._append_note(resource.notes, link_note)
         except Exception as exc:
@@ -361,9 +375,27 @@ class Preparer:
         acquired_path.parent.mkdir(parents=True, exist_ok=True)
         urllib.request.urlretrieve(source_url, acquired_path)
 
+    def _remove_acquired_path(self, acquired_path: Path, store_root: Path) -> None:
+        try:
+            acquired_path.resolve().relative_to(store_root.resolve())
+        except ValueError as exc:
+            raise ValueError(f"Refusing to refresh resource outside store_root: {acquired_path}") from exc
+        if acquired_path.is_dir() and not acquired_path.is_symlink():
+            shutil.rmtree(acquired_path)
+        else:
+            acquired_path.unlink()
+
+    def _same_path(self, first: Path, second: Path) -> bool:
+        try:
+            return first.resolve() == second.resolve()
+        except OSError:
+            return False
+
     def _bind_repo_resource(self, repo_resource_path: Path | None, acquired_path: Path) -> str:
         if repo_resource_path is None:
             return ""
+        if repo_resource_path.exists() and repo_resource_path.resolve() == acquired_path.resolve():
+            return "Repository path already points at the acquired resource."
         if repo_resource_path.is_symlink():
             repo_resource_path.unlink()
             repo_resource_path.symlink_to(acquired_path, target_is_directory=acquired_path.is_dir())
@@ -372,7 +404,29 @@ class Preparer:
             repo_resource_path.parent.mkdir(parents=True, exist_ok=True)
             repo_resource_path.symlink_to(acquired_path, target_is_directory=acquired_path.is_dir())
             return f"Created repository resource link: {repo_resource_path} -> {acquired_path}."
+        if self.use_acquired_resources:
+            backup_path = self._backup_repo_resource(repo_resource_path)
+            repo_resource_path.symlink_to(acquired_path, target_is_directory=acquired_path.is_dir())
+            return f"Backed up repository resource to {backup_path} and linked acquired resource: {repo_resource_path} -> {acquired_path}."
         return "Repository path already exists as a regular file/directory; acquired copy recorded but repo path was not replaced."
+
+    def _backup_repo_resource(self, repo_resource_path: Path) -> Path:
+        repo_root = self.config.repo_path.resolve()
+        try:
+            rel_path = repo_resource_path.resolve().relative_to(repo_root)
+        except ValueError as exc:
+            raise ValueError(f"Refusing to replace resource outside repository: {repo_resource_path}") from exc
+        backup_path = repo_root / ".autosota_resource_backups" / self.resource_backup_id / rel_path
+        backup_path.parent.mkdir(parents=True, exist_ok=True)
+        if backup_path.exists():
+            suffix = 1
+            candidate = backup_path.with_name(f"{backup_path.name}.{suffix}")
+            while candidate.exists():
+                suffix += 1
+                candidate = backup_path.with_name(f"{backup_path.name}.{suffix}")
+            backup_path = candidate
+        shutil.move(str(repo_resource_path), str(backup_path))
+        return backup_path
 
     def _append_note(self, current: str, note: str) -> str:
         if not current:
@@ -814,6 +868,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--paper-pdf", default=None, help="Optional local paper PDF path for context.")
     parser.add_argument("--resource-root", default=None, help="Optional root directory for datasets/models/checkpoints.")
     parser.add_argument("--skip-resource-acquisition", action="store_true", help="Skip copying discovered resources into resource_root.")
+    parser.add_argument("--refresh-resources", action="store_true", help="Re-copy or re-download resources even when acquired_path already exists.")
+    parser.add_argument(
+        "--use-acquired-resources",
+        action="store_true",
+        help="Back up existing repo resource paths and replace them with symlinks to acquired resources.",
+    )
     parser.add_argument("--code-agent", choices=["claude", "codex"], default="claude")
     parser.add_argument("--code-agent-command", help="Code Agent executable or command prefix.")
     parser.add_argument(
@@ -860,6 +920,8 @@ def main(argv: list[str] | None = None) -> int:
         execute_validation=args.execute_validation,
         execute_baseline=args.execute_baseline,
         acquire_resources=not args.skip_resource_acquisition,
+        refresh_resources=args.refresh_resources,
+        use_acquired_resources=args.use_acquired_resources,
         auto_fix=args.auto_fix,
         fix_plan_only=args.fix_plan_only,
         allow_risky_fix=args.allow_risky_fix,

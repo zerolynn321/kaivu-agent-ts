@@ -80,10 +80,18 @@ autosota-lab zeroline my-paper \
   --code-agent codex \
   --timeout-seconds 900 \
   --baseline-timeout-seconds 1800 \
+  --refresh-resources \
+  --use-acquired-resources \
   --skip-setup \
   --skip-validation \
   --fix-plan-only
 ```
+
+`--refresh-resources` forces the resource copy/download step to rebuild the
+local acquired copy under `resource_root`. `--use-acquired-resources` backs up
+existing repository resource files/directories under
+`.autosota_resource_backups/` and replaces the original paths with symlinks to
+the acquired copies, so later evaluation commands read from `resource_root`.
 
 ## Optimize
 
