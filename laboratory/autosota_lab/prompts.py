@@ -44,12 +44,22 @@ OnboardPlan schema:
 def repo_resolution_prompt(
     paper_name: str,
     search_roots: list[str],
+    local_candidates: list[dict] | None = None,
     paper_title: str = "",
     research_requirement: str = "",
     clone_url: str = "",
     repo_root: str = "",
 ) -> str:
     roots = "\n".join(f"- {root}" for root in search_roots) or "- (none provided)"
+    candidates = local_candidates or []
+    candidate_lines = []
+    for index, candidate in enumerate(candidates, start=1):
+        evidence = "; ".join(candidate.get("evidence", [])[:8])
+        candidate_lines.append(
+            f"{index}. name={candidate.get('name', '')} path={candidate.get('local_path', '')} "
+            f"confidence={candidate.get('confidence', '')} evidence={evidence}"
+        )
+    candidate_text = "\n".join(candidate_lines) or "(no local candidates found by deterministic scan)"
     return f"""
 You are AgentResource running the Code Repository Resolution stage of AutoSOTA Laboratory.
 
@@ -62,6 +72,9 @@ Clone destination root, if provided: {repo_root or "(not provided)"}
 
 Local search roots:
 {roots}
+
+Deterministic local candidates:
+{candidate_text}
 
 Tasks:
 1. Decide which code repository should be used for this paper/requirement.

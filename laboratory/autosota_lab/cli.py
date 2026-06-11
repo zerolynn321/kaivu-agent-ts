@@ -205,6 +205,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     resolve_p.add_argument("--timeout-seconds", type=int, help="Code Agent timeout for repo resolution.")
     resolve_p.add_argument("--clone-timeout-seconds", type=int, help="Timeout for git clone when action=clone.")
+    resolve_p.add_argument("--max-depth", type=int, default=3, help="Maximum directory depth to scan under each search root.")
     resolve_p.add_argument("--no-clone", action="store_true", help="Write the repo resolution plan but do not clone.")
     resolve_p.add_argument("--refresh-clone", action="store_true", help="Delete and recreate the clone destination if it already exists.")
     resolve_p.add_argument("--dry-run", action="store_true")
@@ -403,6 +404,7 @@ def main(argv: list[str] | None = None) -> int:
             code_agent=args.code_agent,
             code_agent_command=args.code_agent_command,
             code_agent_command_template=args.code_agent_command_template,
+            max_depth=args.max_depth,
             no_clone=args.no_clone,
             refresh_clone=args.refresh_clone,
             dry_run=args.dry_run,

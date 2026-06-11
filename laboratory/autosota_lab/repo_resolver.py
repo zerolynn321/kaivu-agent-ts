@@ -38,6 +38,7 @@ class RepoResolver:
         code_agent: str = "codex",
         code_agent_command: str | None = None,
         code_agent_command_template: str | None = None,
+        max_depth: int = 3,
         no_clone: bool = False,
         refresh_clone: bool = False,
         dry_run: bool = False,
@@ -52,6 +53,7 @@ class RepoResolver:
         self.code_agent = code_agent
         self.code_agent_command = code_agent_command
         self.code_agent_command_template = code_agent_command_template
+        self.max_depth = max(1, max_depth)
         self.no_clone = no_clone
         self.refresh_clone = refresh_clone
         self.dry_run = dry_run
@@ -75,10 +77,11 @@ class RepoResolver:
         )
         agent = AgentResource(code_agent)
         prompt = repo_resolution_prompt(
-            paper_name=self.paper_name,
-            search_roots=[str(path) for path in self.search_roots],
-            paper_title=self.paper_title,
-            research_requirement=self.research_requirement,
+                paper_name=self.paper_name,
+                search_roots=[str(path) for path in self.search_roots],
+                local_candidates=[candidate.model_dump(mode="json") for candidate in local_candidates],
+                paper_title=self.paper_title,
+                research_requirement=self.research_requirement,
             clone_url=self.clone_url,
             repo_root=str(self.repo_root or ""),
         )
@@ -122,14 +125,26 @@ class RepoResolver:
                         evidence=evidence,
                     )
                 )
+        candidates.sort(key=self._candidate_sort_key)
         return candidates
 
     def _candidate_dirs(self, root: Path) -> list[Path]:
-        dirs = [root]
-        try:
-            dirs.extend(path for path in root.iterdir() if path.is_dir())
-        except OSError:
-            return dirs
+        dirs: list[Path] = []
+        blocked = {".git", "__pycache__", ".pytest_cache", "node_modules", ".venv", "venv", "env"}
+        stack = [(root, 0)]
+        while stack:
+            path, depth = stack.pop()
+            dirs.append(path)
+            if depth >= self.max_depth:
+                continue
+            try:
+                children = sorted((child for child in path.iterdir() if child.is_dir()), key=lambda item: item.name)
+            except OSError:
+                continue
+            for child in reversed(children):
+                if child.name in blocked or child.name.startswith(".autosota"):
+                    continue
+                stack.append((child, depth + 1))
         return dirs
 
     def _candidate_evidence(self, path: Path) -> list[str]:
@@ -161,6 +176,10 @@ class RepoResolver:
         if score >= 2:
             return "medium"
         return "low"
+
+    def _candidate_sort_key(self, candidate: RepoCandidate) -> tuple[int, str]:
+        confidence_rank = {"high": 0, "medium": 1, "low": 2}
+        return (confidence_rank.get(candidate.confidence, 3), candidate.local_path)
 
     def _git_remote(self, path: Path) -> str:
         try:
