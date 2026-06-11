@@ -66,6 +66,22 @@ This writes:
 runs/my-paper/config.yaml
 ```
 
+## Resolve Repo
+
+Use `resolve-repo` before onboarding when the code repository has not been
+confirmed yet. It scans local candidate directories and can produce a clone
+plan when an explicit URL is provided. This command is independent from
+`zeroline`, so existing `zeroline --repo ...` runs are unchanged.
+
+```bash
+autosota-lab resolve-repo my-paper \
+  --search-root /absolute/path/to/laboratory/paper_repos \
+  --repo-root /absolute/path/to/laboratory/paper_repos \
+  --paper-title "Paper title if known" \
+  --code-agent codex \
+  --no-clone
+```
+
 ## Zeroline
 
 `zeroline` runs auto onboard followed by resource discovery/acquisition,

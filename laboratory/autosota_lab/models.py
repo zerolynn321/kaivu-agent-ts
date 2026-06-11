@@ -116,6 +116,28 @@ class OnboardPlan(BaseModel):
     notes: str = ""
 
 
+class RepoCandidate(BaseModel):
+    name: str = ""
+    local_path: str = ""
+    clone_url: str = ""
+    source: Literal["local", "github", "paper", "manual", "unknown"] = "unknown"
+    confidence: Literal["high", "medium", "low"] = "low"
+    evidence: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    notes: str = ""
+
+
+class RepoResolutionPlan(BaseModel):
+    selected_repo_path: str = ""
+    selected_clone_url: str = ""
+    candidates: list[RepoCandidate] = Field(default_factory=list)
+    action: Literal["use_local", "clone", "needs_confirmation", "failed"] = "needs_confirmation"
+    confidence: Literal["high", "medium", "low"] = "low"
+    evidence: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    notes: str = ""
+
+
 class ResourceSpec(BaseModel):
     name: str
     type: ResourceType = ResourceType.misc

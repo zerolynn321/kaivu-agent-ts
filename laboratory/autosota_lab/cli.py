@@ -13,6 +13,7 @@ if __package__ in (None, ""):
     from autosota_lab.optimize import Optimizer
     from autosota_lab.pipeline import ZerolinePipeline
     from autosota_lab.prepare import Preparer
+    from autosota_lab.repo_resolver import RepoResolver
 else:
     from .baseline import BaselineRunner
     from .environment_profiles import available_environment_profiles
@@ -21,6 +22,7 @@ else:
     from .optimize import Optimizer
     from .pipeline import ZerolinePipeline
     from .prepare import Preparer
+    from .repo_resolver import RepoResolver
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -181,6 +183,31 @@ def build_parser() -> argparse.ArgumentParser:
     base_p.add_argument("--conda-env", help="Override the conda environment used for baseline execution.")
     base_p.add_argument("--baseline-timeout-seconds", type=int, help="Timeout for baseline execution.")
     base_p.add_argument("--dry-run", action="store_true")
+
+    resolve_p = sub.add_parser("resolve-repo", help="Identify or clone the code repository to use for a paper.")
+    resolve_p.add_argument("paper_name")
+    resolve_p.add_argument(
+        "--search-root",
+        type=Path,
+        action="append",
+        default=[],
+        help="Local directory to scan for candidate paper repositories. Can be passed multiple times.",
+    )
+    resolve_p.add_argument("--repo-root", type=Path, help="Destination root for cloning a selected repository.")
+    resolve_p.add_argument("--paper-title", default="")
+    resolve_p.add_argument("--research-requirement", default="")
+    resolve_p.add_argument("--clone-url", default="", help="Explicit repository URL to consider if no local match exists.")
+    resolve_p.add_argument("--code-agent", choices=["claude", "codex"], default="codex")
+    resolve_p.add_argument("--code-agent-command")
+    resolve_p.add_argument(
+        "--code-agent-command-template",
+        help="Shell template with {command} and {prompt}; defaults are backend-specific.",
+    )
+    resolve_p.add_argument("--timeout-seconds", type=int, help="Code Agent timeout for repo resolution.")
+    resolve_p.add_argument("--clone-timeout-seconds", type=int, help="Timeout for git clone when action=clone.")
+    resolve_p.add_argument("--no-clone", action="store_true", help="Write the repo resolution plan but do not clone.")
+    resolve_p.add_argument("--refresh-clone", action="store_true", help="Delete and recreate the clone destination if it already exists.")
+    resolve_p.add_argument("--dry-run", action="store_true")
 
     opt_p = sub.add_parser("optimize", help="Run the prototype optimization pipeline.")
     opt_p.add_argument("paper_name")
@@ -362,6 +389,28 @@ def main(argv: list[str] | None = None) -> int:
             dry_run=args.dry_run,
         ).run(timeout_seconds=args.baseline_timeout_seconds)
         print(f"[baseline] run dir: {run_dir}")
+        return 0
+
+    if args.cmd == "resolve-repo":
+        plan = RepoResolver(
+            workspace=workspace,
+            paper_name=args.paper_name,
+            search_roots=args.search_root,
+            repo_root=args.repo_root,
+            paper_title=args.paper_title,
+            research_requirement=args.research_requirement,
+            clone_url=args.clone_url,
+            code_agent=args.code_agent,
+            code_agent_command=args.code_agent_command,
+            code_agent_command_template=args.code_agent_command_template,
+            no_clone=args.no_clone,
+            refresh_clone=args.refresh_clone,
+            dry_run=args.dry_run,
+        ).run(
+            timeout_seconds=args.timeout_seconds,
+            clone_timeout_seconds=args.clone_timeout_seconds,
+        )
+        print(plan.model_dump_json(indent=2))
         return 0
 
     if args.cmd == "optimize":

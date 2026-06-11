@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .models import EnvironmentFixPlan, EnvironmentPlan, FixAttemptSummary, Idea, OnboardPlan, PaperConfig, PrepareReport, ResourceManifest, ResearchReport, RunPaths
+from .models import EnvironmentFixPlan, EnvironmentPlan, FixAttemptSummary, Idea, OnboardPlan, PaperConfig, PrepareReport, RepoResolutionPlan, ResourceManifest, ResearchReport, RunPaths
 
 
 TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "templates"
@@ -38,6 +38,46 @@ Rules:
 
 OnboardPlan schema:
 {OnboardPlan.model_json_schema()}
+"""
+
+
+def repo_resolution_prompt(
+    paper_name: str,
+    search_roots: list[str],
+    paper_title: str = "",
+    research_requirement: str = "",
+    clone_url: str = "",
+    repo_root: str = "",
+) -> str:
+    roots = "\n".join(f"- {root}" for root in search_roots) or "- (none provided)"
+    return f"""
+You are AgentResource running the Code Repository Resolution stage of AutoSOTA Laboratory.
+
+Paper name: {paper_name}
+Paper title, if known: {paper_title or "(not provided)"}
+Research requirement, if provided:
+{research_requirement or "(not provided)"}
+Explicit clone URL, if provided: {clone_url or "(not provided)"}
+Clone destination root, if provided: {repo_root or "(not provided)"}
+
+Local search roots:
+{roots}
+
+Tasks:
+1. Decide which code repository should be used for this paper/requirement.
+2. Prefer an existing local repository when there is clear evidence it matches.
+3. If an explicit clone URL is provided and no matching local repository exists, recommend cloning it.
+4. If multiple candidates are plausible, set action=needs_confirmation and explain the ambiguity.
+5. Record concrete evidence such as README text, directory names, script names, paper title matches, and git remote URLs.
+
+Rules:
+- Do not install dependencies, download datasets/models, or run evaluations.
+- Do not modify local repositories.
+- Do not invent a clone URL. Use clone only when a URL is explicitly provided or clearly present in the inspected evidence.
+- Return only valid JSON matching the RepoResolutionPlan schema.
+
+RepoResolutionPlan schema:
+{RepoResolutionPlan.model_json_schema()}
 """
 
 

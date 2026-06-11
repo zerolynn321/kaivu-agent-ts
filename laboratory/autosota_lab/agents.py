@@ -16,6 +16,7 @@ from .models import (
     OnboardPlan,
     PaperConfig,
     PrepareReport,
+    RepoResolutionPlan,
     ResearchReport,
     ResourceManifest,
     SupervisorDecision,
@@ -27,6 +28,32 @@ from .research_agent import DeepResearchRunner
 class AgentOnboard:
     def __init__(self, code_agent: CodeAgentRunner) -> None:
         self.code_agent = code_agent
+
+    def resolve_repo(
+        self,
+        prompt: str,
+        output_path: Path,
+        log_path: Path,
+        timeout_seconds: int | None = None,
+        dry_run: bool = False,
+    ) -> RepoResolutionPlan:
+        try:
+            plan = self.code_agent.complete_structured(
+                phase="agent_resource_repo_resolution",
+                prompt=prompt,
+                schema=RepoResolutionPlan,
+                log_path=log_path,
+                timeout_seconds=timeout_seconds,
+                dry_run=dry_run,
+            )
+        except Exception as exc:
+            plan = RepoResolutionPlan(
+                action="failed",
+                warnings=["AgentResource did not produce a valid structured repo resolution plan."],
+                notes=f"Fallback repo resolution plan generated because Code Agent failed: {exc}",
+            )
+        write_text(output_path, plan.model_dump_json(indent=2))
+        return plan
 
     def discover(
         self,
