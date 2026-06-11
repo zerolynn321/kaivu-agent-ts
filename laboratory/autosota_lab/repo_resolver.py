@@ -74,20 +74,26 @@ class RepoResolver:
             command_template=self.code_agent_command_template,
         )
         agent = AgentResource(code_agent)
-        plan = agent.resolve_repo(
-            repo_resolution_prompt(
-                paper_name=self.paper_name,
-                search_roots=[str(path) for path in self.search_roots],
-                paper_title=self.paper_title,
-                research_requirement=self.research_requirement,
-                clone_url=self.clone_url,
-                repo_root=str(self.repo_root or ""),
-            ),
-            paths.memory_dir / "repo_resolution_plan.json",
-            paths.logs_dir / f"{self.code_agent}_repo_resolution.log",
-            timeout_seconds=timeout_seconds,
-            dry_run=self.dry_run,
+        prompt = repo_resolution_prompt(
+            paper_name=self.paper_name,
+            search_roots=[str(path) for path in self.search_roots],
+            paper_title=self.paper_title,
+            research_requirement=self.research_requirement,
+            clone_url=self.clone_url,
+            repo_root=str(self.repo_root or ""),
         )
+        output_path = paths.memory_dir / "repo_resolution_plan.json"
+        log_path = paths.logs_dir / f"{self.code_agent}_repo_resolution.log"
+        if hasattr(agent, "resolve_repo"):
+            plan = agent.resolve_repo(
+                prompt,
+                output_path,
+                log_path,
+                timeout_seconds=timeout_seconds,
+                dry_run=self.dry_run,
+            )
+        else:
+            plan = self._resolve_repo_direct(code_agent, prompt, output_path, log_path, timeout_seconds)
         if not plan.candidates and local_candidates:
             plan.candidates = local_candidates
         if plan.action == "clone" and plan.selected_clone_url and not self.no_clone:
@@ -208,3 +214,22 @@ class RepoResolver:
     def _announce(self, stage: str, message: str) -> None:
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
         print(f"\n[autosota:repo] {timestamp} | {stage} | {message}", flush=True)
+
+    def _resolve_repo_direct(self, code_agent, prompt: str, output_path: Path, log_path: Path, timeout_seconds: int | None) -> RepoResolutionPlan:
+        try:
+            plan = code_agent.complete_structured(
+                phase="agent_resource_repo_resolution",
+                prompt=prompt,
+                schema=RepoResolutionPlan,
+                log_path=log_path,
+                timeout_seconds=timeout_seconds,
+                dry_run=self.dry_run,
+            )
+        except Exception as exc:
+            plan = RepoResolutionPlan(
+                action="failed",
+                warnings=["RepoResolver fallback did not produce a valid structured repo resolution plan."],
+                notes=f"Fallback repo resolution plan generated because Code Agent failed: {exc}",
+            )
+        write_text(output_path, plan.model_dump_json(indent=2))
+        return plan
