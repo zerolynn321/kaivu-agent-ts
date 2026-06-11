@@ -11,7 +11,7 @@ from pathlib import Path
 
 if __package__ in (None, ""):
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-    from autosota_lab.agents import AgentFix, AgentInit, AgentResource
+    from autosota_lab.agents import AgentFix, AgentInit
     from autosota_lab.code_agent import create_code_agent
     from autosota_lab.docker_runner import DockerRunner
     from autosota_lab.io import read_yaml, write_text, write_yaml
@@ -20,7 +20,7 @@ if __package__ in (None, ""):
     from autosota_lab.prompts import environment_planning_prompt, readiness_check_prompt, resource_discovery_prompt
     from autosota_lab.state import config_path, create_run_paths
 else:
-    from .agents import AgentFix, AgentInit, AgentResource
+    from .agents import AgentFix, AgentInit
     from .code_agent import create_code_agent
     from .docker_runner import DockerRunner
     from .io import read_yaml, write_text, write_yaml
@@ -109,20 +109,19 @@ class Preparer:
             command=self.code_agent_command,
             command_template=self.code_agent_command_template,
         )
-        resource_agent = AgentResource(code_agent)
         init_agent = AgentInit(code_agent)
         fix_agent = AgentFix(code_agent)
         execution_status = PrepareExecutionStatus()
 
-        self._announce("resource_discovery", "Scanning repository for datasets, models, checkpoints, and path assumptions.")
-        manifest = resource_agent.discover(
+        self._announce("init_resource_discovery", "Scanning repository for datasets, models, checkpoints, and path assumptions.")
+        manifest = init_agent.discover_resources(
             resource_discovery_prompt(self.config, runner.repo_workdir, runner.output_dir),
             paths.memory_dir / "resource_manifest.json",
-            paths.logs_dir / f"{self.code_agent}_resource_discovery.log",
+            paths.logs_dir / f"{self.code_agent}_init_resource_discovery.log",
             timeout_seconds=timeout_seconds,
             dry_run=self.dry_run,
         )
-        self._announce("resource_discovery", f"Finished with {len(manifest.resources)} resource(s).")
+        self._announce("init_resource_discovery", f"Finished with {len(manifest.resources)} resource(s).")
 
         if self.acquire_resources and self.config.resource_root:
             self._announce("resource_acquisition", f"Copying discovered local resources into {self.config.resource_root}.")

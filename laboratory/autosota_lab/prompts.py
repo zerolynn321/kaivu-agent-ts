@@ -89,7 +89,7 @@ Do not modify datasets, metric code, or evaluation logic.
 
 def resource_discovery_prompt(config: PaperConfig, repo_dir: str, output_dir: str) -> str:
     return f"""
-You are AgentResource running the Resource Discovery stage of AutoSOTA Laboratory.
+You are AgentInit running the Runtime Resource Discovery stage of AutoSOTA Laboratory.
 
 Repository path: {repo_dir}
 Paper title: {config.paper_title or config.paper_name}
@@ -104,6 +104,12 @@ Tasks:
 4. For every resource the repository expects to read, set local_path to the path as seen from the repository root, especially symlinked paths.
 5. Prefer concrete evidence from the repository over guesses. Put uncertain items in unresolved_requirements.
 6. Write a JSON resource manifest to {output_dir}/memory/resource_manifest.json.
+
+Scope:
+- This stage handles resources needed to run the selected repository, such as
+  datasets, checkpoints, model weights, retrieval databases, and caches.
+- Do not choose or clone the code repository here. Code repository discovery and
+  clone target selection belong to AgentResource before onboarding.
 
 Return only valid JSON matching the ResourceManifest schema. Do not execute downloads,
 do not install packages, and do not edit the repository.

@@ -56,6 +56,12 @@ class AgentOnboard:
 
 
 class AgentResource:
+    """Reserved for codebase/repository resource resolution.
+
+    Runtime assets needed by an already-selected paper repository are handled by
+    AgentInit, because they are part of making the experiment runnable.
+    """
+
     def __init__(self, code_agent: CodeAgentRunner) -> None:
         self.code_agent = code_agent
 
@@ -92,6 +98,35 @@ class AgentResource:
 class AgentInit:
     def __init__(self, code_agent: CodeAgentRunner) -> None:
         self.code_agent = code_agent
+
+    def discover_resources(
+        self,
+        prompt: str,
+        output_path: Path,
+        log_path: Path,
+        timeout_seconds: int | None = None,
+        dry_run: bool = False,
+    ) -> ResourceManifest:
+        try:
+            manifest = self.code_agent.complete_structured(
+                phase="agent_init_resource_discovery",
+                prompt=prompt,
+                schema=ResourceManifest,
+                log_path=log_path,
+                timeout_seconds=timeout_seconds,
+                dry_run=dry_run,
+            )
+        except Exception as exc:
+            manifest = ResourceManifest(
+                resources=[],
+                unresolved_requirements=[
+                    "AgentInit resource discovery did not produce a valid structured manifest.",
+                ],
+                repo_assumptions=[],
+                notes=f"Fallback manifest generated because Code Agent failed: {exc}",
+            )
+        write_text(output_path, manifest.model_dump_json(indent=2))
+        return manifest
 
     def plan_environment(
         self,
