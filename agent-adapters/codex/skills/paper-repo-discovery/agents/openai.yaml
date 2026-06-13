@@ -1,0 +1,4 @@
+interface:
+  display_name: "Paper Repo Discovery"
+  short_description: "Find and clone a paper's code repository"
+  default_prompt: "Use $paper-repo-discovery to find the official code repository for this paper and clone it locally."

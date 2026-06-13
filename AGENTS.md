@@ -16,6 +16,7 @@ Install one agent package at a time. For Codex, install the skill directories un
 - `problem-frame`: clarify broad or ambiguous requests before literature review, paper wiki work, hypothesis generation, experiment planning, or research-oriented implementation.
 - `literature-review`: frame research questions, generate and validate literature search queries, search external literature sources, and return ranked candidate papers.
 - `literature-search`: run external literature search with `rag_arxiv_retrieve` and return candidate papers.
+- `paper-repo-discovery`: given a specific paper title, URL, DOI, arXiv/OpenReview page, PDF, or local paper file, find the official or most credible public code repository, verify evidence, ask for confirmation when ambiguous, clone the selected repository locally, and write a resolution report.
 
 ## Paper Literature Skills
 
@@ -36,6 +37,8 @@ Use these skills before modifying or operating the paper ingest pipeline:
 Use `paper-ingest-batch` as the orchestration pattern when multiple papers are processed together. Batch ingest owns deduplication, failures, cross-reference pass, commit, log/index/hot updates, and batch summary.
 
 ## Boundary
+
+Keep paper-to-code repository discovery and cloning in `paper-repo-discovery`.
 
 Keep per-paper source understanding in `paper-digest`.
 
