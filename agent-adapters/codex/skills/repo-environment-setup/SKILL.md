@@ -81,6 +81,8 @@ Handoff:
 
 6. Execute approved setup.
    - Use the package manager implied by the repo when clear; otherwise prefer conda for Python/CUDA-heavy ML repos and venv/pip for simple CPU-only repos.
+   - All dependency installation commands must install into the environment selected or created by `repo-resource-prepare`.
+   - Never install dependencies into any other environment unless the user explicitly changes the environment policy.
    - Keep cache/output directories under the run directory when practical.
    - Keep commands scoped to the selected environment.
    - Record every executed command and result in the setup report.
@@ -187,6 +189,7 @@ Do:
 
 - plan before installing
 - verify commands target the repository-specific virtual environment before installing dependencies
+- install all dependencies only into the environment selected or created by `repo-resource-prepare`
 - reject generic/current workflow environments unless the user explicitly chose them for this repository
 - ask before changing environments or major dependencies
 - keep commands auditable and scoped to the selected environment
@@ -202,3 +205,4 @@ Do not:
 - delete or replace existing environments, files, or directories without explicit user approval
 - hide environment failures by changing the benchmark command or success criterion
 - silently install into or validate against the current active environment when it is not the repository-specific environment
+- install dependencies into any environment other than the one selected during `repo-resource-prepare` without explicit user approval
