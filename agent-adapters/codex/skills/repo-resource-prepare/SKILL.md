@@ -1,11 +1,11 @@
 ---
 name: repo-resource-prepare
-description: Create or confirm a new per-repository virtual environment before resource download, then identify, acquire, and stage all required runtime resources for an onboarded research repository into a run-local resource directory. Use after repo-onboard has produced or reused config.yaml, or whenever Codex acting as AgentInit must ask for or apply a repository-specific conda/venv name, create the empty environment if approved, avoid reusing the currently active environment unless the user explicitly requested that exact environment, inspect a repository for required datasets, pretrained models, checkpoints, caches, local path assumptions, API tokens, and external URLs; download or copy required resources into the run directory; optionally bind repository paths to staged resources; and write resource_manifest.yaml plus resource_acquisition_report.md. This skill does not install experiment dependencies, run baseline evaluations, or modify experiment logic.
+description: Ask the user to choose whether to reuse the current environment or create a new per-repository virtual environment before resource download, then identify, acquire, and stage all required runtime resources for an onboarded research repository into a run-local resource directory. Use after repo-onboard has produced or reused config.yaml, or whenever Codex acting as AgentInit must pause for an environment choice if the current request has not explicitly chosen current-env reuse or a new conda/venv name, create the empty environment if approved, inspect a repository for required datasets, pretrained models, checkpoints, caches, local path assumptions, API tokens, and external URLs; download or copy required resources into the run directory; optionally bind repository paths to staged resources; and write resource_manifest.yaml plus resource_acquisition_report.md. This skill does not install experiment dependencies, run baseline evaluations, or modify experiment logic.
 ---
 
 # Repo Resource Prepare
 
-Use this skill when AgentInit receives an onboarded repository and must create or confirm a repository-specific virtual environment that is separate from the current working environment by default, then make required resources available under the run directory before dependency installation or baseline execution.
+Use this skill when AgentInit receives an onboarded repository and must ask the user whether to reuse the current environment or create a new repository-specific environment before making resources available under the run directory.
 
 The agent does the work directly. Do not implement a separate Python or TypeScript pipeline for resource discovery or acquisition.
 
@@ -50,18 +50,14 @@ Handoff:
    - Read `<repo>/onboard_report.md` and nearby `paper_repo_resolution.md` when present.
    - Create `<run_dir>/resources/` if resources must be staged and the path is inside the user-approved workspace/run root.
 
-2. Create or confirm the per-repository virtual environment before downloading resources.
-   - Look for an existing environment choice in the user request, `<repo>/config.yaml`, or prior run reports.
-   - Treat the user request as stronger than old config metadata.
-   - If no environment name/path is provided by the user request, ask the user for the environment name before any resource download.
-   - Default policy is one new isolated environment per cloned repository.
-   - Do not treat the currently active shell environment as acceptable just because it can run the smoke command.
-   - Do not accept old config metadata that names a generic workflow environment such as `autosota`, `base`, or the current Codex/driver environment.
-   - Reuse an existing environment only when the current user request explicitly names that exact environment as the repository environment.
-   - If config or prior reports name `autosota`, `base`, or the active Codex/driver environment and the current request did not explicitly approve reuse, mark the stage `blocked`, ask for a new repository-specific environment name, and do not proceed to resource staging.
-   - Use a clear name such as the user-provided name, or ask before using a derived name like `paper-<repo-slug>`.
-   - If the environment already exists, record it and continue.
-   - If it does not exist, ask before creating it.
+2. Ask for the environment decision before downloading resources.
+   - Treat the current user request as the only source of environment approval for this run.
+   - Do not treat `<repo>/config.yaml`, prior reports, or the active shell environment as approval to proceed.
+   - If the current request does not explicitly say to reuse the current environment and does not provide a new environment name/path, stop before resource discovery or staging and ask:
+     - reuse the current active environment for this repository, or
+     - create a new repository-specific environment; if so, what name/path?
+   - If the user chooses current-env reuse, record the active manager/name/path and continue.
+   - If the user chooses a new environment, use the provided name/path. If it already exists, record it and continue. If it does not exist, ask before creating it.
    - Create only a minimal empty environment here, such as a conda environment with the selected Python version when known, or a venv path under the run directory when conda is not available. Do not install repository dependencies in this stage.
    - If creation fails, automatically invoke `agent-fix-error-recovery` with the failed command and environment context.
    - Record the environment manager, name/path, Python version if known, and activation command in `<repo>/config.yaml` or `<run_dir>/resource_manifest.yaml`.
@@ -146,7 +142,7 @@ Use this shape for each item in `resource_acquisition_report.md`:
 - `available`: resource exists under `<run_dir>/resources/` and any required repo path binding is done or documented.
 - `missing`: resource is required but no local copy or direct source was found.
 - `blocked`: resource requires user action, credentials, license acceptance, huge download approval, or source disambiguation.
-- `blocked_environment`: a repository-specific environment is not explicitly selected, or old metadata points to a generic/current workflow environment without explicit reuse approval.
+- `blocked_environment`: the current user request has not chosen either current-env reuse or a new repository-specific environment.
 - `failed`: attempted copy/download failed; include the command or URL and the error summary.
 - Optional resources may remain `discovered` or `missing` without blocking the handoff.
 
@@ -155,8 +151,8 @@ Use this shape for each item in `resource_acquisition_report.md`:
 Do:
 
 - stage every required resource into the run directory
-- create or confirm a repository-specific virtual environment before resource download
-- avoid reusing the active environment unless the user explicitly chose it
+- ask whether to reuse the current environment or create a new repository-specific environment before resource download
+- proceed only after the current user request makes that choice explicit
 - prefer repository, paper, project page, README, and official data links over third-party mirrors
 - preserve provenance for every copied or downloaded file
 - ask before environment creation, large downloads, credentialed sources, untrusted mirrors, or path replacement
@@ -166,7 +162,7 @@ Do not:
 
 - implement resource preparation as a new Python or TypeScript pipeline
 - install experiment dependencies or run package-manager dependency installs
-- silently use the current active environment as the repository environment
+- silently use the current active environment or old config metadata as the repository environment
 - run full training, long evaluation, or optimization
 - change dataset contents, labels, splits, metrics, or evaluation logic
 - overwrite existing repository files or directories without explicit user approval

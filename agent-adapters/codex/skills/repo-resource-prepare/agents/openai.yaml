@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Resource Prepare"
-  short_description: "Create repo env, then stage resources"
-  default_prompt: "Use $repo-resource-prepare to create or confirm a new per-repository virtual environment before downloading resources, then identify required resources and stage them into the run directory."
+  short_description: "Choose env, then stage resources"
+  default_prompt: "Use $repo-resource-prepare to ask whether to reuse the current environment or create a new repo environment before downloading resources, then stage required resources."
