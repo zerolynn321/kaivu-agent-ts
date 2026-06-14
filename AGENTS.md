@@ -18,6 +18,7 @@ Install one agent package at a time. For Codex, install the skill directories un
 - `literature-search`: run external literature search with `rag_arxiv_retrieve` and return candidate papers.
 - `paper-repo-discovery`: given a specific paper title, URL, DOI, arXiv/OpenReview page, PDF, or local paper file, find the official or most credible public code repository, verify evidence, ask for confirmation when ambiguous, clone the selected repository locally, and write a resolution report.
 - `repo-onboard`: after a paper repository has been cloned or selected, act as AgentOnboard to reuse an existing root `config.yaml` or scan the repository and create one locally before resource, environment, or baseline stages.
+- `repo-resource-prepare`: after repository onboarding, act as AgentInit to identify required datasets, models, checkpoints, caches, and path assumptions; stage all required resources under the run directory; bind repository paths when needed; and write resource manifest and acquisition reports before environment setup.
 
 ## Paper Literature Skills
 
@@ -42,6 +43,8 @@ Use `paper-ingest-batch` as the orchestration pattern when multiple papers are p
 Keep paper-to-code repository discovery and cloning in `paper-repo-discovery`.
 
 Keep cloned-repository onboarding and local `config.yaml` creation in `repo-onboard`.
+
+Keep required runtime resource discovery, download/copy, staging, and repo path binding in `repo-resource-prepare`.
 
 Keep per-paper source understanding in `paper-digest`.
 

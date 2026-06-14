@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Resource Prepare"
+  short_description: "Find and stage required repo resources"
+  default_prompt: "Use $repo-resource-prepare to identify required resources for this repository and stage them into the run directory."
