@@ -33,6 +33,7 @@ Write detailed commands, logs, evidence snippets, and diffs only into the stage 
 - `repo-onboard`: after a paper repository has been cloned or selected, act as AgentOnboard to reuse an existing root `config.yaml` or scan the repository and create one locally before resource, environment, or baseline stages.
 - `repo-resource-prepare`: after repository onboarding, act as AgentInit to ask whether to reuse the current environment or create a new repository-specific environment before resource download, then identify required datasets, models, checkpoints, caches, and path assumptions; stage all required resources under the run directory; bind repository paths when needed; and write resource manifest and acquisition reports before dependency installation. Do not proceed from old `config.yaml` environment metadata alone.
 - `repo-environment-setup`: after resource preparation, act as AgentInit to verify setup commands target the environment selected or created by `repo-resource-prepare`, then infer, install, and validate runtime dependencies only inside that environment; ask before environment-changing dependency actions; and invoke AgentFix automatically on setup or validation failure.
+- `repo-baseline-run`: after resource and environment setup are ready, act as AgentBaseline to interactively run the configured baseline/eval command inside the prepared environment, parse and compare metrics, write baseline reports, and invoke AgentFix automatically on execution or metric failures.
 - `agent-fix-error-recovery`: automatically use this when resource download, environment setup, validation, baseline, or experiment execution fails; act as AgentFix to diagnose the error, execute common low-risk fixes, ask only before risky actions, verify the result, and write a fix report.
 
 ## Paper Literature Skills
@@ -62,6 +63,8 @@ Keep cloned-repository onboarding and local `config.yaml` creation in `repo-onbo
 Keep the explicit environment choice before downloads, required runtime resource discovery, download/copy, staging, and repo path binding in `repo-resource-prepare`.
 
 Keep repository-specific virtual environment targeting, runtime dependency planning/installation, CUDA/PyTorch/TensorFlow compatibility, and cheap validation checks in `repo-environment-setup`.
+
+Keep baseline execution, metric parsing, documented baseline comparison, and baseline reports in `repo-baseline-run`.
 
 Keep failure diagnosis, safe repair decisions, user approval gates, and fix reports in `agent-fix-error-recovery`.
 
