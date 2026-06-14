@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Environment Setup"
-  short_description: "Build and validate repo runtime environments"
-  default_prompt: "Use $repo-environment-setup to build the runtime environment for this onboarded repository and validate it before baseline execution."
+  short_description: "Validate active repo env and install deps"
+  default_prompt: "Use $repo-environment-setup to verify the current shell is inside the repository-specific virtual environment, install approved dependencies, and validate before baseline execution."

@@ -1,11 +1,11 @@
 ---
 name: repo-environment-setup
-description: Build and validate the runtime environment for an onboarded research repository after required resources have been staged. Use when Codex acting as AgentInit must inspect repo docs and config.yaml, infer Python/package manager/CUDA/PyTorch/TensorFlow requirements, create or select a conda/venv environment with user approval for dependency changes, install dependencies, run cheap validation checks, write environment_plan.yaml and environment_setup_report.md, and automatically invoke AgentFix when setup or validation fails.
+description: Build and validate the runtime environment for an onboarded research repository after required resources have been staged and a per-repository virtual environment has been selected or created. Use when Codex acting as AgentInit must inspect repo docs and config.yaml, verify that the current shell is inside the repository-specific conda/venv environment from resource preparation, infer Python/package manager/CUDA/PyTorch/TensorFlow requirements, install dependencies with user approval for dependency changes, run cheap validation checks, write environment_plan.yaml and environment_setup_report.md, and automatically invoke AgentFix when setup or validation fails.
 ---
 
 # Repo Environment Setup
 
-Use this skill after `repo-onboard` and `repo-resource-prepare` when AgentInit must make the cloned repository runnable.
+Use this skill after `repo-onboard` and `repo-resource-prepare` when AgentInit must make the cloned repository runnable inside the repository-specific virtual environment selected before resource download.
 
 The agent does the setup directly through Codex tool calls and shell commands. Do not implement a separate Python or TypeScript environment pipeline.
 
@@ -43,35 +43,45 @@ Handoff:
    - Resolve the repository path and run directory.
    - Read `<repo>/config.yaml`.
    - Read resource manifests/reports when present.
+   - Extract the expected repository-specific environment from config or manifest: manager, name/path, Python version, and activation command.
    - Inspect only environment-relevant files: README, docs, `requirements*.txt`, `environment*.yml`, `pyproject.toml`, `setup.py`, `setup.cfg`, `Pipfile`, `poetry.lock`, `conda*.yml`, Dockerfile, install scripts, examples, CI configs, and eval entrypoints.
 
-2. Infer environment requirements.
+2. Verify the current shell is inside the expected virtual environment.
+   - Check the active environment before any dependency installation:
+     - conda: compare `CONDA_DEFAULT_ENV` and/or `sys.prefix` with the expected conda env name/path.
+     - venv: compare `VIRTUAL_ENV` and `sys.prefix` with the expected venv path.
+   - If no expected environment is recorded, stop and ask the user to provide one or rerun `repo-resource-prepare` to create/record it.
+   - If the current shell is not inside the expected environment, do not install dependencies into the active environment.
+   - Report the expected activation command and ask the user to activate it, or ask for explicit approval to run all setup and validation commands through a scoped command such as `conda run -n <env>` or `<venv>/bin/python`.
+   - Mark the plan `blocked` until the environment mismatch is resolved.
+
+3. Infer environment requirements.
    - Identify Python version, package manager, dependency files, setup commands, validation commands, and command-scoped environment variables.
    - Identify GPU requirements: CUDA version, PyTorch/TensorFlow/JAX version constraints, compute capability notes, custom CUDA ops, `nvcc`, compiler, and driver assumptions.
    - Prefer explicit repository documentation over generic compatibility guesses.
    - Prefer the smallest environment that can run the configured eval/smoke command.
    - If the repository requires old frameworks, preserve that evidence instead of upgrading by default.
 
-3. Write the plan before installing.
+4. Write the plan before installing.
    - Write `<run_dir>/environment_plan.yaml`.
-   - Include `status: planned`, the proposed environment name/path, install commands, validation commands, evidence, assumptions, risks, and approval requirements.
+   - Include `status: planned` or `blocked`, the expected environment name/path, active environment check result, install commands, validation commands, evidence, assumptions, risks, and approval requirements.
    - Present the plan before creating environments, installing packages, upgrading packages, or changing CUDA/PyTorch/TensorFlow/JAX.
 
-4. Ask before environment-changing actions.
-   - Ask before creating, deleting, or replacing a conda/venv environment.
+5. Ask before environment-changing actions.
+   - Ask before creating, deleting, replacing, or switching away from the repository-specific conda/venv environment.
    - Ask before installing or upgrading dependencies.
    - Ask before installing major frameworks such as PyTorch, TensorFlow, JAX, CUDA toolkits, faiss, RAPIDS, AutoGluon, or system packages.
    - Ask before using non-official mirrors, editable installs that modify the repo, long source builds, or commands expected to take a long time.
    - If the user has already approved a specific environment policy in this turn, apply it without asking repeatedly.
 
-5. Execute approved setup.
+6. Execute approved setup.
    - Use the package manager implied by the repo when clear; otherwise prefer conda for Python/CUDA-heavy ML repos and venv/pip for simple CPU-only repos.
    - Keep cache/output directories under the run directory when practical.
    - Keep commands scoped to the selected environment.
    - Record every executed command and result in the setup report.
    - Do not edit source code, dataset code, metrics, or evaluation protocol during environment setup.
 
-6. Validate.
+7. Validate.
    - Run cheap checks before any full baseline:
      - `python --version`
      - package import/version checks for core dependencies
@@ -81,7 +91,7 @@ Handoff:
    - Do not run long training or full evaluation unless the user explicitly approves.
    - If validation fails, automatically invoke `agent-fix-error-recovery`.
 
-7. Update reports.
+8. Update reports.
    - Write `<run_dir>/environment_setup_report.md`.
    - If useful, update `<repo>/config.yaml` with environment metadata only.
    - Re-read plan/report and confirm whether the status is `ready`, `partial`, or `blocked`.
@@ -98,6 +108,9 @@ environment:
   manager: "" # conda | venv | system | docker | unknown
   name: ""
   path: ""
+  activation: ""
+  active: false
+  active_check: ""
   python_version: ""
   cuda_version: ""
   gpu_required: false
@@ -149,7 +162,7 @@ Use this shape for `environment_setup_report.md`:
 
 - `ready`: approved setup commands completed and cheap validation passed.
 - `partial`: some setup completed, but optional validation or non-blocking dependency checks remain.
-- `blocked`: setup requires user approval, credentials, incompatible hardware, unavailable system packages, or manual action.
+- `blocked`: the expected virtual environment is missing, inactive, or setup requires user approval, credentials, incompatible hardware, unavailable system packages, or manual action.
 - `failed`: attempted setup or validation failed and AgentFix could not resolve it automatically.
 
 ## CUDA and Framework Guidance
@@ -168,6 +181,7 @@ Use this shape for `environment_setup_report.md`:
 Do:
 
 - plan before installing
+- verify the current shell is inside the repository-specific virtual environment before installing dependencies
 - ask before changing environments or major dependencies
 - keep commands auditable and scoped to the selected environment
 - invoke `agent-fix-error-recovery` automatically after setup or validation failures
