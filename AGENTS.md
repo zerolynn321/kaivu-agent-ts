@@ -11,6 +11,10 @@ Agent-specific packages live under `agent-adapters/<agent>/`. Do not assume ever
 
 Install one agent package at a time. For Codex, install the skill directories under `agent-adapters/codex/skills` as a set so literature review, digest, ingest, batch, wiki search, wiki query, and lint behavior stay consistent.
 
+## Terminal Output Style
+
+When reporting progress in the Codex terminal, show only key stage progress and final results. Do not paste detailed command transcripts, full command lists, or file content diffs unless the user explicitly asks for them. Summarize what changed at the artifact level, such as file paths created or status fields updated.
+
 ## General Research Skills
 
 - `problem-frame`: clarify broad or ambiguous requests before literature review, paper wiki work, hypothesis generation, experiment planning, or research-oriented implementation.
