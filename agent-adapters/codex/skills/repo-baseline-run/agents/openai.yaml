@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Baseline Run"
   short_description: "Run and record repo baseline"
-  default_prompt: "Use $repo-baseline-run to run the configured baseline in the prepared repository environment and record metrics."
+  default_prompt: "Use $repo-baseline-run to run the configured baseline in the prepared environment and compare against onboard-recorded references."

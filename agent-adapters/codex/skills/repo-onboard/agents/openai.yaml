@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Onboard"
-  short_description: "Infer eval command and create config.yaml"
-  default_prompt: "Use $repo-onboard to inspect this cloned repository, infer the eval command, run a bounded baseline check if feasible, and ensure it has a local config.yaml."
+  short_description: "Infer eval and baseline refs"
+  default_prompt: "Use $repo-onboard to inspect this cloned repository, infer the eval command, identify documented baseline references, and ensure it has a local config.yaml."

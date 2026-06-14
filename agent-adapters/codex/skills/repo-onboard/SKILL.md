@@ -1,6 +1,6 @@
 ---
 name: repo-onboard
-description: Inspect a cloned research code repository, discover the safest evaluation or baseline command, run a bounded baseline check when resources and environment are already available, parse and compare reported metrics or success criteria against documented baselines when possible, and ensure the repository has a local config.yaml. Use after paper-repo-discovery has cloned or selected a repository, or whenever Codex acting as AgentOnboard must reuse or generate config.yaml by scanning README files, scripts, dependency files, examples, entrypoints, and existing configs. This skill does not download resources, install dependencies, create environments, run long training/full evaluations without approval, modify experiment logic, or optimize code.
+description: Inspect a cloned research code repository, discover the safest evaluation or baseline command, proactively identify documented baseline/reference results from repository docs/examples/configs/saved outputs, run a bounded baseline check when resources and environment are already available, parse and compare reported metrics or success criteria against documented baselines when possible, and ensure the repository has a local config.yaml. Use after paper-repo-discovery has cloned or selected a repository, or whenever Codex acting as AgentOnboard must reuse or generate config.yaml by scanning README files, scripts, dependency files, examples, entrypoints, existing configs, and documented result references. This skill does not download resources, install dependencies, create environments, run long training/full evaluations without approval, modify experiment logic, or optimize code.
 ---
 
 # Repo Onboard
@@ -64,6 +64,8 @@ Handoff:
    - If a full evaluation is too expensive or needs unavailable resources, choose the safest documented smoke/pretrained/demo command and mark the scope clearly.
    - If no metric is evident, use an empty metric field plus warnings rather than inventing one.
    - Search docs, logs, tables, READMEs, examples, and saved outputs for documented baseline values or expected success criteria.
+   - Record documented reference values before later stages run the baseline. Include source file, metric name, value, dataset/split/command conditions, whether it is comparable to the selected command, and confidence.
+   - If no comparable documented reference exists, record `reference_status: not_found` and include where the search looked.
    - Treat user-provided overrides as policy unless repository evidence clearly contradicts them.
 
 5. Run a bounded baseline check when feasible.
@@ -113,6 +115,8 @@ baseline:
   metrics: {}
   primary_metric_value:
   documented_baseline:
+  reference_status: "not_found" # found | not_found | ambiguous
+  reference_sources: []
   comparison: "not_available" # matches | better | worse | not_available
   stdout_excerpt: ""
   stderr_excerpt: ""

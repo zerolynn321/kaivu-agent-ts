@@ -1,6 +1,6 @@
 ---
 name: repo-baseline-run
-description: Interactively run and record the configured baseline or evaluation command for a prepared research repository. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have produced config.yaml, resource manifests, and a ready environment; when Codex acting as AgentBaseline must verify readiness, ask before long or risky baseline execution, run the baseline only inside the environment selected by resource preparation, parse primary metrics, compare with documented baselines when available, write baseline_metrics.yaml and baseline_run_report.md, and automatically invoke AgentFix when baseline execution, metric parsing, path binding, or runtime validation fails.
+description: Interactively run and record the configured baseline or evaluation command for a prepared research repository. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have produced config.yaml, resource manifests, and a ready environment; when Codex acting as AgentBaseline must verify readiness, read documented baseline/reference values already identified by repo-onboard, ask before long or risky baseline execution, run the baseline only inside the environment selected by resource preparation, parse primary metrics, compare with onboard-recorded baselines or prior local baselines when available, write baseline_metrics.yaml and baseline_run_report.md, and automatically invoke AgentFix when baseline execution, metric parsing, path binding, or runtime validation fails.
 ---
 
 # Repo Baseline Run
@@ -58,38 +58,49 @@ Handoff:
    - Never run baseline in a different active environment unless the user explicitly changes the environment policy.
    - If the current shell is not inside the selected environment, ask the user to activate it or approve a scoped execution method such as `conda run -n <env>` or `<venv>/bin/python`.
 
-3. Build the baseline plan.
+3. Load onboard baseline references.
+   - Read documented baseline/reference values from `<repo>/config.yaml` and `<repo>/onboard_report.md`.
+   - Treat `repo-onboard` as the owner of reference discovery.
+   - Do not perform a broad repository-wide reference search in this stage unless the user explicitly asks to refresh onboarding references.
+   - If onboard recorded a comparable reference, use it for comparison and preserve its source metadata.
+   - If onboard recorded `reference_status: not_found`, report that no onboard reference is available and compare only against prior local baselines when present.
+   - If config lacks reference metadata entirely, mark `reference_status: missing_from_onboard` and recommend rerunning `repo-onboard` to refresh documented references.
+   - If a prior local `<run_dir>/baseline_metrics.yaml` exists, preserve it as a historical local reference before overwriting or write the new result to a timestamped file.
+
+4. Build the baseline plan.
    - Use the configured `baseline.command` when present; otherwise use `eval_command`.
    - Include pre-eval commands only when they are already configured and needed.
    - Preserve the scientific protocol: do not change datasets, splits, metric computation, model architecture, seed, sample count, precision, batch size, or command flags unless the user explicitly approves a protocol change.
    - Decide whether the command is cheap smoke/baseline or long/full evaluation.
 
-4. Ask before execution when needed.
+5. Ask before execution when needed.
    - Ask before running long/full evaluation, GPU-heavy commands, expensive commands, or commands with unclear runtime.
    - Ask before changing timeout, GPU selection, batch size, seed, precision, dataset subset, or checkpoint.
    - Ask before running any command that may overwrite existing results.
    - Cheap configured smoke/baseline commands may run without extra approval when resources and environment are ready and the command is already in `config.yaml`.
 
-5. Run baseline.
+6. Run baseline.
    - Execute in the repository root unless config evidence says otherwise.
    - Keep outputs under the run directory when configurable.
    - Capture return code, elapsed time, stdout/stderr excerpts, and produced metric/result files.
    - Do not commit, tag, reset, clean, or mutate experiment logic.
 
-6. Parse metrics.
+7. Parse metrics and compare.
    - Parse the configured primary metric first.
    - Capture additional printed or file-written metrics when obvious.
    - If no numeric metric exists, record a success criterion such as command completion or generated artifact presence.
-   - Compare with documented baseline values when available and record `matches`, `better`, `worse`, or `not_available`.
+   - Compare with onboard-recorded documented reference values when available and record `matches`, `better`, `worse`, or `not_available`.
+   - If no documented reference exists but a prior local baseline exists, compare against the prior local value and record `local_matches`, `local_better`, or `local_worse`.
+   - Treat missing references as an explicit finding, not a silent omission.
    - Do not change success criteria after seeing a failure.
 
-7. Handle failure.
+8. Handle failure.
    - If the command exits nonzero, times out, cannot find resources, uses the wrong environment, or metrics cannot be parsed, automatically invoke `agent-fix-error-recovery`.
    - Let AgentFix apply only low-risk repairs automatically.
    - Ask before any protocol-affecting change or long rerun.
    - After AgentFix resolves the issue, rerun the same baseline command unless the user approved a changed command.
 
-8. Write reports.
+9. Write reports.
    - Write `<run_dir>/baseline_metrics.yaml`.
    - Write `<run_dir>/baseline_run_report.md`.
    - If useful, update `<repo>/config.yaml` baseline metadata only.
@@ -116,7 +127,11 @@ primary_metric_value:
 metric_direction: "unknown" # higher | lower | unknown
 metrics: {}
 documented_baseline: {}
+reference_status: "not_found" # found | not_found | ambiguous | missing_from_onboard
+reference_sources: []
+local_baseline_reference: {}
 comparison: "not_available" # matches | better | worse | not_available
+local_comparison: "not_available" # local_matches | local_better | local_worse | not_available
 log_path: ""
 result_files: []
 agentfix_invoked: false
@@ -134,10 +149,15 @@ Use this shape for `baseline_run_report.md`:
 - Command source:
 - Primary metric:
 - Comparison:
+- Reference status:
 
 ## Readiness
 | Check | Status | Notes |
 |---|---|---|
+
+## Onboard Reference
+| Source | Finding | Comparable | Notes |
+|---|---|---:|---|
 
 ## Result
 | Metric | Value | Direction | Documented baseline | Comparison |
@@ -154,7 +174,7 @@ Use this shape for `baseline_run_report.md`:
 ## Decision Rules
 
 - `passed`: baseline command exits successfully and the primary metric or success criterion is captured.
-- `partial`: command succeeds but metric extraction is incomplete or comparison is unavailable.
+- `partial`: command succeeds but metric extraction is incomplete, onboard reference metadata is missing/ambiguous, or comparison is unavailable.
 - `failed`: command fails, times out, or metric comparison is clearly worse than a documented baseline beyond known tolerance.
 - `blocked`: required resources, environment, approval, or credentials are missing.
 
@@ -166,13 +186,14 @@ Do:
 - run inside the environment selected by `repo-resource-prepare`
 - preserve resource paths and scientific protocol
 - parse and record metrics
-- compare with documented baselines when available
+- compare with documented baselines recorded by `repo-onboard` or prior local baselines when available
 - invoke `agent-fix-error-recovery` automatically on failures
 
 Do not:
 
 - implement baseline execution as a new Python or TypeScript pipeline
 - install dependencies or download resources; those belong to earlier stages
+- perform broad documented-reference discovery unless the user explicitly asks to refresh onboarding
 - modify datasets, splits, metrics, model logic, or evaluation protocol without explicit approval
 - run long/full evaluation without approval
 - change command flags to make a failing result look successful
