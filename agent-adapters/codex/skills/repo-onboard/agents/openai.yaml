@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Onboard"
+  short_description: "Create or reuse repository config.yaml"
+  default_prompt: "Use $repo-onboard to inspect this cloned repository and ensure it has a local config.yaml."
