@@ -31,8 +31,8 @@ Write detailed commands, logs, evidence snippets, and diffs only into the stage 
 - `literature-search`: run external literature search with `rag_arxiv_retrieve` and return candidate papers.
 - `paper-repo-discovery`: given a specific paper title, URL, DOI, arXiv/OpenReview page, PDF, or local paper file, find the official or most credible public code repository, verify evidence, ask for confirmation when ambiguous, clone the selected repository locally, and write a resolution report.
 - `repo-onboard`: after a paper repository has been cloned or selected, act as AgentOnboard to reuse an existing root `config.yaml` or scan the repository and create one locally before resource, environment, or baseline stages.
-- `repo-resource-prepare`: after repository onboarding, act as AgentInit to create or confirm a per-repository virtual environment before resource download, then identify required datasets, models, checkpoints, caches, and path assumptions; stage all required resources under the run directory; bind repository paths when needed; and write resource manifest and acquisition reports before dependency installation.
-- `repo-environment-setup`: after resource preparation, act as AgentInit to verify the current shell is inside the repository-specific virtual environment, then infer, install, and validate runtime dependencies for the repository; ask before environment-changing dependency actions; and invoke AgentFix automatically on setup or validation failure.
+- `repo-resource-prepare`: after repository onboarding, act as AgentInit to create or confirm a new per-repository virtual environment before resource download, then identify required datasets, models, checkpoints, caches, and path assumptions; stage all required resources under the run directory; bind repository paths when needed; and write resource manifest and acquisition reports before dependency installation. Do not reuse the current active environment unless the user explicitly chose it for this repository.
+- `repo-environment-setup`: after resource preparation, act as AgentInit to verify setup commands target the repository-specific virtual environment, then infer, install, and validate runtime dependencies for the repository; ask before environment-changing dependency actions; and invoke AgentFix automatically on setup or validation failure.
 - `agent-fix-error-recovery`: automatically use this when resource download, environment setup, validation, baseline, or experiment execution fails; act as AgentFix to diagnose the error, execute common low-risk fixes, ask only before risky actions, verify the result, and write a fix report.
 
 ## Paper Literature Skills
@@ -59,9 +59,9 @@ Keep paper-to-code repository discovery and cloning in `paper-repo-discovery`.
 
 Keep cloned-repository onboarding and local `config.yaml` creation in `repo-onboard`.
 
-Keep repository-specific virtual environment creation/confirmation before downloads, required runtime resource discovery, download/copy, staging, and repo path binding in `repo-resource-prepare`.
+Keep new repository-specific virtual environment creation/confirmation before downloads, required runtime resource discovery, download/copy, staging, and repo path binding in `repo-resource-prepare`.
 
-Keep active virtual environment verification, runtime dependency planning/installation, CUDA/PyTorch/TensorFlow compatibility, and cheap validation checks in `repo-environment-setup`.
+Keep repository-specific virtual environment targeting, runtime dependency planning/installation, CUDA/PyTorch/TensorFlow compatibility, and cheap validation checks in `repo-environment-setup`.
 
 Keep failure diagnosis, safe repair decisions, user approval gates, and fix reports in `agent-fix-error-recovery`.
 

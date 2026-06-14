@@ -1,11 +1,11 @@
 ---
 name: repo-resource-prepare
-description: Create or confirm a per-repository virtual environment before resource download, then identify, acquire, and stage all required runtime resources for an onboarded research repository into a run-local resource directory. Use after repo-onboard has produced or reused config.yaml, or whenever Codex acting as AgentInit must ask for or apply a repository-specific conda/venv name, create the empty environment if approved, inspect a repository for required datasets, pretrained models, checkpoints, caches, local path assumptions, API tokens, and external URLs; download or copy required resources into the run directory; optionally bind repository paths to staged resources; and write resource_manifest.yaml plus resource_acquisition_report.md. This skill does not install experiment dependencies, run baseline evaluations, or modify experiment logic.
+description: Create or confirm a new per-repository virtual environment before resource download, then identify, acquire, and stage all required runtime resources for an onboarded research repository into a run-local resource directory. Use after repo-onboard has produced or reused config.yaml, or whenever Codex acting as AgentInit must ask for or apply a repository-specific conda/venv name, create the empty environment if approved, avoid reusing the currently active environment unless the user explicitly requested that exact environment, inspect a repository for required datasets, pretrained models, checkpoints, caches, local path assumptions, API tokens, and external URLs; download or copy required resources into the run directory; optionally bind repository paths to staged resources; and write resource_manifest.yaml plus resource_acquisition_report.md. This skill does not install experiment dependencies, run baseline evaluations, or modify experiment logic.
 ---
 
 # Repo Resource Prepare
 
-Use this skill when AgentInit receives an onboarded repository and must create or confirm the repository-specific virtual environment, then make required resources available under the run directory before dependency installation or baseline execution.
+Use this skill when AgentInit receives an onboarded repository and must create or confirm a repository-specific virtual environment that is separate from the current working environment by default, then make required resources available under the run directory before dependency installation or baseline execution.
 
 The agent does the work directly. Do not implement a separate Python or TypeScript pipeline for resource discovery or acquisition.
 
@@ -53,7 +53,10 @@ Handoff:
 2. Create or confirm the per-repository virtual environment before downloading resources.
    - Look for an existing environment choice in the user request, `<repo>/config.yaml`, or prior run reports.
    - If no environment name/path is provided, ask the user for the environment name before any resource download.
-   - Prefer one environment per cloned repository. Use a clear name such as the user-provided name, or ask before using a derived name like `paper-<repo-slug>`.
+   - Default policy is one new isolated environment per cloned repository.
+   - Do not treat the currently active shell environment as acceptable just because it can run the smoke command.
+   - Reuse an existing active environment only when the user explicitly names that exact environment as the repository environment.
+   - Use a clear name such as the user-provided name, or ask before using a derived name like `paper-<repo-slug>`.
    - If the environment already exists, record it and continue.
    - If it does not exist, ask before creating it.
    - Create only a minimal empty environment here, such as a conda environment with the selected Python version when known, or a venv path under the run directory when conda is not available. Do not install repository dependencies in this stage.
@@ -148,7 +151,8 @@ Use this shape for each item in `resource_acquisition_report.md`:
 Do:
 
 - stage every required resource into the run directory
-- create or confirm the repository-specific virtual environment before resource download
+- create or confirm a repository-specific virtual environment before resource download
+- avoid reusing the active environment unless the user explicitly chose it
 - prefer repository, paper, project page, README, and official data links over third-party mirrors
 - preserve provenance for every copied or downloaded file
 - ask before environment creation, large downloads, credentialed sources, untrusted mirrors, or path replacement
@@ -158,6 +162,7 @@ Do not:
 
 - implement resource preparation as a new Python or TypeScript pipeline
 - install experiment dependencies or run package-manager dependency installs
+- silently use the current active environment as the repository environment
 - run full training, long evaluation, or optimization
 - change dataset contents, labels, splits, metrics, or evaluation logic
 - overwrite existing repository files or directories without explicit user approval

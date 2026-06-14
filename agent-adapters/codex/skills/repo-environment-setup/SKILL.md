@@ -1,11 +1,11 @@
 ---
 name: repo-environment-setup
-description: Build and validate the runtime environment for an onboarded research repository after required resources have been staged and a per-repository virtual environment has been selected or created. Use when Codex acting as AgentInit must inspect repo docs and config.yaml, verify that the current shell is inside the repository-specific conda/venv environment from resource preparation, infer Python/package manager/CUDA/PyTorch/TensorFlow requirements, install dependencies with user approval for dependency changes, run cheap validation checks, write environment_plan.yaml and environment_setup_report.md, and automatically invoke AgentFix when setup or validation fails.
+description: Build and validate the runtime environment for an onboarded research repository after required resources have been staged and a new per-repository virtual environment has been selected or created. Use when Codex acting as AgentInit must inspect repo docs and config.yaml, verify that the shell commands target the repository-specific conda/venv environment from resource preparation, refuse to reuse the currently active environment unless the user explicitly chose that exact environment, infer Python/package manager/CUDA/PyTorch/TensorFlow requirements, install dependencies with user approval for dependency changes, run cheap validation checks, write environment_plan.yaml and environment_setup_report.md, and automatically invoke AgentFix when setup or validation fails.
 ---
 
 # Repo Environment Setup
 
-Use this skill after `repo-onboard` and `repo-resource-prepare` when AgentInit must make the cloned repository runnable inside the repository-specific virtual environment selected before resource download.
+Use this skill after `repo-onboard` and `repo-resource-prepare` when AgentInit must make the cloned repository runnable inside the repository-specific virtual environment selected before resource download. The current active shell environment is not a valid substitute unless the user explicitly selected it for this repository.
 
 The agent does the setup directly through Codex tool calls and shell commands. Do not implement a separate Python or TypeScript environment pipeline.
 
@@ -55,6 +55,7 @@ Handoff:
      - conda: compare `CONDA_DEFAULT_ENV` and/or `sys.prefix` with the expected conda env name/path.
      - venv: compare `VIRTUAL_ENV` and `sys.prefix` with the expected venv path.
    - If no expected environment is recorded, stop and ask the user to provide one or rerun `repo-resource-prepare` to create/record it.
+   - If the expected environment equals a generic workflow environment such as `autosota`, `base`, or the environment currently used to run Codex, require explicit user confirmation that this repository should reuse it. Otherwise mark the plan `blocked` and ask for a repository-specific environment name.
    - If the current shell is not inside the expected environment, do not install dependencies into the active environment.
    - Report the expected activation command and ask the user to activate it, or ask for explicit approval to run all setup and validation commands through a scoped command such as `conda run -n <env>` or `<venv>/bin/python`.
    - Mark the plan `blocked` until the environment mismatch is resolved.
@@ -185,7 +186,8 @@ Use this shape for `environment_setup_report.md`:
 Do:
 
 - plan before installing
-- verify the current shell is inside the repository-specific virtual environment before installing dependencies
+- verify commands target the repository-specific virtual environment before installing dependencies
+- reject generic/current workflow environments unless the user explicitly chose them for this repository
 - ask before changing environments or major dependencies
 - keep commands auditable and scoped to the selected environment
 - invoke `agent-fix-error-recovery` automatically after setup or validation failures
@@ -199,3 +201,4 @@ Do not:
 - modify datasets, splits, metrics, evaluation scripts, or model logic
 - delete or replace existing environments, files, or directories without explicit user approval
 - hide environment failures by changing the benchmark command or success criterion
+- silently install into or validate against the current active environment when it is not the repository-specific environment

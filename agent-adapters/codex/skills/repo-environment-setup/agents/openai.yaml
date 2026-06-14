@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Environment Setup"
   short_description: "Validate active repo env and install deps"
-  default_prompt: "Use $repo-environment-setup to verify the current shell is inside the repository-specific virtual environment, install approved dependencies, and validate before baseline execution."
+  default_prompt: "Use $repo-environment-setup to verify commands target the repository-specific virtual environment, install approved dependencies there, and validate before baseline execution."
