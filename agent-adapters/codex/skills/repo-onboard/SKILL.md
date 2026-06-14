@@ -1,11 +1,11 @@
 ---
 name: repo-onboard
-description: Inspect a cloned research code repository and ensure it has a local config.yaml for later resource, environment, and baseline stages. Use after paper-repo-discovery has cloned or selected a repository, or whenever Codex acting as AgentOnboard must reuse an existing repository config.yaml or generate one by scanning README files, scripts, dependency files, examples, and entrypoints. This skill only owns onboarding metadata and config creation; it must not download resources, install dependencies, run long evaluations, modify experiment logic, or optimize code.
+description: Inspect a cloned research code repository, discover the safest evaluation or baseline command, run a bounded baseline check when resources and environment are already available, parse and compare reported metrics or success criteria against documented baselines when possible, and ensure the repository has a local config.yaml. Use after paper-repo-discovery has cloned or selected a repository, or whenever Codex acting as AgentOnboard must reuse or generate config.yaml by scanning README files, scripts, dependency files, examples, entrypoints, and existing configs. This skill does not download resources, install dependencies, create environments, run long training/full evaluations without approval, modify experiment logic, or optimize code.
 ---
 
 # Repo Onboard
 
-Use this skill when AgentOnboard receives a cloned repository and must leave the repository with a usable local `config.yaml`.
+Use this skill when AgentOnboard receives a cloned repository and must leave the repository with a usable local `config.yaml` backed by repository evidence and, when feasible, a real baseline/smoke result.
 
 The agent does the onboarding work directly. Do not implement a separate Python or TypeScript pipeline for this logic.
 
@@ -20,6 +20,7 @@ Inputs:
 - optional paper PDF/path/URL
 - optional `paper_repo_resolution.md` from `paper-repo-discovery`
 - optional user overrides for eval command, metric, environment, or protected paths
+- optional user approval for longer baseline checks
 
 Required output:
 
@@ -31,8 +32,8 @@ Optional output:
 
 Handoff:
 
-- After `config.yaml` exists, hand off to the resource discovery/download skill.
-- Do not continue into resource download, environment setup, baseline execution, or code modification.
+- After `config.yaml` exists, hand off to the resource discovery/download skill when required resources are missing, or to the environment setup skill when dependencies are missing.
+- Do not continue into resource download, environment setup, optimization, or code modification.
 
 ## Workflow
 
@@ -53,22 +54,35 @@ Handoff:
    - Use cheap read-only commands only, such as file listing, text search, `--help`, or import-free static inspection.
    - Do not install packages, download datasets/models, start training, run long evaluation, or edit source code.
 
-4. Infer onboarding fields.
+4. Infer onboarding fields and baseline target.
    - Determine paper title/name, repository path, likely evaluation or demo command, primary metric, metric direction, setup hints, pre-eval commands, environment hints, protected paths, and confidence.
-   - If no evaluation command is evident, choose the safest documented smoke/demo/help command as a placeholder and mark confidence low.
+   - Prefer a documented evaluation command that produces the paper's primary metric.
+   - If a full evaluation is too expensive or needs unavailable resources, choose the safest documented smoke/pretrained/demo command and mark the scope clearly.
    - If no metric is evident, use an empty metric field plus warnings rather than inventing one.
+   - Search docs, logs, tables, READMEs, examples, and saved outputs for documented baseline values or expected success criteria.
    - Treat user-provided overrides as policy unless repository evidence clearly contradicts them.
 
-5. Create `<repo>/config.yaml` when missing.
+5. Run a bounded baseline check when feasible.
+   - Run only commands that are cheap, documented, and supported by currently available resources and dependencies.
+   - Run pre-eval commands only when they are local, reversible, and required for the selected eval command, such as extracting a bundled checkpoint.
+   - Do not install packages, download resources, create environments, start training, or run long/full evaluations unless the user explicitly approves.
+   - Capture stdout, stderr, return code, elapsed time, and parsed metrics.
+   - Compare parsed metrics with documented baseline values when available; otherwise record the observed result as the initial local baseline and mark comparison as `not_available`.
+   - If the command cannot run because resources or dependencies are missing, do not guess. Record `baseline_status: pending_resources`, `pending_environment`, or `blocked` with concrete next steps.
+
+6. Create or update `<repo>/config.yaml`.
    - Write a concise YAML file at the repository root.
    - Include enough fields for later agents to proceed without re-discovering the same facts.
+   - Include baseline result fields when a bounded baseline check ran.
    - Include `warnings` for uncertain or missing fields.
    - Include `evidence` entries with concrete file paths and snippets or summaries.
+   - Do not overwrite an existing root `config.yaml` without approval; if it exists, preserve user-authored values and append missing onboarding/baseline fields only when approved.
 
-6. Verify and report.
+7. Verify and report.
    - Re-read `<repo>/config.yaml` after writing.
    - Confirm the path in the final answer.
    - State whether the config was reused or generated.
+   - State whether baseline was run, passed, pending, or blocked.
    - List missing or low-confidence fields that the user should confirm before resource or environment setup.
 
 ## Config Shape
@@ -87,6 +101,18 @@ confidence: "low" # high | medium | low
 eval_command: ""
 primary_metric: ""
 metric_direction: "higher" # higher | lower | unknown
+baseline:
+  status: "not_run" # passed | failed | not_run | pending_resources | pending_environment | blocked
+  command: ""
+  pre_eval_commands: []
+  returncode:
+  metrics: {}
+  primary_metric_value:
+  documented_baseline:
+  comparison: "not_available" # matches | better | worse | not_available
+  stdout_excerpt: ""
+  stderr_excerpt: ""
+  notes: ""
 
 setup_commands: []
 pre_eval_commands: []
@@ -107,9 +133,13 @@ notes: ""
 
 ## Decision Rules
 
-- Mark `onboard_status: ready` only when an eval/demo command and metric or success criterion are supported by repository evidence.
+- Mark `onboard_status: ready` only when an eval/demo command and metric or success criterion are supported by repository evidence, and either a bounded baseline check passed or the only missing work belongs to later approved resource/environment stages.
 - Mark `onboard_status: partial` when a local config exists but important fields are missing, or when an inferred config is useful but requires user confirmation.
 - Mark `onboard_status: blocked` when the repository cannot be inspected or the requested repo path is invalid.
+- Mark `baseline.status: passed` when the selected command runs successfully and reported metrics match, improve on, or have no documented baseline to compare against.
+- Mark `baseline.status: failed` when the command runs but exits nonzero, emits invalid output, or reported metrics are clearly worse than a documented baseline beyond stated tolerance.
+- Mark `baseline.status: pending_resources` when required datasets, checkpoints, or model files are missing.
+- Mark `baseline.status: pending_environment` when dependencies, interpreters, compilers, CUDA, or package environments are missing.
 - Prefer a partial but honest config over a confident-looking invented config.
 
 ## Boundaries
@@ -119,6 +149,9 @@ Do:
 - ensure a repository-local `config.yaml` exists
 - reuse an existing root config when present
 - scan repository files to infer onboarding metadata
+- run a cheap documented baseline/smoke check when resources and environment are already available
+- parse and record metrics when the selected command prints or writes them
+- compare against documented baselines when the repository provides them
 - preserve uncertainty in `warnings`
 - write an audit-friendly `onboard_report.md` when useful
 
@@ -126,6 +159,6 @@ Do not:
 
 - implement onboarding as a new Python or TypeScript pipeline
 - overwrite an existing root `config.yaml` without user approval
-- install dependencies, download resources, run long commands, or execute training/evaluation
+- install dependencies, download resources, create environments, or run long training/full evaluation without explicit user approval
 - change source code, metrics, datasets, evaluation protocol, or generated experiment results
 - continue into resource download or environment setup
