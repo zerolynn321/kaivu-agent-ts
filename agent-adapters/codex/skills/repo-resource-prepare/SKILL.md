@@ -52,10 +52,13 @@ Handoff:
 
 2. Create or confirm the per-repository virtual environment before downloading resources.
    - Look for an existing environment choice in the user request, `<repo>/config.yaml`, or prior run reports.
-   - If no environment name/path is provided, ask the user for the environment name before any resource download.
+   - Treat the user request as stronger than old config metadata.
+   - If no environment name/path is provided by the user request, ask the user for the environment name before any resource download.
    - Default policy is one new isolated environment per cloned repository.
    - Do not treat the currently active shell environment as acceptable just because it can run the smoke command.
-   - Reuse an existing active environment only when the user explicitly names that exact environment as the repository environment.
+   - Do not accept old config metadata that names a generic workflow environment such as `autosota`, `base`, or the current Codex/driver environment.
+   - Reuse an existing environment only when the current user request explicitly names that exact environment as the repository environment.
+   - If config or prior reports name `autosota`, `base`, or the active Codex/driver environment and the current request did not explicitly approve reuse, mark the stage `blocked`, ask for a new repository-specific environment name, and do not proceed to resource staging.
    - Use a clear name such as the user-provided name, or ask before using a derived name like `paper-<repo-slug>`.
    - If the environment already exists, record it and continue.
    - If it does not exist, ask before creating it.
@@ -124,7 +127,7 @@ resources:
     acquired_path: ""
     expected_size_bytes:
     required: true
-    status: "discovered" # discovered | available | missing | blocked | failed
+    status: "discovered" # discovered | available | missing | blocked | blocked_environment | failed
     notes: ""
 unresolved_requirements: []
 repo_assumptions: []
@@ -143,6 +146,7 @@ Use this shape for each item in `resource_acquisition_report.md`:
 - `available`: resource exists under `<run_dir>/resources/` and any required repo path binding is done or documented.
 - `missing`: resource is required but no local copy or direct source was found.
 - `blocked`: resource requires user action, credentials, license acceptance, huge download approval, or source disambiguation.
+- `blocked_environment`: a repository-specific environment is not explicitly selected, or old metadata points to a generic/current workflow environment without explicit reuse approval.
 - `failed`: attempted copy/download failed; include the command or URL and the error summary.
 - Optional resources may remain `discovered` or `missing` without blocking the handoff.
 
