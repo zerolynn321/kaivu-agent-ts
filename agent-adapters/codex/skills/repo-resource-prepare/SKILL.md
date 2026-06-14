@@ -9,6 +9,10 @@ Use this skill when AgentInit receives an onboarded repository and must create o
 
 The agent does the work directly. Do not implement a separate Python or TypeScript pipeline for resource discovery or acquisition.
 
+## Terminal Output
+
+Keep terminal-facing progress concise. Report only stage status, key decisions, artifact paths, resource availability, blockers, and next steps. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed commands, sources, logs, and evidence in the manifest/report files.
+
 ## Agent Contract
 
 Role: `AgentInit`

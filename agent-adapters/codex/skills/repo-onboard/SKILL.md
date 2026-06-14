@@ -9,6 +9,10 @@ Use this skill when AgentOnboard receives a cloned repository and must leave the
 
 The agent does the onboarding work directly. Do not implement a separate Python or TypeScript pipeline for this logic.
 
+## Terminal Output
+
+Keep terminal-facing progress concise. Report only stage status, key decisions, artifact paths, baseline status, blockers, and next steps. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed evidence, command output, and config details in `config.yaml` or `onboard_report.md`.
+
 ## Agent Contract
 
 Role: `AgentOnboard`

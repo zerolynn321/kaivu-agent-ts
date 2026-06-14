@@ -11,6 +11,10 @@ The user should not need to ask for this skill explicitly during the paper-repo 
 
 The agent does the diagnosis and repair directly. Do not implement a separate Python or TypeScript repair pipeline.
 
+## Terminal Output
+
+Keep terminal-facing progress concise. Report only the failure category, whether a safe fix was applied, whether user approval is needed, verification status, artifact path, and next step. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed error excerpts, commands, and logs in the fix report.
+
 ## Agent Contract
 
 Role: `AgentFix`

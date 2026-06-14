@@ -13,7 +13,16 @@ Install one agent package at a time. For Codex, install the skill directories un
 
 ## Terminal Output Style
 
-When reporting progress in the Codex terminal, show only key stage progress and final results. Do not paste detailed command transcripts, full command lists, or file content diffs unless the user explicitly asks for them. Summarize what changed at the artifact level, such as file paths created or status fields updated.
+When reporting progress in the Codex terminal, show only key stage progress and final results. Do not paste detailed command transcripts, command strings, full command lists, stdout/stderr blocks, file content snippets, or file content diffs unless the user explicitly asks for them. Summarize what changed at the artifact level, such as file paths created, status fields updated, resources available, environment ready, or blockers found.
+
+For the paper-repo workflow, keep terminal messages in this shape:
+
+- stage started or completed
+- key decision or user approval needed
+- artifact path created or updated
+- final status and next step
+
+Write detailed commands, logs, evidence snippets, and diffs only into the stage report files. If the Codex UI itself displays tool calls such as `Ran ...` or `Edited ...`, do not repeat those details in model-authored progress or final messages.
 
 ## General Research Skills
 

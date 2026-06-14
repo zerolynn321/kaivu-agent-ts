@@ -9,6 +9,10 @@ Use this skill after `repo-onboard` and `repo-resource-prepare` when AgentInit m
 
 The agent does the setup directly through Codex tool calls and shell commands. Do not implement a separate Python or TypeScript environment pipeline.
 
+## Terminal Output
+
+Keep terminal-facing progress concise. Report only stage status, key decisions, artifact paths, environment readiness, blockers, and next steps. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed commands, validation output, logs, and evidence in the environment plan/report files.
+
 ## Agent Contract
 
 Role: `AgentInit`
