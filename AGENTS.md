@@ -19,6 +19,7 @@ Install one agent package at a time. For Codex, install the skill directories un
 - `paper-repo-discovery`: given a specific paper title, URL, DOI, arXiv/OpenReview page, PDF, or local paper file, find the official or most credible public code repository, verify evidence, ask for confirmation when ambiguous, clone the selected repository locally, and write a resolution report.
 - `repo-onboard`: after a paper repository has been cloned or selected, act as AgentOnboard to reuse an existing root `config.yaml` or scan the repository and create one locally before resource, environment, or baseline stages.
 - `repo-resource-prepare`: after repository onboarding, act as AgentInit to identify required datasets, models, checkpoints, caches, and path assumptions; stage all required resources under the run directory; bind repository paths when needed; and write resource manifest and acquisition reports before environment setup.
+- `agent-fix-error-recovery`: automatically use this when resource download, environment setup, validation, baseline, or experiment execution fails; act as AgentFix to diagnose the error, execute common low-risk fixes, ask only before risky actions, verify the result, and write a fix report.
 
 ## Paper Literature Skills
 
@@ -45,6 +46,10 @@ Keep paper-to-code repository discovery and cloning in `paper-repo-discovery`.
 Keep cloned-repository onboarding and local `config.yaml` creation in `repo-onboard`.
 
 Keep required runtime resource discovery, download/copy, staging, and repo path binding in `repo-resource-prepare`.
+
+Keep failure diagnosis, safe repair decisions, user approval gates, and fix reports in `agent-fix-error-recovery`.
+
+Invoke `agent-fix-error-recovery` automatically after a failed paper-repo workflow command. Do not ask the user whether to diagnose or run low-risk checks; ask only before applying medium/high-risk fixes, large downloads, dependency/environment changes, protocol-affecting edits, or destructive operations.
 
 Keep per-paper source understanding in `paper-digest`.
 
