@@ -19,6 +19,7 @@ Install one agent package at a time. For Codex, install the skill directories un
 - `paper-repo-discovery`: given a specific paper title, URL, DOI, arXiv/OpenReview page, PDF, or local paper file, find the official or most credible public code repository, verify evidence, ask for confirmation when ambiguous, clone the selected repository locally, and write a resolution report.
 - `repo-onboard`: after a paper repository has been cloned or selected, act as AgentOnboard to reuse an existing root `config.yaml` or scan the repository and create one locally before resource, environment, or baseline stages.
 - `repo-resource-prepare`: after repository onboarding, act as AgentInit to identify required datasets, models, checkpoints, caches, and path assumptions; stage all required resources under the run directory; bind repository paths when needed; and write resource manifest and acquisition reports before environment setup.
+- `repo-environment-setup`: after resource preparation, act as AgentInit to infer, create, install, and validate the runtime environment for the repository; ask before environment-changing dependency actions; and invoke AgentFix automatically on setup or validation failure.
 - `agent-fix-error-recovery`: automatically use this when resource download, environment setup, validation, baseline, or experiment execution fails; act as AgentFix to diagnose the error, execute common low-risk fixes, ask only before risky actions, verify the result, and write a fix report.
 
 ## Paper Literature Skills
@@ -46,6 +47,8 @@ Keep paper-to-code repository discovery and cloning in `paper-repo-discovery`.
 Keep cloned-repository onboarding and local `config.yaml` creation in `repo-onboard`.
 
 Keep required runtime resource discovery, download/copy, staging, and repo path binding in `repo-resource-prepare`.
+
+Keep runtime environment planning, dependency installation, conda/venv selection, CUDA/PyTorch/TensorFlow compatibility, and cheap validation checks in `repo-environment-setup`.
 
 Keep failure diagnosis, safe repair decisions, user approval gates, and fix reports in `agent-fix-error-recovery`.
 

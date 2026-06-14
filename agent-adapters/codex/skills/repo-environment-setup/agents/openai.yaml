@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Environment Setup"
+  short_description: "Build and validate repo runtime environments"
+  default_prompt: "Use $repo-environment-setup to build the runtime environment for this onboarded repository and validate it before baseline execution."
