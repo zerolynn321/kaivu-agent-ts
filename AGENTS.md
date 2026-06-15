@@ -24,6 +24,15 @@ For the paper-repo workflow, keep terminal messages in this shape:
 
 Write detailed commands, logs, evidence snippets, and diffs only into the stage report files. If the Codex UI itself displays tool calls such as `Ran ...` or `Edited ...`, do not repeat those details in model-authored progress or final messages.
 
+For the final paper-repo workflow summary, report only:
+
+- cloned repository name and local path
+- why that repository was selected
+- resources downloaded, copied, or reused and where they were staged
+- dependencies installed and the target environment
+- baseline result and reference comparison
+- whether the repository is ready for the next optimization stage
+
 ## General Research Skills
 
 - `problem-frame`: clarify broad or ambiguous requests before literature review, paper wiki work, hypothesis generation, experiment planning, or research-oriented implementation.
@@ -33,7 +42,7 @@ Write detailed commands, logs, evidence snippets, and diffs only into the stage 
 - `repo-onboard`: after a paper repository has been cloned or selected, act as AgentOnboard to reuse an existing root `config.yaml` or scan the repository and create one locally before resource, environment, or baseline stages; this stage owns documented baseline/reference discovery.
 - `repo-resource-prepare`: after repository onboarding, act as AgentInit to ask whether to reuse the current environment or create a new repository-specific environment before resource download, then identify required datasets, models, checkpoints, caches, and path assumptions; stage all required resources under the run directory; bind repository paths when needed; and write resource manifest and acquisition reports before dependency installation. Do not proceed from old `config.yaml` environment metadata alone.
 - `repo-environment-setup`: after resource preparation, act as AgentInit to verify setup commands target the environment selected or created by `repo-resource-prepare`, then infer, install, and validate runtime dependencies only inside that environment; ask before environment-changing dependency actions; and invoke AgentFix automatically on setup or validation failure.
-- `repo-baseline-run`: after resource and environment setup are ready, act as AgentBaseline to interactively run the configured baseline/eval command inside the prepared environment, parse metrics, compare against references recorded by `repo-onboard`, write baseline reports, and invoke AgentFix automatically on execution or metric failures.
+- `repo-baseline-run`: after resource and environment setup are ready, act as AgentInit to interactively run the configured baseline/eval command inside the prepared environment as the final initialization readiness check, parse metrics, compare against references recorded by `repo-onboard`, write baseline reports, and invoke AgentFix automatically on execution or metric failures.
 - `agent-fix-error-recovery`: automatically use this when resource download, environment setup, validation, baseline, or experiment execution fails; act as AgentFix to diagnose the error, execute common low-risk fixes, ask only before risky actions, verify the result, and write a fix report.
 
 ## Paper Literature Skills
@@ -67,6 +76,8 @@ Keep the explicit environment choice before downloads, required runtime resource
 Keep repository-specific virtual environment targeting, runtime dependency planning/installation, CUDA/PyTorch/TensorFlow compatibility, and cheap validation checks in `repo-environment-setup`.
 
 Keep baseline execution, metric parsing, comparison against onboard-recorded references, and baseline reports in `repo-baseline-run`.
+
+Treat `repo-resource-prepare`, `repo-environment-setup`, and `repo-baseline-run` as the three AgentInit skills. Do not introduce a separate AgentBaseline role unless the user explicitly changes this architecture.
 
 Keep failure diagnosis, safe repair decisions, user approval gates, and fix reports in `agent-fix-error-recovery`.
 

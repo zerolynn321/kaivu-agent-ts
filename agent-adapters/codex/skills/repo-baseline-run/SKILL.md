@@ -1,11 +1,11 @@
 ---
 name: repo-baseline-run
-description: Interactively run and record the configured baseline or evaluation command for a prepared research repository. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have produced config.yaml, resource manifests, and a ready environment; when Codex acting as AgentBaseline must verify readiness, read documented baseline/reference values already identified by repo-onboard, ask before long or risky baseline execution, run the baseline only inside the environment selected by resource preparation, parse primary metrics, compare with onboard-recorded baselines or prior local baselines when available, write baseline_metrics.yaml and baseline_run_report.md, and automatically invoke AgentFix when baseline execution, metric parsing, path binding, or runtime validation fails.
+description: Interactively run and record the configured baseline or evaluation command for a prepared research repository as the final AgentInit readiness check. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have produced config.yaml, resource manifests, and a ready environment; when Codex acting as AgentInit must verify baseline readiness, read documented baseline/reference values already identified by repo-onboard, ask before long or risky baseline execution, run the baseline only inside the environment selected by resource preparation, parse primary metrics, compare with onboard-recorded baselines or prior local baselines when available, write baseline_metrics.yaml and baseline_run_report.md, and automatically invoke AgentFix when baseline execution, metric parsing, path binding, or runtime validation fails.
 ---
 
 # Repo Baseline Run
 
-Use this skill after resource and environment preparation when AgentBaseline must run the repository's configured baseline/eval command and record the result.
+Use this skill after resource and environment preparation when AgentInit must run the repository's configured baseline/eval command and record whether the repository is ready for optimization.
 
 The agent runs the baseline directly through Codex tool calls. Do not implement a separate Python or TypeScript baseline runner.
 
@@ -13,9 +13,11 @@ The agent runs the baseline directly through Codex tool calls. Do not implement 
 
 Keep terminal-facing progress concise. Report only readiness status, approval needs, baseline result, metric summary, artifact paths, blockers, and next step. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed commands, logs, metric evidence, and comparisons in the baseline report.
 
+At final handoff, state whether the repository is ready for optimization. Include only the baseline result, reference comparison, artifact paths, remaining blockers, and next optimization readiness status.
+
 ## Agent Contract
 
-Role: `AgentBaseline`
+Role: `AgentInit`
 
 Inputs:
 
