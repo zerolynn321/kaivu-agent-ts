@@ -1,0 +1,7 @@
+interface:
+  display_name: "AgentFix Knowledge Base"
+  short_description: "Reusable error cases for AgentFix."
+  default_prompt: "Use $agent-fix-knowledge-base to consult prior fixes before proposing an AgentFix repair."
+
+policy:
+  allow_implicit_invocation: true

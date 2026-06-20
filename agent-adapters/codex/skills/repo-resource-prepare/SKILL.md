@@ -51,9 +51,11 @@ Handoff:
    - Create `<run_dir>/resources/` if resources must be staged and the path is inside the user-approved workspace/run root.
 
 2. Ask for the environment decision before downloading resources.
+   - This is a hard gate: do not download, copy, stage, or bind resources before the current user request has explicitly chosen the environment strategy.
+   - Do not start dependency downloads at all in this skill; dependency installation belongs to `repo-environment-setup` after the same environment choice has been recorded.
    - Treat the current user request as the only source of environment approval for this run.
    - Do not treat `<repo>/config.yaml`, prior reports, or the active shell environment as approval to proceed.
-   - If the current request does not explicitly say to reuse the current environment and does not provide a new environment name/path, stop before resource discovery or staging and ask:
+   - If the current request does not explicitly say to reuse the current environment and does not provide a new environment name/path, stop before resource discovery, staging, copy, download, extraction, path binding, package-manager calls, or other network/resource actions and ask:
      - reuse the current active environment for this repository, or
      - create a new repository-specific environment; if so, what name/path?
    - If the user chooses current-env reuse, record the active manager/name/path and continue.
@@ -153,6 +155,7 @@ Do:
 - stage every required resource into the run directory
 - ask whether to reuse the current environment or create a new repository-specific environment before resource download
 - proceed only after the current user request makes that choice explicit
+- block all resource copy/download/staging and all dependency download/install attempts until that environment choice is explicit
 - prefer repository, paper, project page, README, and official data links over third-party mirrors
 - preserve provenance for every copied or downloaded file
 - ask before environment creation, large downloads, credentialed sources, untrusted mirrors, or path replacement
@@ -163,6 +166,7 @@ Do not:
 - implement resource preparation as a new Python or TypeScript pipeline
 - install experiment dependencies or run package-manager dependency installs
 - silently use the current active environment or old config metadata as the repository environment
+- download, copy, stage, extract, or bind resources before the current user request has made the environment choice explicit
 - run full training, long evaluation, or optimization
 - change dataset contents, labels, splits, metrics, or evaluation logic
 - overwrite existing repository files or directories without explicit user approval

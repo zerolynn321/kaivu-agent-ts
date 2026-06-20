@@ -1,6 +1,6 @@
 ---
 name: repo-environment-setup
-description: Build and validate the runtime environment for an onboarded research repository after required resources have been staged and a new per-repository virtual environment has been selected or created. Use when Codex acting as AgentInit must inspect repo docs and config.yaml, verify that the shell commands target the repository-specific conda/venv environment from resource preparation, refuse to reuse the currently active environment unless the user explicitly chose that exact environment, infer Python/package manager/CUDA/PyTorch/TensorFlow requirements, install dependencies with user approval for dependency changes, run cheap validation checks, write environment_plan.yaml and environment_setup_report.md, and automatically invoke AgentFix when setup or validation fails.
+description: Build and validate the runtime environment for an onboarded research repository after required resources have been staged and a new per-repository virtual environment has been selected or created. Use when Codex acting as AgentInit must inspect repo docs and config.yaml, verify that shell commands target the repository-specific conda/venv environment from resource preparation, prefer fast safe package mirrors such as Tsinghua mirrors when appropriate without changing package versions or global config silently, refuse to reuse the currently active environment unless the user explicitly chose that exact environment, infer Python/package manager/CUDA/PyTorch/TensorFlow requirements, install dependencies with user approval for dependency changes, run cheap validation checks, write environment_plan.yaml and environment_setup_report.md, and automatically invoke AgentFix when setup or validation fails.
 ---
 
 # Repo Environment Setup
@@ -8,6 +8,8 @@ description: Build and validate the runtime environment for an onboarded researc
 Use this skill after `repo-onboard` and `repo-resource-prepare` when AgentInit must make the cloned repository runnable inside the repository-specific virtual environment selected before resource download. The current active shell environment is not a valid substitute unless the user explicitly selected it for this repository.
 
 The agent does the setup directly through Codex tool calls and shell commands. Do not implement a separate Python or TypeScript environment pipeline.
+
+For common virtual environment creation, activation, mirror, dependency resolver, CUDA/framework, NumPy ABI, and validation-command failures, consult `repo-env-troubleshooting` as a reference before escalating risky fixes.
 
 ## Terminal Output
 
@@ -24,7 +26,7 @@ Inputs:
 - run directory
 - optional `<run_dir>/resource_manifest.yaml`
 - optional `<run_dir>/resource_acquisition_report.md`
-- optional user policy: environment name, package manager preference, CUDA/GPU target, allowed installs, maximum setup time
+- optional user policy: environment name, package manager preference, CUDA/GPU target, allowed installs, maximum setup time, package mirror preference
 
 Required outputs:
 
@@ -59,6 +61,7 @@ Handoff:
    - If the current shell is not inside the expected environment, do not install dependencies into the active environment.
    - Report the expected activation command and ask the user to activate it, or ask for explicit approval to run all setup and validation commands through a scoped command such as `conda run -n <env>` or `<venv>/bin/python`.
    - Mark the plan `blocked` until the environment mismatch is resolved.
+   - If the mismatch or environment creation behavior is unclear, consult `repo-env-troubleshooting` before proposing a fix.
 
 3. Infer environment requirements.
    - Identify Python version, package manager, dependency files, setup commands, validation commands, and command-scoped environment variables.
@@ -66,23 +69,34 @@ Handoff:
    - Prefer explicit repository documentation over generic compatibility guesses.
    - Prefer the smallest environment that can run the configured eval/smoke command.
    - If the repository requires old frameworks, preserve that evidence instead of upgrading by default.
+   - Infer a safe install-source policy:
+     - Prefer fast China-accessible mirrors when they are compatible with the required packages, such as Tsinghua PyPI (`https://pypi.tuna.tsinghua.edu.cn/simple`) for pip installs.
+     - For conda installs, prefer user-approved Tsinghua/China-accessible channels or command-scoped channel URLs when official channels are slow or unreachable.
+     - Do not change package names, versions, CUDA build selectors, or framework wheel indexes only for speed.
+     - Use official package indexes/selectors when required for correctness, especially for PyTorch/TensorFlow/JAX CUDA wheels or project-documented install commands.
+     - Do not modify global pip/conda configuration unless the user explicitly approves that configuration change.
 
 4. Write the plan before installing.
    - Write `<run_dir>/environment_plan.yaml`.
-   - Include `status: planned` or `blocked`, the expected environment name/path, active environment check result, install commands, validation commands, evidence, assumptions, risks, and approval requirements.
+   - Include `status: planned` or `blocked`, the expected environment name/path, active environment check result, install commands, validation commands, mirror/install-source policy, evidence, assumptions, risks, and approval requirements.
    - Present the plan before creating environments, installing packages, upgrading packages, or changing CUDA/PyTorch/TensorFlow/JAX.
 
 5. Ask before environment-changing actions.
    - Ask before creating, deleting, replacing, or switching away from the repository-specific conda/venv environment.
    - Ask before installing or upgrading dependencies.
    - Ask before installing major frameworks such as PyTorch, TensorFlow, JAX, CUDA toolkits, faiss, RAPIDS, AutoGluon, or system packages.
-   - Ask before using non-official mirrors, editable installs that modify the repo, long source builds, or commands expected to take a long time.
+   - Ask before using non-official mirrors unless the user has already requested or approved a fast mirror policy for this setup.
+   - Ask before changing global pip/conda configuration, using editable installs that modify the repo, long source builds, or commands expected to take a long time.
    - If the user has already approved a specific environment policy in this turn, apply it without asking repeatedly.
 
 6. Execute approved setup.
    - Use the package manager implied by the repo when clear; otherwise prefer conda for Python/CUDA-heavy ML repos and venv/pip for simple CPU-only repos.
    - All dependency installation commands must install into the environment selected or created by `repo-resource-prepare`.
    - Never install dependencies into any other environment unless the user explicitly changes the environment policy.
+   - Prefer command-scoped mirror flags over global configuration changes:
+     - pip: prefer per-command `-i https://pypi.tuna.tsinghua.edu.cn/simple` when a fast China-accessible mirror is appropriate.
+     - conda: prefer command-scoped channels or an environment-local approach when possible; ask before editing global `.condarc`.
+   - Fall back to official indexes/channels when a mirror lacks required packages, serves incompatible builds, or conflicts with documented framework install selectors.
    - Keep cache/output directories under the run directory when practical.
    - Keep commands scoped to the selected environment.
    - Record every executed command and result in the setup report.
@@ -97,6 +111,7 @@ Handoff:
      - command `--help`, dry-run, smoke test, or the configured validation command when documented
    - Do not run long training or full evaluation unless the user explicitly approves.
    - If validation fails, automatically invoke `agent-fix-error-recovery`.
+   - For validation failures that look like known environment conventions, such as absl `--help` returning nonzero after printing valid help, consult `repo-env-troubleshooting` and record the classification before invoking broad fixes.
 
 8. Update reports.
    - Write `<run_dir>/environment_setup_report.md`.
@@ -125,6 +140,12 @@ environment:
   framework_version: ""
 install_commands: []
 validation_commands: []
+install_source_policy:
+  prefer_fast_mirrors: true
+  pip_index_url: "https://pypi.tuna.tsinghua.edu.cn/simple"
+  conda_channels: []
+  global_config_changes_allowed: false
+  notes: ""
 env_vars: {}
 evidence:
   - file: ""
@@ -190,8 +211,10 @@ Do:
 - plan before installing
 - verify commands target the repository-specific virtual environment before installing dependencies
 - install all dependencies only into the environment selected or created by `repo-resource-prepare`
+- prefer fast safe package mirrors such as Tsinghua mirrors when appropriate, using command-scoped options when possible
 - reject generic/current workflow environments unless the user explicitly chose them for this repository
 - ask before changing environments or major dependencies
+- ask before changing global pip/conda mirror configuration
 - keep commands auditable and scoped to the selected environment
 - invoke `agent-fix-error-recovery` automatically after setup or validation failures
 - preserve scientific protocol and resource provenance
@@ -206,3 +229,5 @@ Do not:
 - hide environment failures by changing the benchmark command or success criterion
 - silently install into or validate against the current active environment when it is not the repository-specific environment
 - install dependencies into any environment other than the one selected during `repo-resource-prepare` without explicit user approval
+- change package versions, framework wheel indexes, CUDA selectors, or experiment requirements only to make downloads faster
+- silently modify global pip, conda, or system package-manager configuration

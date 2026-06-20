@@ -44,6 +44,8 @@ For the final paper-repo workflow summary, report only:
 - `repo-environment-setup`: after resource preparation, act as AgentInit to verify setup commands target the environment selected or created by `repo-resource-prepare`, then infer, install, and validate runtime dependencies only inside that environment; ask before environment-changing dependency actions; and invoke AgentFix automatically on setup or validation failure.
 - `repo-baseline-run`: after resource and environment setup are ready, act as AgentInit to interactively run the configured baseline/eval command inside the prepared environment as the final initialization readiness check, parse metrics, compare against references recorded by `repo-onboard`, write baseline reports, and invoke AgentFix automatically on execution or metric failures.
 - `agent-fix-error-recovery`: automatically use this when resource download, environment setup, validation, baseline, or experiment execution fails; act as AgentFix to diagnose the error, execute common low-risk fixes, ask only before risky actions, verify the result, and write a fix report.
+- `repo-env-troubleshooting`: reference this from AgentInit or AgentFix when new virtual environments, dependency installs, mirrors, CUDA/framework compatibility, NumPy ABI, or environment validation produce common failures; it is advisory and does not own installation.
+- `agent-fix-knowledge-base`: reference this from AgentFix for repeated or difficult errors and compact reusable lessons; promote new shared cases only when the user explicitly asks.
 
 ## Paper Literature Skills
 
@@ -75,11 +77,15 @@ Keep the explicit environment choice before downloads, required runtime resource
 
 Keep repository-specific virtual environment targeting, runtime dependency planning/installation, CUDA/PyTorch/TensorFlow compatibility, and cheap validation checks in `repo-environment-setup`.
 
+Keep common virtual environment and environment setup troubleshooting guidance in `repo-env-troubleshooting`.
+
 Keep baseline execution, metric parsing, comparison against onboard-recorded references, and baseline reports in `repo-baseline-run`.
 
 Treat `repo-resource-prepare`, `repo-environment-setup`, and `repo-baseline-run` as the three AgentInit skills. Do not introduce a separate AgentBaseline role unless the user explicitly changes this architecture.
 
 Keep failure diagnosis, safe repair decisions, user approval gates, and fix reports in `agent-fix-error-recovery`.
+
+Keep reusable AgentFix error lessons and reference notes in `agent-fix-knowledge-base`; do not use prior lessons to bypass user approval or environment-choice gates.
 
 Invoke `agent-fix-error-recovery` automatically after a failed paper-repo workflow command. Do not ask the user whether to diagnose or run low-risk checks; ask only before applying medium/high-risk fixes, large downloads, dependency/environment changes, protocol-affecting edits, or destructive operations.
 

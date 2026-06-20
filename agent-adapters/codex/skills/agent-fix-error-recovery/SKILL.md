@@ -11,6 +11,8 @@ The user should not need to ask for this skill explicitly during the paper-repo 
 
 The agent does the diagnosis and repair directly. Do not implement a separate Python or TypeScript repair pipeline.
 
+For difficult or repeated failures, consult `agent-fix-knowledge-base` before proposing a repair. For virtual environment, dependency, mirror, CUDA/framework, NumPy ABI, or validation-command failures, also consult `repo-env-troubleshooting` as a focused reference.
+
 ## Terminal Output
 
 Keep terminal-facing progress concise. Report only the failure category, whether a safe fix was applied, whether user approval is needed, verification status, artifact path, and next step. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed error excerpts, commands, and logs in the fix report.
@@ -43,6 +45,7 @@ Outputs:
    - Identify the failed stage, command, working directory, expected output, return code, and relevant log excerpt.
    - Read nearby config/report files only as needed: `config.yaml`, `resource_manifest.yaml`, `resource_acquisition_report.md`, `environment_plan.yaml`, `onboard_report.md`, and previous fix notes.
    - Preserve the original error text in the report.
+   - If the failure is non-trivial or resembles a prior repeated issue, consult `agent-fix-knowledge-base` and record any matched case in the report.
 
 2. Classify the failure.
    - Use one primary category:
@@ -83,6 +86,7 @@ Outputs:
 6. Report.
    - Write or update an `agent_fix_report.md` in the run directory when a run directory exists.
    - Include diagnosis, risk level, automatic actions, proposed actions needing approval, verification result, and next step.
+   - If the fix resolves a difficult reusable issue, append a compact lesson to the active run report. Promote it to the shared `agent-fix-knowledge-base` only when the user explicitly asks.
 
 ## Automatic-Safe Fixes
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Repo Environment Troubleshooting"
+  short_description: "Common fixes for repo virtualenv and dependency setup failures."
+  default_prompt: "Use -env-troubleshooting to diagnose common virtual environment and dependency setup issues for this repository."
