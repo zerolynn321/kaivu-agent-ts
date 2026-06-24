@@ -38,6 +38,9 @@ For the final paper-repo workflow summary, report only:
 - `problem-frame`: clarify broad or ambiguous requests before literature review, paper wiki work, hypothesis generation, experiment planning, or research-oriented implementation.
 - `literature-review`: frame research questions, generate and validate literature search queries, search external literature sources, and return ranked candidate papers.
 - `literature-search`: run external literature search with `rag_arxiv_retrieve` and return candidate papers.
+- `research-scope-planning`: given an open-ended research need rather than a specific paper, act as AgentResearchFrame to normalize the research question, identify task and benchmark scope, record constraints and exclusions, and write `research_scope.yaml` plus `research_scope_report.md`.
+- `experiment-repo-selection`: after research scope planning, act as AgentSelector to find and compare candidate experiment repositories, evaluate benchmark fit and runnable risk, choose `single-repo`, `primary-repo-with-references`, or `composed-workspace`, and write `experiment_base_plan.yaml` plus `repo_selection_report.md`.
+- `experiment-workspace-assembly`: after repository selection, act as AgentResource to clone or reuse the selected primary repository and optional reference repositories, verify remotes and roles, write `workspace_manifest.yaml` plus `workspace_assembly_report.md`, and hand the primary runnable repo to `repo-onboard`.
 - `paper-repo-discovery`: given a specific paper title, URL, DOI, arXiv/OpenReview page, PDF, or local paper file, find the official or most credible public code repository, verify evidence, ask for confirmation when ambiguous, clone the selected repository locally, and write a resolution report.
 - `repo-onboard`: after a paper repository has been cloned or selected, act as AgentOnboard to reuse an existing root `config.yaml` or scan the repository and create one locally before resource, environment, or baseline stages; this stage owns documented baseline/reference discovery.
 - `repo-resource-prepare`: after repository onboarding, act as AgentInit to ask whether to reuse the current environment or create a new repository-specific environment before resource download, then identify required datasets, models, checkpoints, caches, and path assumptions; stage all required resources under the run directory; bind repository paths when needed; and write resource manifest and acquisition reports before dependency installation. Do not proceed from old `config.yaml` environment metadata alone.
@@ -67,6 +70,14 @@ Use `paper-ingest-batch` as the orchestration pattern when multiple papers are p
 
 ## Boundary
 
+Use `research-scope-planning` first when the user gives a research need, topic, desired comparison, or benchmark-seeking request instead of one specific paper.
+
+Keep broad research-demand scoping, method-family discovery, benchmark-family discovery, constraints, exclusions, and success criteria in `research-scope-planning`.
+
+Keep candidate repository search, benchmark-fit comparison, runnable-risk assessment, and experiment-base shape selection in `experiment-repo-selection`.
+
+Keep local clone/reuse, multi-repository workspace layout, remote verification, and primary runnable repository handoff in `experiment-workspace-assembly`.
+
 Keep paper-to-code repository discovery and cloning in `paper-repo-discovery`.
 
 Keep cloned-repository onboarding and local `config.yaml` creation in `repo-onboard`.
@@ -82,6 +93,28 @@ Keep common virtual environment and environment setup troubleshooting guidance i
 Keep baseline execution, metric parsing, comparison against onboard-recorded references, and baseline reports in `repo-baseline-run`.
 
 Treat `repo-resource-prepare`, `repo-environment-setup`, and `repo-baseline-run` as the three AgentInit skills. Do not introduce a separate AgentBaseline role unless the user explicitly changes this architecture.
+
+For open-ended research-demand workflows, use this order:
+
+```text
+research-scope-planning
+  -> experiment-repo-selection
+  -> experiment-workspace-assembly
+  -> repo-onboard
+  -> repo-resource-prepare
+  -> repo-environment-setup
+  -> repo-baseline-run
+```
+
+For one specific paper, keep the shorter existing order:
+
+```text
+paper-repo-discovery
+  -> repo-onboard
+  -> repo-resource-prepare
+  -> repo-environment-setup
+  -> repo-baseline-run
+```
 
 Keep failure diagnosis, safe repair decisions, user approval gates, and fix reports in `agent-fix-error-recovery`.
 

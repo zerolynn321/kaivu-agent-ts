@@ -1,0 +1,4 @@
+interface:
+  display_name: "Experiment Workspace Assembly"
+  short_description: "Clone and assemble the chosen experiment base"
+  default_prompt: "Use $experiment-workspace-assembly to materialize the selected experiment base as a local workspace."
