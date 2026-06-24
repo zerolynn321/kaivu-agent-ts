@@ -38,6 +38,7 @@ For the final paper-repo workflow summary, report only:
 - `problem-frame`: clarify broad or ambiguous requests before literature review, paper wiki work, hypothesis generation, experiment planning, or research-oriented implementation.
 - `literature-review`: frame research questions, generate and validate literature search queries, search external literature sources, and return ranked candidate papers.
 - `literature-search`: run external literature search with `rag_arxiv_retrieve` and return candidate papers.
+- `research-experiment-init`: natural-language entrypoint for open-ended research-demand experiment initialization; act as AgentCoordinator to route through research scope planning, repository selection, workspace assembly, repository onboarding, resource preparation, environment setup, baseline run, and error recovery using the delegated skills and their artifacts.
 - `research-scope-planning`: given an open-ended research need rather than a specific paper, act as AgentResearchFrame to normalize the research question, identify task and benchmark scope, record constraints and exclusions, and write `research_scope.yaml` plus `research_scope_report.md`.
 - `experiment-repo-selection`: after research scope planning, act as AgentSelector to find and compare candidate experiment repositories, evaluate benchmark fit and runnable risk, choose `single-repo`, `primary-repo-with-references`, or `composed-workspace`, and write `experiment_base_plan.yaml` plus `repo_selection_report.md`.
 - `experiment-workspace-assembly`: after repository selection, act as AgentResource to clone or reuse the selected primary repository and optional reference repositories, verify remotes and roles, write `workspace_manifest.yaml` plus `workspace_assembly_report.md`, and hand the primary runnable repo to `repo-onboard`.
@@ -70,7 +71,11 @@ Use `paper-ingest-batch` as the orchestration pattern when multiple papers are p
 
 ## Boundary
 
+Use `research-experiment-init` as the natural-language entrypoint when the user asks to turn a research need into a suitable open-source experiment repository, benchmark choice, local runnable baseline, or full initialization workflow.
+
 Use `research-scope-planning` first when the user gives a research need, topic, desired comparison, or benchmark-seeking request instead of one specific paper.
+
+Keep workflow classification, stage sequencing, artifact readiness checks, and cross-stage approval gates in `research-experiment-init`.
 
 Keep broad research-demand scoping, method-family discovery, benchmark-family discovery, constraints, exclusions, and success criteria in `research-scope-planning`.
 
@@ -97,7 +102,8 @@ Treat `repo-resource-prepare`, `repo-environment-setup`, and `repo-baseline-run`
 For open-ended research-demand workflows, use this order:
 
 ```text
-research-scope-planning
+research-experiment-init
+  -> research-scope-planning
   -> experiment-repo-selection
   -> experiment-workspace-assembly
   -> repo-onboard
