@@ -1,6 +1,6 @@
 ---
 name: agent-fix-error-recovery
-description: Automatically invoke AgentFix error recovery when resource download, dependency installation, environment setup, validation, baseline evaluation, or experiment runs fail; diagnose the error, propose the smallest protocol-preserving fix, automatically execute common low-risk fixes, and ask the user only before risky, expensive, destructive, or scientifically meaningful changes. Use when Codex receives stderr/stdout, a failed command, traceback, nonzero exit code, timeout, missing resource error, package conflict, CUDA/PyTorch/TensorFlow mismatch, path error, GPU OOM, metric parsing failure, or failed baseline/experiment during the paper-repo workflow.
+description: Automatically invoke AgentFix error recovery when resource download, dependency installation, environment setup, validation, baseline evaluation, experiment preparation, branch dry runs, or experiment runs fail; diagnose the error, propose the smallest protocol-preserving fix, automatically execute common low-risk fixes, and ask the user only before risky, expensive, destructive, or scientifically meaningful changes. Use when Codex receives stderr/stdout, a failed command, traceback, nonzero exit code, timeout, missing resource error, package conflict, CUDA/PyTorch/TensorFlow mismatch, path error, GPU OOM, build or test failure, interface mismatch, baseline regression, metric parsing failure, or failed baseline/experiment during the paper-repo workflow.
 ---
 
 # Agent Fix Error Recovery
@@ -23,7 +23,7 @@ Role: `AgentFix`
 
 Inputs:
 
-- failed stage: resource, environment, validation, baseline, experiment, or unknown
+- failed stage: resource, environment, validation, baseline, experiment_prepare, dry_run, experiment, or unknown
 - failed command and working directory
 - stdout/stderr/traceback/log excerpt
 - repository path and run directory
@@ -43,7 +43,7 @@ Outputs:
 
 1. Reconstruct the failure.
    - Identify the failed stage, command, working directory, expected output, return code, and relevant log excerpt.
-   - Read nearby config/report files only as needed: `config.yaml`, `resource_manifest.yaml`, `resource_acquisition_report.md`, `environment_plan.yaml`, `onboard_report.md`, and previous fix notes.
+   - Read nearby config/report files only as needed: `config.yaml`, `resource_manifest.yaml`, `resource_acquisition_report.md`, `environment_plan.yaml`, `onboard_report.md`, `method_adaptation_plan.yaml`, `experiment_matrix.yaml`, `experiment_readiness.yaml`, and previous fix notes.
    - Preserve the original error text in the report.
    - If the failure is non-trivial or resembles a prior repeated issue, consult `agent-fix-knowledge-base` and record any matched case in the report.
 
@@ -61,6 +61,9 @@ Outputs:
      - `permission_error`
      - `gpu_oom`
      - `command_error`
+     - `build_or_test_failure`
+     - `interface_mismatch`
+     - `baseline_regression`
      - `metric_parse_error`
      - `timeout`
      - `unknown`
@@ -71,6 +74,7 @@ Outputs:
    - Ask the user before any medium/high-risk fix.
    - If unsure, ask.
    - Do not ask just to start diagnosis or to run read-only checks.
+   - If the failure reveals missing planned functionality, incorrect method behavior, or an experiment-design gap, return it to `repo-experiment-prepare`; do not disguise intended development as error recovery.
 
 4. Apply the fix when allowed.
    - Run the smallest command or edit needed.
@@ -160,5 +164,6 @@ Use this shape for `agent_fix_report.md`:
 ## Handoff
 
 - If fixed, return to the stage that failed and rerun or continue.
+- If diagnosis reveals an implementation or experiment-design gap, return to `repo-experiment-prepare` with the evidence and required change.
 - If blocked by user approval, stop with the exact approval question and proposed command/action.
 - If a new blocker appears, classify it and either apply another safe fix or ask.

@@ -1,11 +1,11 @@
 ---
 name: repo-baseline-run
-description: Interactively run and record the configured baseline or evaluation command for a prepared research repository as the final AgentInit readiness check. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have produced config.yaml, resource manifests, and a ready environment; when Codex acting as AgentInit must verify baseline readiness, read documented baseline/reference values already identified by repo-onboard, ask before long or risky baseline execution, run the baseline only inside the environment selected by resource preparation, parse primary metrics, compare with onboard-recorded baselines or prior local baselines when available, write baseline_metrics.yaml and baseline_run_report.md, and automatically invoke AgentFix when baseline execution, metric parsing, path binding, or runtime validation fails.
+description: Interactively run and record the configured baseline or evaluation command for a prepared research repository as the final AgentInit readiness check. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have produced config.yaml, resource manifests, and a ready environment; when Codex acting as AgentInit must verify baseline readiness, read documented baseline/reference values already identified by repo-onboard, ask before long or risky baseline execution, run the baseline only inside the environment selected by resource preparation, parse primary metrics, compare with onboard-recorded baselines or prior local baselines when available, write baseline_metrics.yaml and baseline_run_report.md, invoke AgentFix on execution or validation failures, and hand a passing baseline to repo-experiment-prepare without claiming that the codebase is ready for formal experiments.
 ---
 
 # Repo Baseline Run
 
-Use this skill after resource and environment preparation when AgentInit must run the repository's configured baseline/eval command and record whether the repository is ready for optimization.
+Use this skill after resource and environment preparation when AgentInit must run the repository's configured baseline/eval command and record whether baseline initialization is complete enough for experiment preparation.
 
 The agent runs the baseline directly through Codex tool calls. Do not implement a separate Python or TypeScript baseline runner.
 
@@ -13,7 +13,7 @@ The agent runs the baseline directly through Codex tool calls. Do not implement 
 
 Keep terminal-facing progress concise. Report only readiness status, approval needs, baseline result, metric summary, artifact paths, blockers, and next step. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed commands, logs, metric evidence, and comparisons in the baseline report.
 
-At final handoff, state whether the repository is ready for optimization. Include only the baseline result, reference comparison, artifact paths, remaining blockers, and next optimization readiness status.
+At final handoff, state whether baseline initialization passed and whether the repository can enter `repo-experiment-prepare`. Do not claim that a passing baseline makes the codebase ready for optimization or formal experiments.
 
 ## Agent Contract
 
@@ -42,7 +42,7 @@ Optional outputs:
 
 Handoff:
 
-- If the baseline passes, hand off to experiment/optimization stages.
+- If the baseline passes, hand off to `repo-experiment-prepare`.
 - If baseline execution, metric parsing, or validation fails, automatically invoke `agent-fix-error-recovery` with the failed command, stdout/stderr, repo path, run directory, baseline report, and prior stage reports.
 
 ## Workflow
@@ -179,6 +179,7 @@ Use this shape for `baseline_run_report.md`:
 - `partial`: command succeeds but metric extraction is incomplete, onboard reference metadata is missing/ambiguous, or comparison is unavailable.
 - `failed`: command fails, times out, or metric comparison is clearly worse than a documented baseline beyond known tolerance.
 - `blocked`: required resources, environment, approval, or credentials are missing.
+- A `passed` baseline proves only that the configured baseline path works; it does not prove that required methods, integrations, controls, ablations, or formal experiment scripts are ready.
 
 ## Boundaries
 

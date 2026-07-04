@@ -1,4 +1,0 @@
-interface:
-  display_name: "Experiment Repo Selection"
-  short_description: "Select the best repo and benchmark base"
-  default_prompt: "Use $experiment-repo-selection to find and compare candidate experiment repositories for this research scope."

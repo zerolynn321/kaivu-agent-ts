@@ -1,11 +1,11 @@
 ---
 name: research-experiment-init
-description: Orchestrate the full Agent + Skill workflow from a natural-language research need to a runnable local baseline initialization. Use when Codex is asked to find suitable open-source experiment repositories, choose or assemble a benchmark base, prepare the repository, resources, environment, and baseline for a research goal rather than being given one exact paper repository. This skill routes to research-scope-planning, experiment-repo-selection, experiment-workspace-assembly, repo-onboard, repo-resource-prepare, repo-environment-setup, repo-baseline-run, and agent-fix-error-recovery as needed; it does not replace those skills or implement a separate Python pipeline.
+description: Orchestrate the full Agent + Skill workflow from a natural-language research need to a codebase that is ready for formal requirement-validation experiments. Use when Codex is asked to find suitable open-source experiment repositories, choose or specify a benchmark, prepare the repository, resources, environment, and baseline, then implement missing methods or integrations, configure and dry-run experiment branches, and generate formal-run scripts without launching the full experiment. This skill routes to research-repo-setup, which consults benchmark-selection, then to repo-onboard, repo-resource-prepare, repo-environment-setup, repo-baseline-run, repo-experiment-prepare, and agent-fix-error-recovery as needed; it does not replace those skills or implement a separate Python pipeline.
 ---
 
 # Research Experiment Init
 
-Use this skill as the natural-language entrypoint for a full research-demand-to-baseline workflow.
+Use this skill as the natural-language entrypoint for a full research-demand-to-experiment-ready workflow.
 
 The agent acts as the coordinator. Do not implement a separate Python or TypeScript pipeline for this logic. Invoke the existing Codex skills interactively and use their artifacts to decide whether each stage is complete.
 
@@ -28,7 +28,7 @@ Keep terminal-facing progress concise. Report only:
 - artifact path created or reused
 - user decision needed
 - blocker and recovery stage
-- final baseline readiness summary
+- final experiment readiness summary
 
 Put detailed commands, evidence, candidate tables, logs, and diffs in the stage report files produced by the delegated skills.
 
@@ -45,16 +45,22 @@ Inputs:
 Primary outputs are produced by delegated skills:
 
 - `research_scope.yaml`
+- `benchmark_plan.yaml`
 - `experiment_base_plan.yaml`
 - `workspace_manifest.yaml`
 - repository-local `config.yaml`
 - `resource_manifest.yaml`
 - `environment_plan.yaml`
 - `baseline_metrics.yaml`
+- `method_adaptation_plan.yaml`
+- `experiment_plan.yaml`
+- `experiment_matrix.yaml`
+- `experiment_readiness.yaml`
 
 Handoff:
 
-- After `repo-baseline-run` succeeds or records a meaningful local baseline, report readiness for the next optimization stage.
+- After `repo-baseline-run` succeeds, invoke `repo-experiment-prepare` in `requirement_validation` mode.
+- Report formal experiment readiness only when `experiment_readiness.yaml` records `ready_for_formal_run`.
 - If any stage fails, invoke `agent-fix-error-recovery` according to the risk gates.
 
 ## Workflow
@@ -70,46 +76,47 @@ Handoff:
    - Otherwise create or reuse a clear run directory under the active laboratory workspace, using a short slug from the research need.
    - Record artifacts there unless a delegated skill has a repository-local artifact requirement.
 
-3. Run research scoping.
-   - Invoke `research-scope-planning`.
-   - Continue only when `research_scope.yaml` exists and identifies task type, benchmark space, constraints, success criteria, and open questions.
-   - If key search-space choices are unresolved, ask the user before repository selection.
-
-4. Run repository selection.
-   - Invoke `experiment-repo-selection` with the research scope.
-   - Continue only when `experiment_base_plan.yaml` exists.
-   - Ask the user before proceeding when selection status is `needs_user_confirmation`, candidates are similarly strong, the selected repo is unofficial or medium/low confidence, or the plan requires a composed workspace.
-
-5. Assemble workspace.
-   - Invoke `experiment-workspace-assembly` after selection is ready or approved.
-   - Continue only when `workspace_manifest.yaml` records a ready primary runnable repository path.
+3. Scope, select, and materialize the research repository.
+   - Invoke `research-repo-setup`.
+   - Require `research_scope.yaml`, externally produced `benchmark_plan.yaml`, `experiment_base_plan.yaml`, and `workspace_manifest.yaml` as phase checkpoints.
+   - Ensure `research-repo-setup` invokes `benchmark-selection` before final repository comparison and treats its protocol as authoritative.
+   - Ask the user when key search-space choices remain unresolved, selection status is `needs_user_confirmation`, candidates are similarly strong, the selected repo is unofficial or medium/low confidence, or the plan requires a composed workspace.
+   - Continue only when `workspace_manifest.yaml` records a ready primary runnable repository path with verified remote, branch, and commit.
    - If only partial assembly is possible, proceed to `repo-onboard` only when the primary repository is ready and missing references are non-blocking.
 
-6. Onboard primary repository.
+4. Onboard primary repository.
    - Invoke `repo-onboard` on the primary runnable repository.
    - Continue only when repository-local `config.yaml` exists.
    - Treat documented baseline/reference discovery as owned by `repo-onboard`.
 
-7. Prepare resources.
+5. Prepare resources.
    - Invoke `repo-resource-prepare`.
    - Before any resource download, ensure the user chooses whether to reuse the current environment or create a repository-specific environment.
    - Continue only when `resource_manifest.yaml` and `resource_acquisition_report.md` exist or the skill explicitly records that no external resources are required.
 
-8. Set up environment.
+6. Set up environment.
    - Invoke `repo-environment-setup`.
    - Install and validate dependencies only inside the environment selected or created by `repo-resource-prepare`.
    - Continue only when `environment_plan.yaml` and `environment_setup_report.md` indicate the environment is ready enough for baseline execution.
 
-9. Run baseline.
+7. Run baseline.
    - Invoke `repo-baseline-run`.
    - Run baseline or eval only inside the selected environment.
    - Compare metrics against references discovered by `repo-onboard` when available.
    - Finish with `baseline_metrics.yaml` and `baseline_run_report.md`.
 
-10. Recover from errors.
-   - Invoke `agent-fix-error-recovery` automatically after resource, environment, or baseline failures.
+8. Prepare the codebase for requirement-validation experiments.
+   - Invoke `repo-experiment-prepare` in `requirement_validation` mode.
+   - Require requirement-to-code traceability against `research_scope.yaml` and `benchmark_plan.yaml`.
+   - Allow the skill to implement protocol-preserving methods, adapters, evaluators, configuration, and approved cross-repository interfaces while retaining the original baseline mode.
+   - Require `method_adaptation_plan.yaml`, `experiment_plan.yaml`, `experiment_matrix.yaml`, and `experiment_readiness.yaml`.
+   - Run only bounded validation and per-branch dry runs; do not launch full formal experiments.
+   - Finish only when status is `ready_for_formal_run`, `needs_user_decision`, `needs_implementation`, or `blocked`.
+
+9. Recover from errors.
+   - Invoke `agent-fix-error-recovery` automatically after resource, environment, baseline, experiment-preparation, or dry-run failures.
    - Allow common low-risk checks and fixes.
-   - Ask before large downloads, dependency major-version changes, experiment-protocol changes, source logic edits, deleting files, or any destructive action.
+   - Ask before large downloads, dependency major-version changes, scientific-protocol changes, source logic changes beyond the approved research goal, deleting files, or any destructive action.
    - After a successful fix, return to the failed stage and continue.
 
 ## Readiness Checks
@@ -117,13 +124,15 @@ Handoff:
 Before moving to the next stage, verify the relevant artifact exists and has a status that permits handoff:
 
 ```text
-research_scope.yaml          -> experiment-repo-selection
-experiment_base_plan.yaml    -> experiment-workspace-assembly
+research_scope.yaml          -> research-repo-setup selection phase
+benchmark_plan.yaml          -> research-repo-setup repository comparison
+experiment_base_plan.yaml    -> research-repo-setup assembly phase
 workspace_manifest.yaml      -> repo-onboard
 config.yaml                  -> repo-resource-prepare
 resource_manifest.yaml       -> repo-environment-setup
 environment_plan.yaml        -> repo-baseline-run
-baseline_metrics.yaml        -> final readiness summary
+baseline_metrics.yaml        -> repo-experiment-prepare
+experiment_readiness.yaml    -> final readiness summary
 ```
 
 Do not treat conversational confidence as completion when the expected artifact is missing.
@@ -138,7 +147,8 @@ Ask the user before:
 - performing large downloads
 - creating a new virtual environment when the user has not chosen one
 - changing dependency major versions or CUDA/framework stacks
-- modifying experiment logic, benchmark protocol, metrics, or dataset splits
+- modifying experiment logic beyond the approved research goal
+- changing benchmark protocol, metrics, labels, or dataset splits
 - deleting or overwriting files
 
 Do not ask the user just to proceed from one ordinary completed stage to the next.
@@ -158,4 +168,4 @@ Do not:
 - duplicate repository search, onboarding, resource, environment, or baseline instructions that belong to delegated skills
 - implement the workflow as a Python or TypeScript pipeline
 - skip approval gates because this is an orchestrator
-- install dependencies, download resources, or run baselines outside the delegated skill that owns that stage
+- install dependencies, download resources, run baselines, or prepare experiment code outside the delegated skill that owns that stage

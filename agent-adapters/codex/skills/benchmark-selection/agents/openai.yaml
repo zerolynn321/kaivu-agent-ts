@@ -1,0 +1,4 @@
+interface:
+  display_name: "Benchmark Selection"
+  short_description: "Select, adapt, or specify a research benchmark"
+  default_prompt: "Use $benchmark-selection to choose an existing benchmark or define a valid benchmark construction plan for this research need."

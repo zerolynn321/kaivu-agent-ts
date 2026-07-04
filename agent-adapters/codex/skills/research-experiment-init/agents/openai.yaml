@@ -1,4 +1,4 @@
 interface:
   display_name: "Research Experiment Init"
-  short_description: "Route a research need to full baseline init"
-  default_prompt: "Use $research-experiment-init to turn this research need into a runnable local baseline initialization."
+  short_description: "Route a research need to experiment-ready code"
+  default_prompt: "Use $research-experiment-init to turn this research need into a codebase ready for formal validation experiments."

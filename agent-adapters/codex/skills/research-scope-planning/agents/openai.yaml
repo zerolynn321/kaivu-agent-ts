@@ -1,4 +1,0 @@
-interface:
-  display_name: "Research Scope Planning"
-  short_description: "Frame research demand and benchmark scope"
-  default_prompt: "Use $research-scope-planning to turn this research need into a scoped experiment search plan."
