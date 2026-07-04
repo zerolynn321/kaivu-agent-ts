@@ -7,7 +7,7 @@ description: Inspect and modify a baseline-validated research codebase until it 
 
 Use this skill after a baseline has passed or produced an accepted local baseline. Turn a runnable baseline repository into an experiment-ready codebase; do not confuse baseline initialization with formal experiment readiness.
 
-Read [references/experiment-readiness-criteria.md](references/experiment-readiness-criteria.md) before assessing gaps or declaring readiness. Apply its mode-specific checks, modification rules, validation requirements, and final gates.
+Read [references/experiment-readiness-criteria.md](references/experiment-readiness-criteria.md) before assessing gaps or declaring readiness. Apply its mode-specific checks, modification rules, validation requirements, README handoff requirements, and final gates.
 
 Execute inspection, edits, and bounded validation interactively through Codex tool calls. Do not implement a separate Python or TypeScript orchestration pipeline.
 
@@ -19,6 +19,10 @@ Report only readiness mode, current phase, material decisions or approvals, arti
 
 Role: `AgentExperimentPrepare`
 
+Primary deliverable:
+
+- the actual repository codebase, configurations, formal experiment entrypoint, result summarizer when needed, and README instructions required to start the approved formal experiments
+
 Inputs:
 
 - primary runnable repository path and run directory
@@ -29,7 +33,7 @@ Inputs:
 - for requirement validation: `research_scope.yaml`, `benchmark_plan.yaml`, `experiment_base_plan.yaml`, and `workspace_manifest.yaml`
 - optional user optimization objective, method proposal, required comparisons, or protected paths
 
-Required outputs:
+Required evidence artifacts:
 
 - `method_adaptation_plan.yaml`
 - `method_adaptation_report.md`
@@ -38,10 +42,11 @@ Required outputs:
 - `experiment_readiness.yaml`
 - `experiment_readiness_report.md`
 - one platform-appropriate batch entrypoint such as `scripts/run_experiments.sh` or `scripts/run_experiments.ps1`
+- a managed formal-experiment section in the primary repository README
 
 Handoff:
 
-- Report `status: ready_for_formal_run` only when every readiness gate passes.
+- Report `status: ready_for_formal_run` only after directly checking the actual codebase and every readiness gate against real command and output evidence.
 - Stop before starting full training, full evaluation, or a batch formal run.
 - If an unexpected setup, build, import, test, baseline-regression, or dry-run command fails, invoke `agent-fix-error-recovery`.
 
@@ -91,8 +96,9 @@ Handoff:
 
 8. Validate the prepared codebase.
    - Run relevant static checks, imports, compilation, unit or interface tests, and tiny fixtures.
-   - Revalidate the preserved original-baseline mode through the cheapest scientifically faithful regression path. Ask before a long rerun.
+   - Revalidate the preserved original-baseline mode after the code changes through the cheapest scientifically faithful regression path. Save the command and a non-empty evidence file; an unchanged old artifact checksum is not a post-change regression.
    - Run a bounded dry run for every formal experiment branch through the same code path used by its formal command.
+   - Save a non-empty dry-run evidence file for every matrix branch and set its status from execution evidence, not from planned intent.
    - Validate metric parsing, output isolation, checkpoint creation or loading, resume behavior when relevant, and generated configuration resolution.
    - Invoke `agent-fix-error-recovery` for unexpected command failures, then return to this stage. Keep intended method development and experiment design in this skill.
 
@@ -101,11 +107,22 @@ Handoff:
    - Make environment targeting, working directory, config, output directory, and failure behavior explicit.
    - Add a clearly documented dry-run or print-only mode when practical.
    - Check script syntax and command expansion without launching full formal experiments.
+   - Add or update a managed `## Formal Experiments` section in the primary repository README between `<!-- kaivu-formal-experiment:start -->` and `<!-- kaivu-formal-experiment:end -->`.
+   - Include prerequisites, environment activation, working directory, the exact guarded formal command, matrix scope, output locations, result summarization, and the fact that formal execution has not started.
+   - Preserve all README content outside the managed markers.
 
 10. Decide readiness.
     - Write `experiment_readiness.yaml` and `experiment_readiness_report.md`.
     - Use `ready_for_formal_run`, `needs_user_decision`, `needs_implementation`, or `blocked`.
-    - Mark `ready_for_formal_run` only when requirement traceability is complete, implementation is finished, the baseline mode is preserved, the protocol and matrix are frozen, every branch passes its dry run, batch scripts are validated, and no scientific decision remains open.
+    - Mark `ready_for_formal_run` only when requirement traceability is complete, implementation is finished, the baseline mode is preserved through post-change regression, the protocol and matrix are frozen, every branch passes its dry run with evidence, batch scripts and README instructions are validated, and no scientific decision remains open.
+    - Re-read the modified source, formal configurations, launcher, README, matrix, readiness artifacts, baseline-regression evidence, and dry-run evidence before deciding.
+    - Confirm that recorded commands are the commands actually executed and that expected outputs exist and are parseable.
+    - If any required code, command, output, evidence, or decision is missing, use `needs_user_decision`, `needs_implementation`, or `blocked`; do not let self-reported YAML fields override the observed codebase state.
+
+11. Hand off the formal command.
+    - In the final user-facing response, state that formal experiments have not started.
+    - Give the exact repository path, environment, formal command copied from `experiment_readiness.yaml`, output location, and summarizer command when one exists.
+    - Point the user to the managed README section and readiness artifacts.
 
 ## Artifact Shapes
 
@@ -170,6 +187,9 @@ protocol:
   checkpoint_rule: ""
   output_layout: ""
 fairness_invariants: []
+matrix_requirements:
+  required_branch_kinds: ["baseline", "proposed"]
+  require_all_branches_dry_run: true
 formal_run_requires_user_approval: true
 ```
 
@@ -187,6 +207,7 @@ branches:
     resource_estimate: {}
     implementation_status: "ready"
     dry_run_status: "passed"
+    dry_run_evidence: ""
 ```
 
 ### `experiment_readiness.yaml`
@@ -204,8 +225,27 @@ checks:
   experiment_matrix_complete: "passed"
   all_branches_dry_run: "passed"
   batch_entrypoint_validated: "passed"
+  readme_instructions_written: "passed"
   approvals_resolved: "passed"
-artifacts: {}
+baseline_regression:
+  status: "passed"
+  executed_after_changes: true
+  command: ""
+  evidence_path: ""
+artifacts:
+  method_adaptation_plan: "method_adaptation_plan.yaml"
+  method_adaptation_report: "method_adaptation_report.md"
+  experiment_plan: "experiment_plan.yaml"
+  experiment_matrix: "experiment_matrix.yaml"
+  experiment_readiness_report: "experiment_readiness_report.md"
+  batch_entrypoint: ""
+  readme: ""
+formal_run:
+  launcher_path: ""
+  command: ""
+  summarizer_command: ""
+  readme_path: ""
+  instructions_written: true
 remaining_blockers: []
 formal_run_started: false
 ```
@@ -216,6 +256,7 @@ formal_run_started: false
 - Do not claim method-specific optimization readiness without an optimization goal.
 - Do not claim requirement-validation readiness unless every research requirement maps to implemented code and a benchmark-preserving experiment branch.
 - Treat successful command exit as one piece of evidence; verify outputs, metrics, code paths, and artifact traceability.
+- Treat artifact fields as summaries of observed code and command evidence, never as substitutes for direct inspection and execution.
 - Never interpret dry-run metrics as scientific findings.
 
 ## Boundaries
@@ -227,6 +268,7 @@ Do:
 - preserve and regression-check the original baseline mode
 - configure and dry-run every formal branch
 - generate but not launch formal batch scripts
+- document the exact formal command in the repository README and final response
 
 Do not:
 
@@ -235,3 +277,4 @@ Do not:
 - discard user changes or use destructive Git operations
 - copy code without provenance and license review
 - launch full formal experiments
+- mark readiness from artifact fields without checking the actual codebase and commands

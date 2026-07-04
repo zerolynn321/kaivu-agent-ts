@@ -111,7 +111,9 @@ Handoff:
    - Allow the skill to implement protocol-preserving methods, adapters, evaluators, configuration, and approved cross-repository interfaces while retaining the original baseline mode.
    - Require `method_adaptation_plan.yaml`, `experiment_plan.yaml`, `experiment_matrix.yaml`, and `experiment_readiness.yaml`.
    - Run only bounded validation and per-branch dry runs; do not launch full formal experiments.
-   - Finish only when status is `ready_for_formal_run`, `needs_user_decision`, `needs_implementation`, or `blocked`.
+   - Require the primary repository README to contain the managed formal-experiment section and exact guarded launch command.
+   - Accept `ready_for_formal_run` only after directly verifying the modified code, post-change baseline regression, every experiment branch, generated launcher, expected outputs, and README instructions; otherwise finish as `needs_user_decision`, `needs_implementation`, or `blocked`.
+   - In the final response, tell the user exactly how to start the formal run, where outputs will go, and how to summarize results, while stating that the formal run has not started.
 
 9. Recover from errors.
    - Invoke `agent-fix-error-recovery` automatically after resource, environment, baseline, experiment-preparation, or dry-run failures.

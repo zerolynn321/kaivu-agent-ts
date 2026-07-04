@@ -9,6 +9,7 @@
 5. Experiment design standard
 6. Validation standard
 7. Final readiness gates
+8. Formal-run documentation
 
 ## 1. Readiness modes
 
@@ -162,10 +163,12 @@ Apply relevant checks:
    - output and resume behavior.
 
 3. **Baseline regression**
-   - original baseline mode still resolves and runs;
+   - original baseline mode still resolves and runs after the source changes;
    - unchanged protocol fields remain unchanged;
    - output and metric parsing remain compatible;
    - material regression is investigated rather than hidden by new thresholds.
+   - a pre-existing metrics checksum alone does not prove post-change regression;
+   - save the executed command and a non-empty evidence file.
 
 4. **Branch dry runs**
    - every experiment-matrix branch reaches its intended code path;
@@ -173,6 +176,7 @@ Apply relevant checks:
    - metrics are parseable;
    - checkpoints or intermediate artifacts are usable when required;
    - failure and resume behavior are explicit.
+   - save a non-empty evidence file and `dry_run_status: passed` for every matrix branch.
 
 5. **Batch entrypoint**
    - script syntax passes;
@@ -197,11 +201,39 @@ Set `ready_for_formal_run` only when all are true:
 - every branch passes a bounded dry run;
 - expected outputs and metrics are verified;
 - batch entrypoint is generated and syntax-checked;
+- repository README contains the managed formal-experiment section and exact command;
 - formal resource estimates and approval requirements are recorded;
 - full formal experiments have not started.
+
+Before declaring readiness, directly inspect the final repository and re-check the commands and outputs represented by the artifacts. Missing code, configurations, matrix branches, pending dry runs, absent evidence, simplified readiness schemas, missing post-change baseline regression, or missing README instructions must prevent readiness. Do not accept a self-reported status field as evidence by itself.
 
 Set `needs_user_decision` when a missing choice changes scientific meaning, architecture, licensing, protocol, or resource class.
 
 Set `needs_implementation` when the goal and protocol are clear but required code, integration, tests, or experiment branches remain incomplete.
 
 Set `blocked` when required resources, legal access, environment, repository state, or a valid experiment design cannot be established.
+
+## 8. Formal-run documentation
+
+Add or update a managed section in the primary repository README:
+
+````markdown
+<!-- kaivu-formal-experiment:start -->
+## Formal Experiments
+
+### Prerequisites
+...
+
+### Run
+```bash
+<exact guarded formal command>
+```
+
+### Outputs and summary
+...
+
+Formal experiments have not been started by the preparation workflow.
+<!-- kaivu-formal-experiment:end -->
+````
+
+Preserve all content outside the markers. The final user-facing response must repeat the exact formal command, repository path, environment, output location, summarizer command when available, and readiness artifact paths.
