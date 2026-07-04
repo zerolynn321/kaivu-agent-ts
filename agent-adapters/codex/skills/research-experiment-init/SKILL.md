@@ -9,6 +9,25 @@ Use this skill as the natural-language entrypoint for a full research-demand-to-
 
 The agent acts as the coordinator. Do not implement a separate Python or TypeScript pipeline for this logic. Invoke the existing Codex skills interactively and use their artifacts to decide whether each stage is complete.
 
+## Workflow Artifact Layout
+
+At the start of the workflow, set `artifact_root` to `<run_dir>/experiment_artifacts/` and pass it to every delegated skill. Never scatter Agent-generated auxiliary files across the repository root.
+
+Use this layout:
+
+```text
+experiment_artifacts/
+  plans/       # research scope, benchmark, environment, adaptation, and experiment plans/matrices
+  manifests/   # workspace/config/resource/baseline/readiness machine state
+  reports/     # human-readable stage and final reports
+  evidence/    # checks, metrics, fixtures, dry-run and regression evidence
+  logs/        # command and recovery logs
+```
+
+Bare artifact names in this skill refer to the appropriate path under `artifact_root`. Keep source code, the primary `README.md`, formal launch and summary scripts, runtime configs under `configs/`, standard dependency files such as `environment.yml` and requirements files, and result directories in the normal codebase structure.
+
+For an existing workspace, reuse or migrate root-level auxiliary artifacts into this layout when safe, update every reference, and avoid duplicate sources of truth. Do not move a file merely because it is YAML, JSON, Markdown, or a log; classify it by purpose. Runtime files stay with the code, while Agent plans, manifests, reports, evidence, and logs go under `artifact_root`.
+
 ## Natural User Inputs
 
 Trigger this skill for requests such as:
@@ -48,7 +67,7 @@ Primary outputs are produced by delegated skills:
 - `benchmark_plan.yaml`
 - `experiment_base_plan.yaml`
 - `workspace_manifest.yaml`
-- repository-local `config.yaml`
+- `<artifact_root>/manifests/config.yaml`
 - `resource_manifest.yaml`
 - `environment_plan.yaml`
 - `baseline_metrics.yaml`
@@ -74,7 +93,8 @@ Handoff:
 2. Establish a run directory.
    - Prefer a user-provided artifact path.
    - Otherwise create or reuse a clear run directory under the active laboratory workspace, using a short slug from the research need.
-   - Record artifacts there unless a delegated skill has a repository-local artifact requirement.
+   - Create or reuse `<run_dir>/experiment_artifacts/` with the standard subdirectories and pass that absolute `artifact_root` to every delegated skill.
+   - Require delegated skills to resolve their generated plans, manifests, reports, evidence, and logs under `artifact_root`; a repository-local requirement does not mean the repository root.
 
 3. Scope, select, and materialize the research repository.
    - Invoke `research-repo-setup`.
@@ -86,7 +106,7 @@ Handoff:
 
 4. Onboard primary repository.
    - Invoke `repo-onboard` on the primary runnable repository.
-   - Continue only when repository-local `config.yaml` exists.
+   - Continue only when `<artifact_root>/manifests/config.yaml` exists.
    - Treat documented baseline/reference discovery as owned by `repo-onboard`.
 
 5. Prepare resources.
@@ -128,15 +148,15 @@ Handoff:
 Before moving to the next stage, verify the relevant artifact exists and has a status that permits handoff:
 
 ```text
-research_scope.yaml          -> research-repo-setup selection phase
-benchmark_plan.yaml          -> research-repo-setup repository comparison
-experiment_base_plan.yaml    -> research-repo-setup assembly phase
-workspace_manifest.yaml      -> repo-onboard
-config.yaml                  -> repo-resource-prepare
-resource_manifest.yaml       -> repo-environment-setup
-environment_plan.yaml        -> repo-baseline-run
-baseline_metrics.yaml        -> repo-experiment-prepare
-experiment_readiness.yaml    -> final readiness summary
+plans/research_scope.yaml             -> research-repo-setup selection phase
+plans/benchmark_plan.yaml             -> research-repo-setup repository comparison
+plans/experiment_base_plan.yaml       -> research-repo-setup assembly phase
+manifests/workspace_manifest.yaml     -> repo-onboard
+manifests/config.yaml                 -> repo-resource-prepare
+manifests/resource_manifest.yaml      -> repo-environment-setup
+plans/environment_plan.yaml           -> repo-baseline-run
+manifests/baseline_metrics.yaml       -> repo-experiment-prepare
+manifests/experiment_readiness.yaml   -> final readiness summary
 ```
 
 Do not treat conversational confidence as completion when the expected artifact is missing.
@@ -164,6 +184,7 @@ Do:
 - route natural-language research needs through the correct skill sequence
 - keep stage-specific work inside the delegated skill
 - use artifacts as handoff contracts
+- keep all Agent-generated auxiliary artifacts under the shared `experiment_artifacts/` tree
 - minimize user-facing prompt requirements
 - preserve concise terminal output and detailed report files
 

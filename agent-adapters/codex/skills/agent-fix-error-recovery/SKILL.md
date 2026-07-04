@@ -13,6 +13,10 @@ The agent does the diagnosis and repair directly. Do not implement a separate Py
 
 For difficult or repeated failures, consult `agent-fix-knowledge-base` before proposing a repair. For virtual environment, dependency, mirror, CUDA/framework, NumPy ABI, or validation-command failures, also consult `repo-env-troubleshooting` as a focused reference.
 
+## Artifact Location
+
+Use the calling stage's `artifact_root`, or default to `<run_dir>/experiment_artifacts/`. Write fix reports under `reports/`, diagnostic evidence under `evidence/`, and detailed command output under `logs/`. Do not place recovery reports or logs in the repository root.
+
 ## Terminal Output
 
 Keep terminal-facing progress concise. Report only the failure category, whether a safe fix was applied, whether user approval is needed, verification status, artifact path, and next step. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed error excerpts, commands, and logs in the fix report.
@@ -37,7 +41,7 @@ Outputs:
 - actions executed automatically, if any
 - actions requiring user approval, if any
 - verification result
-- updated report such as `<run_dir>/agent_fix_report.md` or a stage-specific fix note
+- updated report such as `<artifact_root>/reports/agent_fix_report.md` or a stage-specific fix note
 
 ## Workflow
 
@@ -88,7 +92,7 @@ Outputs:
    - Record whether the fix resolved the original blocker, exposed a new blocker, or requires user action.
 
 6. Report.
-   - Write or update an `agent_fix_report.md` in the run directory when a run directory exists.
+   - Write or update `<artifact_root>/reports/agent_fix_report.md` when an artifact root or run directory exists.
    - Include diagnosis, risk level, automatic actions, proposed actions needing approval, verification result, and next step.
    - If the fix resolves a difficult reusable issue, append a compact lesson to the active run report. Promote it to the shared `agent-fix-knowledge-base` only when the user explicitly asks.
 

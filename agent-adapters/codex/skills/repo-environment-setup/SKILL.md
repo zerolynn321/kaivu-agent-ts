@@ -11,6 +11,10 @@ The agent does the setup directly through Codex tool calls and shell commands. D
 
 For common virtual environment creation, activation, mirror, dependency resolver, CUDA/framework, NumPy ABI, and validation-command failures, consult `repo-env-troubleshooting` as a reference before escalating risky fixes.
 
+## Artifact Location
+
+Use the coordinator-provided `artifact_root`, or default to `<run_dir>/experiment_artifacts/`. Write environment plans under `plans/`, reports under `reports/`, validation evidence under `evidence/`, and logs under `logs/`. Do not place these auxiliary files in the repository root. Keep standard runtime dependency definitions such as `environment.yml`, `requirements*.txt`, lockfiles, and package manifests in their normal codebase locations.
+
 ## Terminal Output
 
 Keep terminal-facing progress concise. Report only stage status, key decisions, artifact paths, environment readiness, blockers, and next steps. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed commands, validation output, logs, and evidence in the environment plan/report files.
@@ -22,21 +26,21 @@ Role: `AgentInit`
 Inputs:
 
 - cloned repository path
-- repository-local `config.yaml`
+- `<artifact_root>/manifests/config.yaml`
 - run directory
-- optional `<run_dir>/resource_manifest.yaml`
-- optional `<run_dir>/resource_acquisition_report.md`
+- optional `<artifact_root>/manifests/resource_manifest.yaml`
+- optional `<artifact_root>/reports/resource_acquisition_report.md`
 - optional user policy: environment name, package manager preference, CUDA/GPU target, allowed installs, maximum setup time, package mirror preference
 
 Required outputs:
 
-- `<run_dir>/environment_plan.yaml`
-- `<run_dir>/environment_setup_report.md`
+- `<artifact_root>/plans/environment_plan.yaml`
+- `<artifact_root>/reports/environment_setup_report.md`
 - a runnable environment, or a concrete blocker with next action
 
 Optional outputs:
 
-- small updates to `<repo>/config.yaml` for environment metadata only, such as `conda_env`, `venv_path`, `setup_commands`, `validation_commands`, or `env_vars`
+- small updates to `<artifact_root>/manifests/config.yaml` for environment metadata only, such as `conda_env`, `venv_path`, `setup_commands`, `validation_commands`, or `env_vars`
 
 Handoff:
 
@@ -47,7 +51,7 @@ Handoff:
 
 1. Confirm context.
    - Resolve the repository path and run directory.
-   - Read `<repo>/config.yaml`.
+   - Read `<artifact_root>/manifests/config.yaml`.
    - Read resource manifests/reports when present.
    - Extract the expected repository-specific environment from config or manifest: manager, name/path, Python version, and activation command.
    - Inspect only environment-relevant files: README, docs, `requirements*.txt`, `environment*.yml`, `pyproject.toml`, `setup.py`, `setup.cfg`, `Pipfile`, `poetry.lock`, `conda*.yml`, Dockerfile, install scripts, examples, CI configs, and eval entrypoints.
@@ -77,7 +81,7 @@ Handoff:
      - Do not modify global pip/conda configuration unless the user explicitly approves that configuration change.
 
 4. Write the plan before installing.
-   - Write `<run_dir>/environment_plan.yaml`.
+   - Write `<artifact_root>/plans/environment_plan.yaml`.
    - Include `status: planned` or `blocked`, the expected environment name/path, active environment check result, install commands, validation commands, mirror/install-source policy, evidence, assumptions, risks, and approval requirements.
    - Present the plan before creating environments, installing packages, upgrading packages, or changing CUDA/PyTorch/TensorFlow/JAX.
 
@@ -114,8 +118,8 @@ Handoff:
    - For validation failures that look like known environment conventions, such as absl `--help` returning nonzero after printing valid help, consult `repo-env-troubleshooting` and record the classification before invoking broad fixes.
 
 8. Update reports.
-   - Write `<run_dir>/environment_setup_report.md`.
-   - If useful, update `<repo>/config.yaml` with environment metadata only.
+   - Write `<artifact_root>/reports/environment_setup_report.md`.
+   - If useful, update `<artifact_root>/manifests/config.yaml` with environment metadata only.
    - Re-read plan/report and confirm whether the status is `ready`, `partial`, or `blocked`.
 
 ## Plan Shape

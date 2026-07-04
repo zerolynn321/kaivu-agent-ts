@@ -9,6 +9,10 @@ Use this skill when AgentInit receives an onboarded repository and must ask the 
 
 The agent does the work directly. Do not implement a separate Python or TypeScript pipeline for resource discovery or acquisition.
 
+## Artifact Location
+
+Use the coordinator-provided `artifact_root`, or default to `<run_dir>/experiment_artifacts/`. Write resource manifests under `manifests/`, reports under `reports/`, acquisition evidence under `evidence/`, and logs under `logs/`. Do not place these auxiliary files in the repository root. Keep acquired datasets, checkpoints, and model assets in the configured resource directory rather than inside `experiment_artifacts/`.
+
 ## Terminal Output
 
 Keep terminal-facing progress concise. Report only stage status, key decisions, artifact paths, resource availability, blockers, and next steps. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed commands, sources, logs, and evidence in the manifest/report files.
@@ -20,7 +24,7 @@ Role: `AgentInit`
 Inputs:
 
 - cloned repository path
-- repository-local `config.yaml`
+- `<artifact_root>/manifests/config.yaml`
 - run directory or resource root where required resources must be staged
 - optional `onboard_report.md`
 - optional repository-specific virtual environment name or path
@@ -29,9 +33,9 @@ Inputs:
 Required outputs:
 
 - `<run_dir>/resources/` containing every acquired required resource
-- `<run_dir>/resource_manifest.yaml`
-- `<run_dir>/resource_acquisition_report.md`
-- environment metadata recorded in `<repo>/config.yaml` or `<run_dir>/resource_manifest.yaml`
+- `<artifact_root>/manifests/resource_manifest.yaml`
+- `<artifact_root>/reports/resource_acquisition_report.md`
+- environment metadata recorded in `<artifact_root>/manifests/config.yaml` or `<artifact_root>/manifests/resource_manifest.yaml`
 
 Optional outputs:
 
@@ -46,7 +50,7 @@ Handoff:
 
 1. Confirm context.
    - Resolve the repository path and run directory.
-   - Read `<repo>/config.yaml` before scanning.
+   - Read `<artifact_root>/manifests/config.yaml` before scanning.
    - Read `<repo>/onboard_report.md` and nearby `paper_repo_resolution.md` when present.
    - Create `<run_dir>/resources/` if resources must be staged and the path is inside the user-approved workspace/run root.
 
@@ -54,7 +58,7 @@ Handoff:
    - This is a hard gate: do not download, copy, stage, or bind resources before the current user request has explicitly chosen the environment strategy.
    - Do not start dependency downloads at all in this skill; dependency installation belongs to `repo-environment-setup` after the same environment choice has been recorded.
    - Treat the current user request as the only source of environment approval for this run.
-   - Do not treat `<repo>/config.yaml`, prior reports, or the active shell environment as approval to proceed.
+   - Do not treat `<artifact_root>/manifests/config.yaml`, prior reports, or the active shell environment as approval to proceed.
    - If the current request does not explicitly say to reuse the current environment and does not provide a new environment name/path, stop before resource discovery, staging, copy, download, extraction, path binding, package-manager calls, or other network/resource actions and ask:
      - reuse the current active environment for this repository, or
      - create a new repository-specific environment; if so, what name/path?
@@ -62,7 +66,7 @@ Handoff:
    - If the user chooses a new environment, use the provided name/path. If it already exists, record it and continue. If it does not exist, ask before creating it.
    - Create only a minimal empty environment here, such as a conda environment with the selected Python version when known, or a venv path under the run directory when conda is not available. Do not install repository dependencies in this stage.
    - If creation fails, automatically invoke `agent-fix-error-recovery` with the failed command and environment context.
-   - Record the environment manager, name/path, Python version if known, and activation command in `<repo>/config.yaml` or `<run_dir>/resource_manifest.yaml`.
+   - Record the environment manager, name/path, Python version if known, and activation command in `<artifact_root>/manifests/config.yaml` or `<artifact_root>/manifests/resource_manifest.yaml`.
 
 3. Discover resource requirements.
    - Inspect README files, docs, examples, scripts, notebooks, configs, CLI guides, evaluation commands, dataset loaders, model loaders, checkpoint paths, and hard-coded local paths.
@@ -93,8 +97,8 @@ Handoff:
    - Keep backups under a clearly named backup directory if the user approves replacement.
 
 7. Write reports.
-   - Write `<run_dir>/resource_manifest.yaml`.
-   - Write `<run_dir>/resource_acquisition_report.md`.
+   - Write `<artifact_root>/manifests/resource_manifest.yaml`.
+   - Write `<artifact_root>/reports/resource_acquisition_report.md`.
    - Include sources, staged paths, copied/downloaded/reused/blocked status, binding actions, unresolved requirements, and next handoff state.
 
 8. Verify.

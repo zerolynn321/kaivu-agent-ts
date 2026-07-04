@@ -9,6 +9,10 @@ Use this skill after resource and environment preparation when AgentInit must ru
 
 The agent runs the baseline directly through Codex tool calls. Do not implement a separate Python or TypeScript baseline runner.
 
+## Artifact Location
+
+Use the coordinator-provided `artifact_root`, or default to `<run_dir>/experiment_artifacts/`. Write baseline state under `manifests/`, reports under `reports/`, metric and regression evidence under `evidence/`, and command logs under `logs/`. Do not place these auxiliary files in the repository root. Bare artifact filenames below refer to their categorized path under `artifact_root`.
+
 ## Terminal Output
 
 Keep terminal-facing progress concise. Report only readiness status, approval needs, baseline result, metric summary, artifact paths, blockers, and next step. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed commands, logs, metric evidence, and comparisons in the baseline report.
@@ -23,22 +27,22 @@ Inputs:
 
 - cloned repository path
 - run directory
-- repository-local `config.yaml`
-- `<run_dir>/resource_manifest.yaml`
-- `<run_dir>/resource_acquisition_report.md`
-- `<run_dir>/environment_plan.yaml`
-- `<run_dir>/environment_setup_report.md`
+- `<artifact_root>/manifests/config.yaml`
+- `<artifact_root>/manifests/resource_manifest.yaml`
+- `<artifact_root>/reports/resource_acquisition_report.md`
+- `<artifact_root>/plans/environment_plan.yaml`
+- `<artifact_root>/reports/environment_setup_report.md`
 - optional user approval for long/full evaluation
 - optional user override for baseline command, timeout, metric parser, or expected metric
 
 Required outputs:
 
-- `<run_dir>/baseline_metrics.yaml`
-- `<run_dir>/baseline_run_report.md`
+- `<artifact_root>/manifests/baseline_metrics.yaml`
+- `<artifact_root>/reports/baseline_run_report.md`
 
 Optional outputs:
 
-- small updates to `<repo>/config.yaml` baseline metadata only
+- small updates to `<artifact_root>/manifests/config.yaml` baseline metadata only
 
 Handoff:
 
@@ -48,7 +52,7 @@ Handoff:
 ## Workflow
 
 1. Confirm readiness.
-   - Read `<repo>/config.yaml`.
+   - Read `<artifact_root>/manifests/config.yaml`.
    - Read resource and environment reports.
    - Confirm required resources are available.
    - Confirm environment status is `ready` or explicitly accepted by the user.
@@ -61,13 +65,13 @@ Handoff:
    - If the current shell is not inside the selected environment, ask the user to activate it or approve a scoped execution method such as `conda run -n <env>` or `<venv>/bin/python`.
 
 3. Load onboard baseline references.
-   - Read documented baseline/reference values from `<repo>/config.yaml` and `<repo>/onboard_report.md`.
+   - Read documented baseline/reference values from `<artifact_root>/manifests/config.yaml` and `<artifact_root>/reports/onboard_report.md`.
    - Treat `repo-onboard` as the owner of reference discovery.
    - Do not perform a broad repository-wide reference search in this stage unless the user explicitly asks to refresh onboarding references.
    - If onboard recorded a comparable reference, use it for comparison and preserve its source metadata.
    - If onboard recorded `reference_status: not_found`, report that no onboard reference is available and compare only against prior local baselines when present.
    - If config lacks reference metadata entirely, mark `reference_status: missing_from_onboard` and recommend rerunning `repo-onboard` to refresh documented references.
-   - If a prior local `<run_dir>/baseline_metrics.yaml` exists, preserve it as a historical local reference before overwriting or write the new result to a timestamped file.
+   - If prior local `<artifact_root>/manifests/baseline_metrics.yaml` exists, preserve it as a historical reference before overwriting or write the new result under `<artifact_root>/evidence/` with a timestamp.
 
 4. Build the baseline plan.
    - Use the configured `baseline.command` when present; otherwise use `eval_command`.
@@ -103,9 +107,9 @@ Handoff:
    - After AgentFix resolves the issue, rerun the same baseline command unless the user approved a changed command.
 
 9. Write reports.
-   - Write `<run_dir>/baseline_metrics.yaml`.
-   - Write `<run_dir>/baseline_run_report.md`.
-   - If useful, update `<repo>/config.yaml` baseline metadata only.
+   - Write `<artifact_root>/manifests/baseline_metrics.yaml`.
+   - Write `<artifact_root>/reports/baseline_run_report.md`.
+   - If useful, update `<artifact_root>/manifests/config.yaml` baseline metadata only.
    - Re-read outputs and report final status: `passed`, `failed`, `blocked`, or `partial`.
 
 ## Metrics Shape

@@ -1,13 +1,17 @@
 ---
 name: repo-onboard
-description: Inspect a cloned research code repository, discover the safest evaluation or baseline command, proactively identify documented baseline/reference results from repository docs/examples/configs/saved outputs, run a bounded baseline check when resources and environment are already available, parse and compare reported metrics or success criteria against documented baselines when possible, and ensure the repository has a local config.yaml. Use after paper-repo-discovery has cloned or selected a repository, or whenever Codex acting as AgentOnboard must reuse or generate config.yaml by scanning README files, scripts, dependency files, examples, entrypoints, existing configs, and documented result references. This skill does not download resources, install dependencies, create environments, run long training/full evaluations without approval, modify experiment logic, or optimize code.
+description: Inspect a cloned research code repository, discover the safest evaluation or baseline command, proactively identify documented baseline/reference results from repository docs/examples/configs/saved outputs, run a bounded baseline check when resources and environment are already available, parse and compare reported metrics or success criteria against documented baselines when possible, and ensure the workflow artifact directory has an onboarding config.yaml. Use after paper-repo-discovery has cloned or selected a repository, or whenever Codex acting as AgentOnboard must reuse or generate the Agent-owned config by scanning README files, scripts, dependency files, examples, entrypoints, existing runtime configs, and documented result references. This skill does not download resources, install dependencies, create environments, run long training/full evaluations without approval, modify experiment logic, or optimize code.
 ---
 
 # Repo Onboard
 
-Use this skill when AgentOnboard receives a cloned repository and must leave the repository with a usable local `config.yaml` backed by repository evidence and, when feasible, a real baseline/smoke result.
+Use this skill when AgentOnboard receives a cloned repository and must leave the workflow artifact directory with a usable onboarding `config.yaml` backed by repository evidence and, when feasible, a real baseline/smoke result.
 
 The agent does the onboarding work directly. Do not implement a separate Python or TypeScript pipeline for this logic.
+
+## Artifact Location
+
+Use the coordinator-provided `artifact_root`, or default to `<repo>/experiment_artifacts/`. Write the Agent-owned onboarding `config.yaml` under `manifests/`, `onboard_report.md` under `reports/`, and command evidence or logs under `evidence/` or `logs/`. Do not place these auxiliary files in the repository root. This does not relocate repository-native runtime configs used by the actual program.
 
 ## Terminal Output
 
@@ -28,11 +32,11 @@ Inputs:
 
 Required output:
 
-- `<repo>/config.yaml`
+- `<artifact_root>/manifests/config.yaml`
 
 Optional output:
 
-- `<repo>/onboard_report.md` when evidence, uncertainty, or user decisions should be audited later
+- `<artifact_root>/reports/onboard_report.md` when evidence, uncertainty, or user decisions should be audited later
 
 Handoff:
 
@@ -44,11 +48,11 @@ Handoff:
 1. Confirm repository context.
    - Resolve the repository path and verify it exists.
    - Inspect the repository root first.
-   - Read `paper_repo_resolution.md` if it exists in the repository parent or repository root.
+   - Read `paper_repo_resolution.md` from the inherited artifact reports when available; support legacy parent/root locations as read-only migration inputs.
 
 2. Look for an existing `config.yaml`.
-   - If `<repo>/config.yaml` exists, read and reuse it.
-   - If one or more nested `config.yaml` files exist, inspect them as evidence, but still ensure `<repo>/config.yaml` exists for later stages.
+   - If `<artifact_root>/manifests/config.yaml` exists, read and reuse it.
+   - Inspect repository-native `config.yaml` files as runtime evidence, but do not overwrite or confuse them with the Agent-owned onboarding config.
    - Do not overwrite an existing root `config.yaml` unless the user explicitly asks.
    - If the existing root config is incomplete, report missing fields and ask before changing it.
 
@@ -76,8 +80,8 @@ Handoff:
    - Compare parsed metrics with documented baseline values when available; otherwise record the observed result as the initial local baseline and mark comparison as `not_available`.
    - If the command cannot run because resources or dependencies are missing, do not guess. Record `baseline_status: pending_resources`, `pending_environment`, or `blocked` with concrete next steps.
 
-6. Create or update `<repo>/config.yaml`.
-   - Write a concise YAML file at the repository root.
+6. Create or update `<artifact_root>/manifests/config.yaml`.
+   - Write the concise Agent-owned YAML file under the artifact manifest directory.
    - Include enough fields for later agents to proceed without re-discovering the same facts.
    - Include baseline result fields when a bounded baseline check ran.
    - Include `warnings` for uncertain or missing fields.
@@ -85,7 +89,7 @@ Handoff:
    - Do not overwrite an existing root `config.yaml` without approval; if it exists, preserve user-authored values and append missing onboarding/baseline fields only when approved.
 
 7. Verify and report.
-   - Re-read `<repo>/config.yaml` after writing.
+   - Re-read `<artifact_root>/manifests/config.yaml` after writing.
    - Confirm the path in the final answer.
    - State whether the config was reused or generated.
    - State whether baseline was run, passed, pending, or blocked.
@@ -154,7 +158,7 @@ notes: ""
 
 Do:
 
-- ensure a repository-local `config.yaml` exists
+- ensure `<artifact_root>/manifests/config.yaml` exists
 - reuse an existing root config when present
 - scan repository files to infer onboarding metadata
 - run a cheap documented baseline/smoke check when resources and environment are already available

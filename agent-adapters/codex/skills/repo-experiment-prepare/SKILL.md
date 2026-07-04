@@ -11,6 +11,10 @@ Read [references/experiment-readiness-criteria.md](references/experiment-readine
 
 Execute inspection, edits, and bounded validation interactively through Codex tool calls. Do not implement a separate Python or TypeScript orchestration pipeline.
 
+## Artifact Location
+
+Use the coordinator-provided `artifact_root`, or default to `<repo>/experiment_artifacts/`. Write method and experiment plans/matrices under `plans/`, readiness state under `manifests/`, human-readable reports under `reports/`, validation artifacts under `evidence/`, and command output under `logs/`. Do not place these auxiliary files in the repository root. Keep source code, `README.md`, formal runtime configs, launchers, summarizers, dependency definitions, and result directories in the normal codebase structure. Bare artifact filenames below refer to their categorized path under `artifact_root`. For an existing cluttered repository, inventory root-level auxiliary artifacts, move them into the categorized layout when safe, update all references and commands, and avoid keeping duplicate authoritative copies.
+
 ## Terminal Output
 
 Report only readiness mode, current phase, material decisions or approvals, artifact paths, dry-run summary, final status, and blockers. Put commands, diffs, code locations, provenance, logs, and detailed evidence in the stage reports.
@@ -23,14 +27,14 @@ Primary deliverable:
 
 - the actual repository codebase, configurations, formal experiment entrypoint, result summarizer when needed, and README instructions required to start the approved formal experiments
 - for multi-repository solutions, one locally complete experiment workspace whose root entrypoint can run the connected workflow without manual cross-component handoffs or missing source trees
-- `experiment_readiness_report.md` as the single consolidated human-readable explanation of what changed, where it changed, why it satisfies the requirement, and how to run the formal experiments
+- `<artifact_root>/reports/experiment_readiness_report.md` as the single consolidated human-readable explanation of what changed, where it changed, why it satisfies the requirement, and how to run the formal experiments
 
 Inputs:
 
 - primary runnable repository path and run directory
-- repository-local `config.yaml`
-- `resource_manifest.yaml` and environment artifacts
-- `baseline_metrics.yaml` and `baseline_run_report.md`
+- `<artifact_root>/manifests/config.yaml`
+- `<artifact_root>/manifests/resource_manifest.yaml` and environment artifacts
+- `<artifact_root>/manifests/baseline_metrics.yaml` and `<artifact_root>/reports/baseline_run_report.md`
 - optional `paper_repo_resolution.md` or user-specified repository context
 - for requirement validation: `research_scope.yaml`, `benchmark_plan.yaml`, `experiment_base_plan.yaml`, and `workspace_manifest.yaml`
 - optional user optimization objective, method proposal, required comparisons, or protected paths
@@ -284,11 +288,11 @@ baseline_regression:
   command: ""
   evidence_path: ""
 artifacts:
-  method_adaptation_plan: "method_adaptation_plan.yaml"
-  method_adaptation_report: "method_adaptation_report.md"
-  experiment_plan: "experiment_plan.yaml"
-  experiment_matrix: "experiment_matrix.yaml"
-  experiment_readiness_report: "experiment_readiness_report.md"
+  method_adaptation_plan: "experiment_artifacts/plans/method_adaptation_plan.yaml"
+  method_adaptation_report: "experiment_artifacts/reports/method_adaptation_report.md"
+  experiment_plan: "experiment_artifacts/plans/experiment_plan.yaml"
+  experiment_matrix: "experiment_artifacts/plans/experiment_matrix.yaml"
+  experiment_readiness_report: "experiment_artifacts/reports/experiment_readiness_report.md"
   batch_entrypoint: ""
   readme: ""
 formal_run:

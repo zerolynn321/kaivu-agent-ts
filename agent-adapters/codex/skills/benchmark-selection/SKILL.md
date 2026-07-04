@@ -9,6 +9,10 @@ Use this skill as an external benchmark decision index. Produce the benchmark co
 
 Read [references/benchmark-criteria.md](references/benchmark-criteria.md) before making a benchmark decision. Apply its hard gates, comparison rubric, construction standard, and readiness rules.
 
+## Artifact Location
+
+Use the coordinator-provided `artifact_root`, or default to `<run_dir>/experiment_artifacts/`. Write `benchmark_plan.yaml` under `plans/`, `benchmark_selection_report.md` under `reports/`, and supporting evidence or logs under `evidence/` or `logs/`. Do not place these auxiliary files in the repository root. Bare artifact filenames below refer to these categorized paths.
+
 ## Terminal Output
 
 Report only the decision mode, selected or proposed benchmark, approval needs, artifact paths, blockers, and handoff. Put candidate evidence, scorecards, rejected alternatives, protocol details, and leakage analysis in the report.

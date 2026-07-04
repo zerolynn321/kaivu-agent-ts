@@ -11,6 +11,8 @@ Agent-specific packages live under `agent-adapters/<agent>/`. Do not assume ever
 
 Install one agent package at a time. For Codex, install the skill directories under `agent-adapters/codex/skills` as a set so literature review, digest, ingest, batch, wiki search, wiki query, and lint behavior stay consistent.
 
+For research experiment workflows, keep Agent-generated plans, manifests, reports, evidence, and logs under the run's `experiment_artifacts/` directory. Do not scatter auxiliary workflow files across the repository root. Keep source, README, runtime configs, launchers, dependency definitions, resources, and formal results in their normal project locations.
+
 ## Terminal Output Style
 
 When reporting progress in the Codex terminal, show only key stage progress and final results. Do not paste detailed command transcripts, command strings, full command lists, stdout/stderr blocks, file content snippets, or file content diffs unless the user explicitly asks for them. Summarize what changed at the artifact level, such as file paths created, status fields updated, resources available, environment ready, or blockers found.

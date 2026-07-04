@@ -9,6 +9,10 @@ Use this skill as the single pre-onboarding stage for an open-ended research nee
 
 Execute the workflow interactively through Codex tool calls. Do not implement a separate Python or TypeScript pipeline.
 
+## Artifact Location
+
+Use the coordinator-provided `artifact_root`, or default to `<run_dir>/experiment_artifacts/`. Write scope, benchmark, selection, assembly plans, manifests, reports, evidence, and logs under its `plans/`, `manifests/`, `reports/`, `evidence/`, and `logs/` subdirectories. Do not place these auxiliary files in the workspace or repository root. Bare artifact filenames below refer to their categorized path under `artifact_root`.
+
 ## Terminal Output
 
 Report only phase status, major decisions or approvals, artifact paths, the primary runnable repository path, blockers, and the next step. Put search evidence, candidate comparisons, git commands, and detailed decisions in the reports.
