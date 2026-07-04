@@ -113,7 +113,8 @@ Handoff:
    - Run only bounded validation and per-branch dry runs; do not launch full formal experiments.
    - Require the primary repository README to contain the managed formal-experiment section and exact guarded launch command.
    - Accept `ready_for_formal_run` only after directly verifying the modified code, post-change baseline regression, every experiment branch, generated launcher, expected outputs, and README instructions; otherwise finish as `needs_user_decision`, `needs_implementation`, or `blocked`.
-   - In the final response, tell the user exactly how to start the formal run, where outputs will go, and how to summarize results, while stating that the formal run has not started.
+   - Require a consolidated, human-readable `experiment_readiness_report.md` that preserves the original requirement and maps it to actual code locations, changes, experiment branches, evidence, and formal execution instructions.
+   - In the final response, link the consolidated report and tell the user exactly how to start the formal run, where outputs will go, and how to summarize results, while stating that the formal run has not started.
 
 9. Recover from errors.
    - Invoke `agent-fix-error-recovery` automatically after resource, environment, baseline, experiment-preparation, or dry-run failures.

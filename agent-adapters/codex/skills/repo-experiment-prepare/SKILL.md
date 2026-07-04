@@ -1,6 +1,6 @@
 ---
 name: repo-experiment-prepare
-description: Inspect and modify a baseline-validated research codebase until it is ready for formal experiments without launching the full experiment run. Use after repo-baseline-run for either a specific paper or user-specified repository that must become ready for optimization experiments, or an open-ended research requirement whose selected repository must become ready to validate that requirement. This skill records the repository baseline state, maps research requirements to concrete files, functions, interfaces, benchmark rules, and experiment branches; identifies implementation, adapter, evaluation, configuration, and cross-repository integration gaps; makes approved protocol-preserving code changes; preserves the original baseline mode; configures baselines, controls, and ablations; dry-runs every branch; generates batch scripts; and writes method adaptation, experiment plan, matrix, and readiness artifacts. It never launches full formal experiments.
+description: Inspect and modify a baseline-validated research codebase until it is ready for formal experiments without launching them. Use after repo-baseline-run for a specific paper/repository that needs optimization experiments or a selected repository that must validate an open-ended research requirement. This skill maps requirements to files, functions, interfaces, benchmark rules, and experiment branches; implements configuration, adapter, evaluation, method, and cross-repository integration gaps; preserves the original baseline; configures controls and ablations; dry-runs every branch; generates batch scripts and README instructions; and produces one consolidated human-readable experiment_readiness_report.md explaining the requirement, code changes, experiment design, validation evidence, and exact formal-run procedure.
 ---
 
 # Repo Experiment Prepare
@@ -22,6 +22,7 @@ Role: `AgentExperimentPrepare`
 Primary deliverable:
 
 - the actual repository codebase, configurations, formal experiment entrypoint, result summarizer when needed, and README instructions required to start the approved formal experiments
+- `experiment_readiness_report.md` as the single consolidated human-readable explanation of what changed, where it changed, why it satisfies the requirement, and how to run the formal experiments
 
 Inputs:
 
@@ -40,7 +41,6 @@ Required evidence artifacts:
 - `experiment_plan.yaml`
 - `experiment_matrix.yaml`
 - `experiment_readiness.yaml`
-- `experiment_readiness_report.md`
 - one platform-appropriate batch entrypoint such as `scripts/run_experiments.sh` or `scripts/run_experiments.ps1`
 - a managed formal-experiment section in the primary repository README
 
@@ -112,17 +112,26 @@ Handoff:
    - Preserve all README content outside the managed markers.
 
 10. Decide readiness.
-    - Write `experiment_readiness.yaml` and `experiment_readiness_report.md`.
+    - Write `experiment_readiness.yaml`.
     - Use `ready_for_formal_run`, `needs_user_decision`, `needs_implementation`, or `blocked`.
     - Mark `ready_for_formal_run` only when requirement traceability is complete, implementation is finished, the baseline mode is preserved through post-change regression, the protocol and matrix are frozen, every branch passes its dry run with evidence, batch scripts and README instructions are validated, and no scientific decision remains open.
     - Re-read the modified source, formal configurations, launcher, README, matrix, readiness artifacts, baseline-regression evidence, and dry-run evidence before deciding.
     - Confirm that recorded commands are the commands actually executed and that expected outputs exist and are parseable.
     - If any required code, command, output, evidence, or decision is missing, use `needs_user_decision`, `needs_implementation`, or `blocked`; do not let self-reported YAML fields override the observed codebase state.
 
-11. Hand off the formal command.
+11. Write the consolidated human-readable report.
+    - Write `experiment_readiness_report.md` after the final codebase inspection so it reflects actual implementation rather than the original plan.
+    - Preserve the user's original requirement verbatim when it is available. If it was not recorded, ask the user instead of reconstructing it from code.
+    - Include a requirement-to-code table that maps every requirement to repository/component, repo-relative file, function/class/symbol, actual change, experiment branch, and verification evidence.
+    - Explain the baseline starting point, unchanged scientific protocol, implementation changes, experiment design, matrix scope, dry-run results, readiness decision, and remaining limitations in concise prose and readable tables.
+    - Include copyable formal-run and result-summary commands, environment, working directory, expected output paths, resume behavior, and the README location.
+    - Link to detailed YAML and log artifacts rather than dumping their raw content.
+    - Use clear headings, short paragraphs, descriptive tables, and terminology understandable to a researcher who did not follow the terminal session.
+
+12. Hand off the formal command.
     - In the final user-facing response, state that formal experiments have not started.
     - Give the exact repository path, environment, formal command copied from `experiment_readiness.yaml`, output location, and summarizer command when one exists.
-    - Point the user to the managed README section and readiness artifacts.
+    - Point the user first to `experiment_readiness_report.md`, then to the managed README section and machine-readable artifacts.
 
 ## Artifact Shapes
 
@@ -257,6 +266,7 @@ formal_run_started: false
 - Do not claim requirement-validation readiness unless every research requirement maps to implemented code and a benchmark-preserving experiment branch.
 - Treat successful command exit as one piece of evidence; verify outputs, metrics, code paths, and artifact traceability.
 - Treat artifact fields as summaries of observed code and command evidence, never as substitutes for direct inspection and execution.
+- Treat `experiment_readiness_report.md` as the human-facing source of truth; keep detailed machine state in the YAML artifacts it references.
 - Never interpret dry-run metrics as scientific findings.
 
 ## Boundaries
@@ -269,6 +279,7 @@ Do:
 - configure and dry-run every formal branch
 - generate but not launch formal batch scripts
 - document the exact formal command in the repository README and final response
+- produce one readable final report that connects requirements, code locations, changes, experiments, and execution instructions
 
 Do not:
 

@@ -10,6 +10,7 @@
 6. Validation standard
 7. Final readiness gates
 8. Formal-run documentation
+9. Human-readable final report
 
 ## 1. Readiness modes
 
@@ -237,3 +238,59 @@ Formal experiments have not been started by the preparation workflow.
 ````
 
 Preserve all content outside the markers. The final user-facing response must repeat the exact formal command, repository path, environment, output location, summarizer command when available, and readiness artifact paths.
+
+## 9. Human-readable final report
+
+Use `experiment_readiness_report.md` as the single consolidated document for a researcher or engineer who needs to understand the prepared codebase without reading terminal history or raw YAML.
+
+Use this section order:
+
+1. **Executive summary**
+   - Original goal, readiness mode, final status, and whether formal experiments have started.
+   - One short paragraph describing the prepared method and comparison.
+
+2. **Original requirement**
+   - Preserve the user's wording when available.
+   - Separate explicit requirements, constraints, exclusions, and success criteria.
+   - If the original wording is unavailable, mark it missing and request it; do not silently infer it from implementation.
+
+3. **Requirement-to-code mapping**
+   - Use a table with: requirement ID, requirement, repository/component, repo-relative file, function/class/symbol, implemented behavior, experiment branch, and evidence.
+   - Prefer stable symbol names over line numbers. Add line numbers only as optional navigation hints because they drift after edits.
+
+4. **Baseline and fixed protocol**
+   - Describe the original baseline, recorded result, environment, dataset, split, horizons, metrics, and protocol fields preserved for fairness.
+   - Clearly distinguish a preserved artifact from a baseline regression executed after code changes.
+
+5. **Implemented changes**
+   - Organize by functional purpose rather than chronological edit order.
+   - For each change, explain prior behavior, new behavior, files and symbols changed, configuration or CLI controls, provenance for external code, and why the change is needed.
+
+6. **Formal experiment design**
+   - Explain datasets, splits, inputs, targets, metrics, seeds, horizons, baselines, proposed branches, controls, ablations, compute budget, checkpoint rule, and output isolation.
+   - Summarize the experiment matrix in a readable table and link to `experiment_matrix.yaml` for full commands.
+
+7. **Validation evidence**
+   - Summarize static checks, focused tests, post-change baseline regression, and per-branch dry runs.
+   - State what each check proves and what it does not prove.
+   - Link to evidence and logs without pasting full transcripts.
+
+8. **How to run formal experiments**
+   - Give prerequisites, environment activation, working directory, exact guarded launcher command, matrix size, expected output paths, resume behavior, and exact summarizer command in copyable code blocks.
+   - State whether formal runs have started and flag high-cost execution when applicable.
+
+9. **Readiness decision and limitations**
+   - Explain why the status is justified.
+   - List unresolved scientific questions, excluded experiments, resource risks, and what remains after formal results are produced.
+
+10. **Artifact index**
+    - Link the method plan/report, experiment plan, matrix, readiness YAML, README, launcher, summarizer, configurations, tests, and evidence directories.
+
+Writing rules:
+
+- Write for a technical researcher, not for the Agent that produced the files.
+- Prefer concise prose and tables over raw dictionaries, command logs, or YAML dumps.
+- Define project-specific abbreviations on first use.
+- Clearly label observed facts, planned formal actions, and scientific conclusions.
+- Never present dry-run metrics as formal results.
+- Re-read the final codebase so every path, symbol, and command is current before saving the report.
