@@ -1,6 +1,6 @@
 ---
 name: repo-experiment-prepare
-description: Inspect and modify a baseline-validated research codebase until it is ready for formal experiments without launching them. Use after repo-baseline-run for a paper/repository needing optimization experiments or a selected repository that must validate an open-ended requirement. This skill maps requirements to code and experiment branches; implements configuration, adapter, evaluation, and method gaps; turns composed workspaces into one coherent codebase with explicit component interfaces, a unified root entrypoint and control plane, real end-to-end dataflow, and standalone source delivery; preserves the baseline; dry-runs all branches; generates launch, summary, and README instructions; and writes a consolidated human-readable experiment_readiness_report.md.
+description: Inspect and modify a baseline-validated research codebase until it is ready for formal experiments on the current machine without launching them. Use after repo-baseline-run for a paper/repository needing optimization experiments or a selected repository that must validate an open-ended requirement. This skill maps requirements to code and experiment branches; implements configuration, adapter, evaluation, and method gaps; turns composed workspaces into one locally complete codebase with explicit component interfaces, a unified root entrypoint and control plane, and real end-to-end dataflow; preserves the baseline; dry-runs all branches; generates launch, summary, and README instructions; and writes a consolidated human-readable experiment_readiness_report.md. It does not require Git initialization, commits, tracked files, or clean-clone reconstruction.
 ---
 
 # Repo Experiment Prepare
@@ -22,7 +22,7 @@ Role: `AgentExperimentPrepare`
 Primary deliverable:
 
 - the actual repository codebase, configurations, formal experiment entrypoint, result summarizer when needed, and README instructions required to start the approved formal experiments
-- for multi-repository solutions, one standalone top-level Git repository that directly tracks the orchestration and all required component source code, with no submodules, nested Git repositories, or external code paths
+- for multi-repository solutions, one locally complete experiment workspace whose root entrypoint can run the connected workflow without manual cross-component handoffs or missing source trees
 - `experiment_readiness_report.md` as the single consolidated human-readable explanation of what changed, where it changed, why it satisfies the requirement, and how to run the formal experiments
 
 Inputs:
@@ -60,9 +60,9 @@ Handoff:
    - In `requirement_validation` mode, treat `research_scope.yaml` and `benchmark_plan.yaml` as authoritative for the intended claim and protocol.
 
 2. Freeze the starting point.
-- Record repository path, remote, branch, exact baseline commit, component source commits, and current dirty paths.
+   - Record the repository/workspace path and, when already available, remotes, branches, commits, and dirty paths as provenance only. Missing Git metadata is not a readiness gap.
    - Record the accepted baseline command, environment, resources, metric evidence, and output paths.
-   - Preserve user changes. Do not commit, checkout, reset, clean, overwrite, or discard files.
+   - Preserve user changes. Do not initialize Git, stage files, commit, configure author identity, checkout, reset, clean, overwrite, remove nested Git metadata, or discard files merely to satisfy readiness.
    - If required edits overlap unexplained existing changes, stop and ask before editing those paths.
 
 3. Build requirement-to-code traceability.
@@ -71,7 +71,7 @@ Handoff:
    - For composed workspaces, record every cross-repository interface and provenance boundary.
 
 4. Classify readiness gaps.
-   - Use one or more categories: `configuration_gap`, `data_adapter_gap`, `evaluation_gap`, `method_implementation_gap`, `cross_repo_integration_gap`, `repository_packaging_gap`, `protocol_decision_gap`, or `resource_or_environment_gap`.
+   - Use one or more categories: `configuration_gap`, `data_adapter_gap`, `evaluation_gap`, `method_implementation_gap`, `cross_repo_integration_gap`, `workspace_completeness_gap`, `protocol_decision_gap`, or `resource_or_environment_gap`.
    - Distinguish missing implementation from runtime defects.
    - Write `method_adaptation_plan.yaml` before material code changes. Include current behavior, target behavior, files and symbols, invariants, approval state, implementation steps, and validation plan.
 
@@ -101,16 +101,12 @@ Handoff:
    - Add focused interface tests and one bounded end-to-end integration run that exercises the real component boundary and complete artifact flow. Mocks may test edge cases but cannot be the sole evidence of integration.
    - Treat colocated source directories, a wrapper that merely launches unrelated repositories, or successfully importing both packages as insufficient unless the required scientific workflow is connected end to end.
 
-8. Package the coherent codebase for standalone delivery.
-   - Audit every source repository's remote, exact commit, dirty and untracked paths, local patches, license, and dependencies on paths outside the workspace.
-   - Preserve the original component repositories before transformation. Prefer creating a new integrated top-level repository and importing their working trees without `.git` metadata instead of destructively rewriting the source repositories.
-   - Import required component source directly into stable top-level paths such as `components/<name>/` or an equally clear project layout. Use Git subtree when preserving upstream history is useful, or vendor the working tree when simpler; preserve upstream URL, source commit, license, and local modifications either way.
-   - Track all imported component code, integration code, configs, launchers, tests, README, and reports directly in the single top-level repository.
-   - Do not use Git submodules. Do not leave nested `.git` directories/files or a `.gitmodules` file in the final repository.
-   - Remove runtime dependence on undocumented sibling repositories, the original component checkouts, or absolute machine-specific code paths.
-   - Ensure an ordinary `git clone <top-level-repository>` contains all code needed for environment/resource setup and experiment execution without `--recurse-submodules` or additional source-repository clones.
-   - Add top-level provenance/license records and ignore generated data, environments, checkpoints, results, logs, and caches.
-   - Validate the result in a clean temporary clone of the single repository. Confirm all component source is present and tracked, then execute the same root-level bounded end-to-end integration path without borrowing files, configuration, or code from the original workspace. The Git layout is supporting delivery evidence, not proof of functional integration.
+8. Make the current server workspace locally complete.
+   - Keep all source components, integration code, formal configs, launchers, tests, README, and reports needed by the experiment under the selected workspace root or in documented installed dependencies.
+   - Remove runtime dependence on undocumented source trees outside the workspace. External datasets, checkpoints, services, and environment packages may remain external when they are explicitly recorded, available on the current machine, and resolved by the root configuration.
+   - Prefer workspace-relative paths and root-driven path resolution. Machine-specific resource locations may be configurable but must not be hard-coded into component internals.
+   - Confirm the documented setup and formal entrypoint work from the current workspace and selected environment without copying files manually between components.
+   - Treat nested `.git` directories, untracked files, missing commits, and the absence of a top-level Git repository as irrelevant to experiment readiness. Do not reorganize or publish version control unless the user separately requests it.
 
 9. Freeze the formal experiment design.
    - Write `experiment_plan.yaml` with dataset/version, splits, preprocessing boundary, inputs, targets, horizons, metrics, aggregation, seeds, tuning policy, compute budget, checkpoint rule, and output layout.
@@ -138,7 +134,7 @@ Handoff:
 12. Decide readiness.
     - Write `experiment_readiness.yaml`.
     - Use `ready_for_formal_run`, `needs_user_decision`, `needs_implementation`, or `blocked`.
-    - Mark `ready_for_formal_run` only when requirement traceability is complete, the scientific workflow is functionally integrated behind one root interface, standalone delivery is verified, the baseline mode is preserved through post-change regression, the protocol and matrix are frozen, every branch passes its dry run with evidence, batch scripts and README instructions are validated, and no scientific decision remains open.
+    - Mark `ready_for_formal_run` only when requirement traceability is complete, the scientific workflow is functionally integrated behind one root interface, the current workspace is locally complete, the baseline mode is preserved through post-change regression, the protocol and matrix are frozen, every branch passes its dry run with evidence, batch scripts and README instructions are validated, and no scientific decision remains open.
     - Re-read the modified source, formal configurations, launcher, README, matrix, readiness artifacts, baseline-regression evidence, and dry-run evidence before deciding.
     - Confirm that recorded commands are the commands actually executed and that expected outputs exist and are parseable.
     - If any required code, command, output, evidence, or decision is missing, use `needs_user_decision`, `needs_implementation`, or `blocked`; do not let self-reported YAML fields override the observed codebase state.
@@ -147,7 +143,7 @@ Handoff:
     - Write `experiment_readiness_report.md` after the final codebase inspection so it reflects actual implementation rather than the original plan.
     - Preserve the user's original requirement verbatim when it is available. If it was not recorded, ask the user instead of reconstructing it from code.
     - Include a requirement-to-code table that maps every requirement to repository/component, repo-relative file, function/class/symbol, actual change, experiment branch, and verification evidence.
-    - For multi-repository solutions, explain the integrated architecture, component responsibilities, real data and artifact flow, root entrypoint, unified configuration and environment, interface tests, bounded end-to-end evidence, imported component paths, provenance, and standalone reconstruction procedure.
+    - For multi-repository solutions, explain the integrated architecture, component responsibilities, real data and artifact flow, root entrypoint, unified configuration and environment, interface tests, bounded end-to-end evidence, component paths, provenance, and current-workspace execution procedure.
     - Explain the baseline starting point, unchanged scientific protocol, implementation changes, experiment design, matrix scope, dry-run results, readiness decision, and remaining limitations in concise prose and readable tables.
     - Include copyable formal-run and result-summary commands, environment, working directory, expected output paths, resume behavior, and the README location.
     - Link to detailed YAML and log artifacts rather than dumping their raw content.
@@ -251,9 +247,8 @@ status: "ready_for_formal_run" # ready_for_formal_run | needs_user_decision | ne
 readiness_mode: "optimization" # optimization | requirement_validation
 repo_path: ""
 baseline_commit: ""
-repository_integration:
+workspace_integration:
   status: "passed"
-  mode: "subtree" # single_repo | subtree | vendored
   architecture_root: ""
   formal_entrypoint: ""
   component_roles: []
@@ -268,17 +263,14 @@ repository_integration:
   end_to_end_dataflow_check: "passed"
   manual_handoffs: []
   duplicated_scientific_control_planes: []
-  top_level_git_root: ""
   components: []
-  nested_git_repositories: []
-  submodules: []
-  external_code_paths: []
-  reconstruction_check: "passed"
+  undocumented_external_source_paths: []
+  local_workspace_run_check: "passed"
 checks:
   requirement_traceability: "passed"
   implementation_complete: "passed"
   functional_integration_complete: "passed"
-  repository_integration_complete: "passed"
+  local_workspace_complete: "passed"
   baseline_mode_preserved: "passed"
   benchmark_protocol_frozen: "passed"
   experiment_matrix_complete: "passed"
@@ -314,7 +306,8 @@ formal_run_started: false
 - A passing baseline is an input to this stage, not evidence that the codebase is experiment-ready.
 - Do not claim method-specific optimization readiness without an optimization goal.
 - Do not claim requirement-validation readiness unless every research requirement maps to implemented code and a benchmark-preserving experiment branch.
-- Do not claim multi-repository readiness from filesystem or Git topology alone. Require one coherent architecture, a root-level entrypoint, explicit component contracts, unified experiment controls, and a real bounded end-to-end dataflow check; then verify standalone delivery.
+- Do not claim multi-repository readiness from directory or Git topology. Require one coherent architecture, a root-level entrypoint, explicit component contracts, unified experiment controls, a real bounded end-to-end dataflow check, and all source needed by the current server run.
+- Git tracking, commits, author identity, and clean-clone reconstruction are outside this skill's readiness gates. Perform them only when the user explicitly asks for version-control or publishing work.
 - Treat successful command exit as one piece of evidence; verify outputs, metrics, code paths, and artifact traceability.
 - Treat artifact fields as summaries of observed code and command evidence, never as substitutes for direct inspection and execution.
 - Treat `experiment_readiness_report.md` as the human-facing source of truth; keep detailed machine state in the YAML artifacts it references.
@@ -326,7 +319,7 @@ Do:
 
 - inspect and modify experiment code inside the approved workspace
 - implement adapters, methods, evaluation hooks, configurations, and cross-repository interfaces required by the approved goal
-- merge multi-repository solutions into one standalone top-level experiment repository that directly tracks all required source code
+- integrate multi-repository solutions into one locally complete experiment workspace with a unified runnable root
 - preserve and regression-check the original baseline mode
 - configure and dry-run every formal branch
 - generate but not launch formal batch scripts

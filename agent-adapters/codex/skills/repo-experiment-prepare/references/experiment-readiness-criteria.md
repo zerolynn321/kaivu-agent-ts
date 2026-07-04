@@ -58,7 +58,8 @@ A repository is not ready merely because its original baseline runs. Every requi
 
 Record:
 
-- primary repository remote, branch, commit, nested repositories, and component commits;
+- primary workspace path and component paths;
+- remotes, branches, commits, and dirty paths when already available, for provenance only;
 - dirty and untracked paths before edits;
 - protected or user-owned files;
 - selected environment and resource manifests;
@@ -79,7 +80,7 @@ Use these categories:
 | `evaluation_gap` | Metrics, aggregation, outputs, or evaluator integration are incomplete |
 | `method_implementation_gap` | The proposed method or optimization behavior is not implemented |
 | `cross_repo_integration_gap` | Components exist separately but have no verified interface |
-| `repository_packaging_gap` | Runtime integration exists but there is no reproducible top-level Git experiment repository |
+| `workspace_completeness_gap` | The connected workflow still depends on missing or undocumented source outside the current workspace |
 | `protocol_decision_gap` | A scientific rule is missing or ambiguous |
 | `resource_or_environment_gap` | Required runtime dependency or resource remains unavailable |
 
@@ -128,34 +129,15 @@ Content-level integration requires all of the following:
 
 Source colocation, successful imports, a shell wrapper around unrelated CLIs, or separately runnable components are not sufficient evidence. Judge integration from the connected scientific workflow and its observed dataflow first.
 
-After content-level integration, package all required source code as one standalone top-level Git experiment repository for reproducible delivery.
+For local workspace completeness:
 
-Acceptable final forms:
+- keep every required source component and integration layer under the selected server workspace, unless it is a documented installed dependency;
+- allow external datasets, checkpoints, services, and environment packages when the manifest records them and the current machine can resolve them;
+- reject undocumented runtime dependence on missing sibling source trees or manual cross-component file transfer;
+- run the root entrypoint from the current workspace through the complete bounded dataflow;
+- treat Git remotes, commits, tracked status, nested `.git` directories, and clean-clone reconstruction as irrelevant to readiness.
 
-1. **Git subtree integration**
-   - Import component source beneath the top-level repository while keeping it directly tracked by the root `.git`.
-   - Preserve upstream URL, source commit, imported prefix, local changes, license, and update procedure.
-
-2. **Vendored working trees**
-   - Copy the required component working trees without nested `.git` metadata into stable component paths.
-   - Preserve upstream URL, source commit, imported paths, local changes, license, and update procedure.
-
-The following is not a complete integrated repository:
-
-- a non-Git parent directory containing independent nested `.git` repositories;
-- a top-level repository that uses Git submodules or contains `.gitmodules`;
-- orchestration files outside every tracked repository;
-- required component code or local changes that are not directly tracked by the top-level repository;
-- runtime imports or scripts that depend on undocumented sibling or absolute machine-specific code paths.
-
-Before packaging:
-
-- inspect each component's remote, branch, commit, dirty paths, untracked files, and license;
-- preserve local modifications before removing or transforming Git metadata;
-- preserve the original component repositories before importing their working trees;
-- ask before rewriting history, deleting original repositories, or publishing the integrated repository.
-
-Validate the final repository with an ordinary clean clone, without `--recurse-submodules` or additional component clones. Confirm that all required source is present, then run the root entrypoint through the complete bounded dataflow without borrowing files, configuration, or code from the original workspace. Git topology is a delivery check only; it cannot establish functional completeness.
+Do not run `git init`, `git add`, `git commit`, configure author identity, remove nested `.git`, or create a clean clone for this skill. Those actions belong to an explicit version-control or publication request, not experiment preparation.
 
 Ask before:
 
@@ -247,10 +229,9 @@ Set `ready_for_formal_run` only when all are true:
 - configuration, environment, benchmark, evaluation, outputs, and resume behavior are controlled coherently from the root;
 - no manual inter-component handoff or conflicting scientific control plane remains;
 - a bounded end-to-end run exercises the real complete dataflow;
-- the top-level experiment repository is version-controlled;
-- all required component source and modifications are directly tracked through subtree or vendored content;
-- no submodule, nested `.git`, `.gitmodules`, or undocumented external code path remains;
-- an ordinary clean clone contains all source and passes the bounded integration path;
+- all source required by the current server run is present under the workspace or supplied by documented installed dependencies;
+- no undocumented external source path or manual inter-component file transfer remains;
+- the root entrypoint passes the bounded integration path in the current workspace and selected environment;
 - no unresolved scientific or protocol decision remains;
 - original baseline mode is preserved;
 - benchmark and fairness invariants are frozen;
@@ -268,7 +249,7 @@ Set `needs_user_decision` when a missing choice changes scientific meaning, arch
 
 Set `needs_implementation` when the goal and protocol are clear but required code, integration, tests, or experiment branches remain incomplete.
 
-Set `blocked` when required resources, legal access, environment, repository state, or a valid experiment design cannot be established.
+Set `blocked` when required resources, legal access, environment, workspace contents, or a valid experiment design cannot be established. Missing Git identity, commits, or tracked status are not blockers.
 
 ## 8. Formal-run documentation
 
@@ -321,7 +302,7 @@ Use this section order:
 5. **Implemented changes**
    - Organize by functional purpose rather than chronological edit order.
    - For each change, explain prior behavior, new behavior, files and symbols changed, configuration or CLI controls, provenance for external code, and why the change is needed.
-   - For multi-repository solutions, describe the architecture, component roles, interfaces, complete dataflow, root control plane and entrypoint, end-to-end evidence, imported source paths, provenance, licenses, and standalone reconstruction validation.
+   - For multi-repository solutions, describe the architecture, component roles, interfaces, complete dataflow, root control plane and entrypoint, end-to-end evidence, component paths, provenance, licenses, and current-workspace execution validation.
 
 6. **Formal experiment design**
    - Explain datasets, splits, inputs, targets, metrics, seeds, horizons, baselines, proposed branches, controls, ablations, compute budget, checkpoint rule, and output isolation.

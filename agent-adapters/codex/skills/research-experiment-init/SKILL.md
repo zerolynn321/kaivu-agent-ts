@@ -109,11 +109,11 @@ Handoff:
    - Invoke `repo-experiment-prepare` in `requirement_validation` mode.
    - Require requirement-to-code traceability against `research_scope.yaml` and `benchmark_plan.yaml`.
    - Allow the skill to implement protocol-preserving methods, adapters, evaluators, configuration, and approved cross-repository interfaces while retaining the original baseline mode.
-   - For composed workspaces, require content-level integration before packaging: one documented architecture, root formal entrypoint, explicit component interfaces, automatic end-to-end artifact flow, unified configuration/environment/benchmark/evaluation/output controls, and a bounded run through the real complete workflow. Then require standalone delivery containing all source. Filesystem or Git topology alone is never sufficient.
+   - For composed workspaces, require one documented architecture, root formal entrypoint, explicit component interfaces, automatic end-to-end artifact flow, unified configuration/environment/benchmark/evaluation/output controls, all source needed by the current server run, and a bounded run through the real complete workflow. Git initialization, commits, tracked status, author identity, and clean-clone reconstruction are not readiness requirements.
    - Require `method_adaptation_plan.yaml`, `experiment_plan.yaml`, `experiment_matrix.yaml`, and `experiment_readiness.yaml`.
    - Run only bounded validation and per-branch dry runs; do not launch full formal experiments.
    - Require the primary repository README to contain the managed formal-experiment section and exact guarded launch command.
-   - Accept `ready_for_formal_run` only after directly verifying the modified code, complete repository integration, clean-checkout reconstruction, post-change baseline regression, every experiment branch, generated launcher, expected outputs, and README instructions; otherwise finish as `needs_user_decision`, `needs_implementation`, or `blocked`.
+   - Accept `ready_for_formal_run` only after directly verifying the modified code, complete local-workspace integration, post-change baseline regression, every experiment branch, generated launcher, expected outputs, and README instructions; otherwise finish as `needs_user_decision`, `needs_implementation`, or `blocked`.
    - Require a consolidated, human-readable `experiment_readiness_report.md` that preserves the original requirement and maps it to actual code locations, changes, experiment branches, evidence, and formal execution instructions.
    - In the final response, link the consolidated report and tell the user exactly how to start the formal run, where outputs will go, and how to summarize results, while stating that the formal run has not started.
 
