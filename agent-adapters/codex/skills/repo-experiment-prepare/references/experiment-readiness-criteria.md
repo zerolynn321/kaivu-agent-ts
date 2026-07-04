@@ -58,7 +58,7 @@ A repository is not ready merely because its original baseline runs. Every requi
 
 Record:
 
-- primary repository remote, branch, commit, submodules, and component commits;
+- primary repository remote, branch, commit, nested repositories, and component commits;
 - dirty and untracked paths before edits;
 - protected or user-owned files;
 - selected environment and resource manifests;
@@ -79,6 +79,7 @@ Use these categories:
 | `evaluation_gap` | Metrics, aggregation, outputs, or evaluator integration are incomplete |
 | `method_implementation_gap` | The proposed method or optimization behavior is not implemented |
 | `cross_repo_integration_gap` | Components exist separately but have no verified interface |
+| `repository_packaging_gap` | Runtime integration exists but there is no reproducible top-level Git experiment repository |
 | `protocol_decision_gap` | A scientific rule is missing or ambiguous |
 | `resource_or_environment_gap` | Required runtime dependency or resource remains unavailable |
 
@@ -110,6 +111,51 @@ For cross-repository integration:
 - avoid duplicated training loops, evaluators, or data pipelines;
 - preserve a primary runnable root and a single formal experiment entrypoint;
 - test the interface with a tiny deterministic fixture.
+
+A directory containing multiple repositories is not an integrated codebase. Neither is a single Git repository that merely colocates their files.
+
+Content-level integration requires all of the following:
+
+- one documented architecture with a primary package/root and an explicit role for every component;
+- one root-level formal entrypoint that executes the complete scientific workflow;
+- explicit programmatic interfaces between components, including schemas, variable ordering, split and normalization boundaries, artifact formats, validation, and error behavior;
+- automatic upstream-to-downstream artifact flow with provenance, without manual file copying, path editing, or directory switching;
+- one root control plane for configuration, environment setup, benchmark selection, seeds, metrics, outputs, checkpointing, resume, launch, and summarization;
+- one frozen benchmark and evaluation contract shared by baseline, proposed method, controls, and ablations;
+- root-level access to the preserved baseline and all formal branches;
+- focused interface tests plus a bounded end-to-end run through the real component boundary;
+- no undocumented runtime dependence on the original component checkouts.
+
+Source colocation, successful imports, a shell wrapper around unrelated CLIs, or separately runnable components are not sufficient evidence. Judge integration from the connected scientific workflow and its observed dataflow first.
+
+After content-level integration, package all required source code as one standalone top-level Git experiment repository for reproducible delivery.
+
+Acceptable final forms:
+
+1. **Git subtree integration**
+   - Import component source beneath the top-level repository while keeping it directly tracked by the root `.git`.
+   - Preserve upstream URL, source commit, imported prefix, local changes, license, and update procedure.
+
+2. **Vendored working trees**
+   - Copy the required component working trees without nested `.git` metadata into stable component paths.
+   - Preserve upstream URL, source commit, imported paths, local changes, license, and update procedure.
+
+The following is not a complete integrated repository:
+
+- a non-Git parent directory containing independent nested `.git` repositories;
+- a top-level repository that uses Git submodules or contains `.gitmodules`;
+- orchestration files outside every tracked repository;
+- required component code or local changes that are not directly tracked by the top-level repository;
+- runtime imports or scripts that depend on undocumented sibling or absolute machine-specific code paths.
+
+Before packaging:
+
+- inspect each component's remote, branch, commit, dirty paths, untracked files, and license;
+- preserve local modifications before removing or transforming Git metadata;
+- preserve the original component repositories before importing their working trees;
+- ask before rewriting history, deleting original repositories, or publishing the integrated repository.
+
+Validate the final repository with an ordinary clean clone, without `--recurse-submodules` or additional component clones. Confirm that all required source is present, then run the root entrypoint through the complete bounded dataflow without borrowing files, configuration, or code from the original workspace. Git topology is a delivery check only; it cannot establish functional completeness.
 
 Ask before:
 
@@ -195,6 +241,16 @@ Set `ready_for_formal_run` only when all are true:
 - baseline and repository starting state are recorded;
 - all requirements have traceability entries;
 - every required gap is implemented and verified;
+- component responsibilities and the integrated architecture are explicit;
+- one root entrypoint drives the complete required workflow;
+- component interfaces and artifact contracts are implemented and validated;
+- configuration, environment, benchmark, evaluation, outputs, and resume behavior are controlled coherently from the root;
+- no manual inter-component handoff or conflicting scientific control plane remains;
+- a bounded end-to-end run exercises the real complete dataflow;
+- the top-level experiment repository is version-controlled;
+- all required component source and modifications are directly tracked through subtree or vendored content;
+- no submodule, nested `.git`, `.gitmodules`, or undocumented external code path remains;
+- an ordinary clean clone contains all source and passes the bounded integration path;
 - no unresolved scientific or protocol decision remains;
 - original baseline mode is preserved;
 - benchmark and fairness invariants are frozen;
@@ -265,6 +321,7 @@ Use this section order:
 5. **Implemented changes**
    - Organize by functional purpose rather than chronological edit order.
    - For each change, explain prior behavior, new behavior, files and symbols changed, configuration or CLI controls, provenance for external code, and why the change is needed.
+   - For multi-repository solutions, describe the architecture, component roles, interfaces, complete dataflow, root control plane and entrypoint, end-to-end evidence, imported source paths, provenance, licenses, and standalone reconstruction validation.
 
 6. **Formal experiment design**
    - Explain datasets, splits, inputs, targets, metrics, seeds, horizons, baselines, proposed branches, controls, ablations, compute budget, checkpoint rule, and output isolation.
