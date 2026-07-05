@@ -1,6 +1,6 @@
 ---
 name: repo-experiment-prepare
-description: Inspect and modify a baseline-validated research codebase until it is ready for formal experiments on the current machine without launching them. Use after repo-baseline-run for a paper/repository needing optimization experiments or a selected repository that must validate an open-ended requirement. This skill maps requirements to code and experiment branches; implements configuration, adapter, evaluation, and method gaps; turns composed workspaces into one locally complete codebase with explicit component interfaces, a unified root entrypoint and control plane, and real end-to-end dataflow; preserves the baseline; dry-runs all branches; generates launch, summary, and README instructions; and writes a consolidated human-readable experiment_readiness_report.md. It does not require Git initialization, commits, tracked files, or clean-clone reconstruction.
+description: Inspect and modify a baseline-validated research codebase until it is ready for formal experiments on the current machine without launching them. Use after repo-baseline-run for a specific paper/repository or a selected repository that must validate an open-ended requirement. For a specific paper, inspect the paper and repository, ask the user to choose the experiment scope before modifying code, and recommend paper reproduction by default. For a requirement-driven workflow, infer the necessary experiment scope from research_scope and benchmark_plan without routine scope confirmation. This skill implements configuration, adapter, evaluation, method, and integration gaps; preserves the baseline; dry-runs required branches; generates launch, summary, and README instructions; and writes a consolidated human-readable experiment_readiness_report.md.
 ---
 
 # Repo Experiment Prepare
@@ -82,10 +82,19 @@ Idempotency requirement: invoking this skill twice on an unchanged ready codebas
 
 1. Select the readiness mode.
    - Apply the re-entry check first. Continue through the preparation workflow only for a new/incomplete codebase or after a prior readiness gate is concretely invalidated.
-   - Use `optimization` for a specific paper or user-specified repository.
+   - Use `paper_reproduction` when the workflow started from one exact paper and the approved scope is reproduction.
+   - Use `optimization` when the user wants to extend, optimize, or test a new method in a specific paper/repository rather than reproduce it.
    - Use `requirement_validation` for a repository selected from an open-ended research need.
-   - In `optimization` mode, distinguish generic structural readiness from method-specific readiness. If the requested optimization objective is missing or materially ambiguous, inspect the codebase but record `needs_user_decision`; do not invent a scientific optimization target.
+   - For an exact-paper workflow without a recorded scope, inspect the paper, repository, existing resources, and baseline read-only, then ask the user to choose before any source/configuration modification or new resource acquisition. Present concise options:
+     1. `paper_reproduction` (default/recommended): reproduce the main experiments, comparisons, and key ablations needed to support the paper's primary claims;
+     2. `full_paper_reproduction`: additionally reproduce appendix-only extensions, sensitivity studies, extra backbones, or secondary analyses;
+     3. `selected_subset`: reproduce user-selected datasets, tables, methods, or ablations;
+     4. `optimization`: use the paper repository as a baseline for a new method or hypothesis.
+   - Show the concrete datasets, methods, tables, ablations, resources, and estimated cost included in each applicable option. Do not silently interpret `paper_reproduction` as every appendix experiment.
+   - Record the user's choice and resolved scope in `experiment_plan.yaml`. The default is a recommendation, not permission to modify before the user answers.
+   - In `optimization` mode, if the requested optimization objective is missing or materially ambiguous, record `needs_user_decision`; do not invent a scientific optimization target.
    - In `requirement_validation` mode, treat `research_scope.yaml` and `benchmark_plan.yaml` as authoritative for the intended claim and protocol.
+   - In `requirement_validation` mode, determine the necessary experiment scope autonomously from the approved claim, benchmark, success criteria, resource constraints, and exclusions. Include only scientifically necessary baselines, controls, and ablations. Ask the user only when a missing choice changes scientific meaning, benchmark validity, architecture, licensing, or resource class.
 
 2. Freeze the starting point.
    - Record the repository/workspace path and, when already available, remotes, branches, commits, and dirty paths as provenance only. Missing Git metadata is not a readiness gap.
@@ -108,6 +117,8 @@ Idempotency requirement: invoking this skill twice on an unchanged ready codebas
    - Ask before changing the scientific claim, labels, population, split semantics, primary metrics, evaluation timing, model objective, major architecture, major dependency/CUDA stack, or resource class.
    - Ask before copying or merging code with unclear license/provenance, replacing existing implementations, destructive operations, or high-cost validation.
    - Record decisions in the plan and report; never encode an unresolved scientific choice as an implementation assumption.
+   - In paper-driven workflows, do not modify experiment code until the experiment-scope choice is recorded.
+   - In requirement-driven workflows, do not ask for routine scope confirmation when `research_scope.yaml` and `benchmark_plan.yaml` already determine a scientifically adequate design.
 
 6. Implement the missing experiment capability.
    - Prefer adapters, wrappers, explicit interfaces, configuration, and isolated modules over copying or entangling repositories.
@@ -188,7 +199,7 @@ Idempotency requirement: invoking this skill twice on an unchanged ready codebas
 ### `method_adaptation_plan.yaml`
 
 ```yaml
-readiness_mode: "optimization" # optimization | requirement_validation
+readiness_mode: "paper_reproduction" # paper_reproduction | optimization | requirement_validation
 status: "planned" # planned | needs_user_decision | in_progress | implemented | blocked
 repo_path: ""
 baseline_state:
@@ -226,8 +237,17 @@ validation_plan: []
 ### `experiment_plan.yaml`
 
 ```yaml
-readiness_mode: "optimization"
+readiness_mode: "paper_reproduction"
 objective: ""
+experiment_scope:
+  entry_kind: "exact_paper" # exact_paper | requirement_driven
+  selection: "paper_reproduction" # paper_reproduction | full_paper_reproduction | selected_subset | optimization | agent_determined
+  included_datasets: []
+  included_comparisons: []
+  included_ablations: []
+  excluded_experiments: []
+  estimated_resource_cost: ""
+  decision_source: "user_approved" # user_approved | research_scope_and_benchmark
 benchmark_plan_path: ""
 method_adaptation_plan_path: ""
 protocol:
@@ -273,7 +293,7 @@ branches:
 
 ```yaml
 status: "ready_for_formal_run" # ready_for_formal_run | needs_user_decision | needs_implementation | blocked
-readiness_mode: "optimization" # optimization | requirement_validation
+readiness_mode: "paper_reproduction" # paper_reproduction | optimization | requirement_validation
 repo_path: ""
 baseline_commit: ""
 workspace_integration:

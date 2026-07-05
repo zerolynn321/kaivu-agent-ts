@@ -89,6 +89,7 @@ Handoff:
    - If it does, route directly to the `repo-experiment-prepare` re-entry audit. Do not repeat repository selection, onboarding, resource preparation, environment setup, baseline execution, or experiment preparation unless the re-entry audit identifies a concrete stale or invalid gate.
    - If the request is an open-ended research need, continue with the full workflow.
    - If the request names one exact paper and asks for its code, route to `paper-repo-discovery`.
+   - For the exact-paper route, require `repo-experiment-prepare` to ask for experiment scope after read-only paper/repository inspection and before modification; recommend paper reproduction by default.
    - If the request names an existing local repository, route directly to `repo-onboard`.
    - Ask only when the route is genuinely ambiguous.
 
@@ -138,6 +139,7 @@ Handoff:
    - Accept `ready_for_formal_run` only after directly verifying the modified code, complete local-workspace integration, post-change baseline regression, every experiment branch, generated launcher, expected outputs, and README instructions; otherwise finish as `needs_user_decision`, `needs_implementation`, or `blocked`.
    - Require a consolidated, human-readable `experiment_readiness_report.md` that preserves the original requirement and maps it to actual code locations, changes, experiment branches, evidence, and formal execution instructions.
    - In the final response, link the consolidated report and tell the user exactly how to start the formal run, where outputs will go, and how to summarize results, while stating that the formal run has not started.
+   - Because this is requirement-driven, let the Agent determine the scientifically necessary experiment scope from `research_scope.yaml` and `benchmark_plan.yaml`; do not add a routine user scope-selection prompt.
 
 9. Recover from errors.
    - Invoke `agent-fix-error-recovery` automatically after resource, environment, baseline, experiment-preparation, or dry-run failures.

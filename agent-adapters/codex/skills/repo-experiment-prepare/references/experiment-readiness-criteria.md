@@ -15,6 +15,19 @@
 
 ## 1. Readiness modes
 
+### Paper reproduction
+
+Use when one exact paper was the entrypoint.
+
+Before modifying source or experiment configuration, inspect the paper and repository read-only and ask the user to select the experiment scope. Recommend paper reproduction by default:
+
+- **Paper reproduction (default):** main experiments, direct comparisons, and key ablations required to support the paper's primary claims.
+- **Full paper reproduction:** paper reproduction plus appendix-only extensions, extra backbones, sensitivity studies, and secondary analyses.
+- **Selected subset:** explicitly named datasets, tables, branches, or ablations.
+- **Optimization/new experiment:** retain the paper implementation as a baseline for a new hypothesis.
+
+State the concrete contents and estimated resource cost of each applicable option. Do not treat all appendix experiments as mandatory under the default scope. Record the approved scope before edits, downloads beyond the accepted baseline, or readiness implementation.
+
 ### Optimization
 
 Use for a specific paper or explicitly selected repository.
@@ -54,6 +67,8 @@ research requirement
 ```
 
 A repository is not ready merely because its original baseline runs. Every required new modality, method, integration, evaluator, control, and acceptance criterion must be implemented or explicitly blocked.
+
+Infer the experiment scope from `research_scope.yaml` and `benchmark_plan.yaml`. Select the minimum scientifically adequate baseline, proposed, control, and ablation coverage needed for the approved claim. Do not ask the user to choose among routine matrix sizes or repository-internal implementation details. Ask only when ambiguity changes the claim, benchmark validity, architecture, licensing, or resource class.
 
 ## 2. Starting-state and traceability checks
 
