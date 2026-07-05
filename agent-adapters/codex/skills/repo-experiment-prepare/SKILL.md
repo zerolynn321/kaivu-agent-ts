@@ -55,9 +55,33 @@ Handoff:
 - Stop before starting full training, full evaluation, or a batch formal run.
 - If an unexpected setup, build, import, test, baseline-regression, or dry-run command fails, invoke `agent-fix-error-recovery`.
 
+## Re-entry and Idempotency
+
+Treat an existing `ready_for_formal_run` codebase as a re-validation task, not a new preparation run.
+
+Before planning edits:
+
+1. Read the existing readiness manifest, human report, formal plan/matrix, README instructions, and recorded validation evidence.
+2. Check whether the research requirement, benchmark contract, relevant source/configuration, environment/resource identity, launcher, or expected outputs changed after the recorded validation. Use an existing protocol lock, checksums, or explicit file inventory when available; do not add a new tracking mechanism merely because the skill was invoked again.
+3. Run only cheap read-only checks needed to confirm the formal command and required paths still resolve. A print-only/preflight command is allowed when it does not train, fit a graph, overwrite evidence, or create formal results.
+4. If nothing relevant changed and existing evidence is complete and readable, make no file changes, do not archive or regenerate evidence, do not rerun baseline or smoke training, preserve `ready_for_formal_run`, and report that the codebase was already ready.
+
+Reopen preparation only when concrete evidence shows at least one existing readiness gate is no longer satisfied, for example:
+
+- an authoritative requirement or benchmark decision changed;
+- relevant experiment source, configuration, environment, resource identity, or launcher changed after validation;
+- a required artifact or command is missing, corrupt, or no longer resolves;
+- a bounded preflight fails;
+- inspected code proves an existing correctness, leakage, branch-wiring, result-isolation, or unsafe-resume defect.
+
+Do not reopen readiness merely to add optional hardening, newer conventions, extra tests, stronger documentation, refactoring, or a newly imagined best practice. When reopening, state exactly which prior gate is invalid and why. Reuse unaffected evidence and rerun only the baseline path or experiment branches affected by the change.
+
+Idempotency requirement: invoking this skill twice on an unchanged ready codebase must produce no source/configuration changes and no training runs on the second invocation.
+
 ## Workflow
 
 1. Select the readiness mode.
+   - Apply the re-entry check first. Continue through the preparation workflow only for a new/incomplete codebase or after a prior readiness gate is concretely invalidated.
    - Use `optimization` for a specific paper or user-specified repository.
    - Use `requirement_validation` for a repository selected from an open-ended research need.
    - In `optimization` mode, distinguish generic structural readiness from method-specific readiness. If the requested optimization objective is missing or materially ambiguous, inspect the codebase but record `needs_user_decision`; do not invent a scientific optimization target.
@@ -125,6 +149,7 @@ Handoff:
    - Save a non-empty dry-run evidence file for every matrix branch and set its status from execution evidence, not from planned intent.
    - Validate metric parsing, output isolation, checkpoint creation or loading, resume behavior when relevant, and generated configuration resolution.
    - Invoke `agent-fix-error-recovery` for unexpected command failures, then return to this stage. Keep intended method development and experiment design in this skill.
+   - On a reopened ready codebase, reuse validation evidence for unaffected paths. Do not rerun every branch or the baseline solely because the skill was invoked again.
 
 11. Generate batch entrypoints without running them.
    - Generate a platform-appropriate batch script from `experiment_matrix.yaml`.
@@ -315,6 +340,8 @@ formal_run_started: false
 - Treat successful command exit as one piece of evidence; verify outputs, metrics, code paths, and artifact traceability.
 - Treat artifact fields as summaries of observed code and command evidence, never as substitutes for direct inspection and execution.
 - Treat `experiment_readiness_report.md` as the human-facing source of truth; keep detailed machine state in the YAML artifacts it references.
+- Prefer the existing completion contract over expanding the definition of done during re-entry. Optional improvements do not invalidate a ready codebase.
+- Preserve idempotency: an unchanged `ready_for_formal_run` codebase must remain unchanged and must not incur repeated baseline or smoke execution.
 - Never interpret dry-run metrics as scientific findings.
 
 ## Boundaries

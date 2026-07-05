@@ -85,6 +85,8 @@ Handoff:
 ## Workflow
 
 1. Classify the request.
+   - Before starting a new workflow, check whether the current repository already has `<artifact_root>/manifests/experiment_readiness.yaml` with `ready_for_formal_run` for the same recorded requirement.
+   - If it does, route directly to the `repo-experiment-prepare` re-entry audit. Do not repeat repository selection, onboarding, resource preparation, environment setup, baseline execution, or experiment preparation unless the re-entry audit identifies a concrete stale or invalid gate.
    - If the request is an open-ended research need, continue with the full workflow.
    - If the request names one exact paper and asks for its code, route to `paper-repo-discovery`.
    - If the request names an existing local repository, route directly to `repo-onboard`.

@@ -11,6 +11,7 @@
 7. Final readiness gates
 8. Formal-run documentation
 9. Human-readable final report
+10. Re-entry and evidence reuse
 
 ## 1. Readiness modes
 
@@ -332,3 +333,28 @@ Writing rules:
 - Clearly label observed facts, planned formal actions, and scientific conclusions.
 - Never present dry-run metrics as formal results.
 - Re-read the final codebase so every path, symbol, and command is current before saving the report.
+
+## 10. Re-entry and evidence reuse
+
+When the codebase already records `ready_for_formal_run`, first determine whether the prepared state changed.
+
+Use a fast read-only audit:
+
+- read the readiness manifest, report, plan, matrix, README, and evidence index;
+- compare the authoritative requirement and benchmark contract with the recorded versions;
+- inspect whether relevant source, formal configs, environment/resource identity, launcher, or output contract changed;
+- confirm required files and evidence still exist and are readable;
+- optionally run non-training preflight or print-only command expansion.
+
+If the prepared state is unchanged, accept valid existing baseline regression, interface tests, branch dry runs, and integration evidence. Return the existing ready status without edits or new execution evidence.
+
+Invalidate prior evidence only when its covered input or code path changed, the evidence is missing/corrupt, its recorded command no longer resolves, or direct inspection exposes a defect that violates a readiness gate that already existed when ready was declared. Optional hardening, documentation polish, refactoring, additional test coverage, and newly preferred conventions do not invalidate readiness.
+
+After a real change, rerun the minimum affected validation:
+
+- rerun baseline regression only when the baseline path or shared protocol changed;
+- rerun only branches whose implementation, configuration, shared dependency, or benchmark contract changed;
+- rerun full integration only when the cross-component boundary or shared dataflow changed;
+- preserve and reference unaffected evidence rather than archiving and recreating it.
+
+The expected second-run result for an unchanged ready codebase is: no code or configuration changes, no baseline/smoke training, no evidence replacement, and a concise statement that it remains ready for formal execution.

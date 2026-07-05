@@ -105,6 +105,8 @@ Treat `repo-resource-prepare`, `repo-environment-setup`, and `repo-baseline-run`
 
 Keep post-baseline source inspection, requirement-to-code traceability, method implementation, content-level integration, root entrypoint and control plane, direct component interfaces, automatic artifact flow, bounded end-to-end verification, local workspace completeness, provenance, post-change baseline regression, formal experiment planning, per-branch dry runs, scripts, README, the consolidated report, and the `ready_for_formal_run` gate in `repo-experiment-prepare`. Treat it as AgentExperimentPrepare, not as AgentInit or AgentFix. Never infer integration from a shared directory or Git layout; judge the architecture and observed complete workflow. Git publication and reconstruction are separate tasks that require an explicit user request.
 
+Make `repo-experiment-prepare` idempotent. When an existing codebase is already `ready_for_formal_run`, perform a fast read-only freshness audit first. If requirements, protocol, relevant code/configuration, resources/environment, commands, and evidence are unchanged, do not modify files or rerun baseline/smoke work; report that it is already ready. Reopen preparation only for a concrete violated readiness gate, and rerun only affected validation.
+
 For open-ended research-demand workflows, use this order:
 
 ```text
