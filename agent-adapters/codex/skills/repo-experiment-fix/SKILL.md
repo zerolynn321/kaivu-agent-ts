@@ -1,6 +1,6 @@
 ---
 name: repo-experiment-fix
-description: Inspect the repositories selected by experiment-repo-search and make the minimum source-level changes, adapters, benchmark wiring, or cross-repository integrations needed to produce one coherent repository for the requested optimization experiment before onboarding. Use when the selected repository base may already fit exactly, may need a bounded modification, or may require multiple repositories to be connected. Preserve the original-method baseline path, record no_change_required when appropriate, and output one final repository path for repo-onboard. This skill does not install dependencies, acquire runtime resources, or run the final baseline.
+description: Inspect the repositories selected by experiment-repo-search and make the minimum source-level changes, adapters, benchmark wiring, comparison switches, or cross-repository integrations needed to produce one coherent repository for the requested optimization experiment before onboarding. Use when the selected repository base may already fit exactly, may need a bounded modification, or may require multiple repositories to be connected. Preserve the original-method baseline path and, for open-ended comparative requirements, expose the required control/treatment branches. Record no_change_required when appropriate and output one final repository path for repo-onboard. This skill does not install dependencies, acquire runtime resources, or run the final baseline.
 ---
 
 # Repo Experiment Fix
@@ -15,7 +15,8 @@ The final repository is complete for this project when:
 
 - it contains the original method needed as the optimization baseline;
 - it contains the adapters or integrations required by the research need;
-- one representative dataset or official pretrained evaluation route can later produce the original-method result;
+- for paper/repository routes, one representative dataset or official pretrained evaluation route can later produce the original-method result;
+- for open-ended comparative requirements, one representative benchmark can later produce the required treatment/control or reference comparison;
 - later optimization can be implemented and compared on the same path;
 - unnecessary full-paper datasets, retraining, tables, and ablations are not required.
 
@@ -73,6 +74,7 @@ Handoff:
 3. Write the fix plan before material edits.
    - Map each requirement to repository role, file, symbol, expected behavior, and validation evidence.
    - Record the original baseline path that must remain available.
+   - For comparative requirements, record each required branch, how it is activated, and which invariants must remain shared across branches.
    - Record proposed files, adapters, interface contracts, provenance, protected invariants, and approval needs.
 
 4. Resolve approval gates.
@@ -83,6 +85,8 @@ Handoff:
 5. Apply the minimum required changes.
    - Prefer configuration, adapters, wrappers, and explicit interfaces over invasive rewrites.
    - Preserve an explicit original-method baseline mode.
+   - Expose the minimum control/treatment switches needed by the requirement when the repository lacks them.
+   - For on/off comparisons, change only the factor under test and keep data split, model capacity, training budget, metrics, and evaluator fixed unless the benchmark plan says otherwise.
    - Keep the selected representative benchmark path and evaluation meaning unchanged.
    - For data adaptation, preserve provenance and prevent future-information or target leakage.
    - Record every source or protocol change and why it is necessary.
@@ -119,6 +123,14 @@ original_method:
   baseline_entrypoint: ""
   representative_dataset_or_input: ""
   primary_metric_or_output: ""
+controlled_baseline:
+  required: false
+  branches:
+    - name: ""
+      role: "control"
+      activation: ""
+      expected_command_family: ""
+  fairness_invariants: []
 requirement_mapping:
   - requirement: ""
     repository_role: ""
@@ -146,6 +158,7 @@ next_skill: "repo-onboard"
 - No source modification is a valid and preferred result when the repository already fits.
 - Make only changes necessary to satisfy the requirement and expose a usable optimization base.
 - Preserve the original method as the baseline comparator.
+- For an open-ended comparative requirement, do not declare the repository ready for onboarding until the required comparison branches are available or explicitly documented as no_change_required because the upstream repository already provides them.
 - Do not require the optimized method itself to outperform the baseline in this stage.
 - Do not call a directory containing multiple untouched repositories an integrated experiment repository.
 - Runtime readiness is established later by a passing baseline, not by static confidence here.

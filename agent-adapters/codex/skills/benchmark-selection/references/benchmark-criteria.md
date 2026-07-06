@@ -24,7 +24,11 @@ A selected benchmark unit must pass every applicable gate:
 6. **Comparable output**
    - The result can be preserved as the baseline comparator for later optimization on the same protocol.
 
-7. **Resource feasibility**
+7. **Controlled comparison for comparative requirements**
+   - If the user asks whether a factor improves performance, the benchmark must define the minimum treatment/control or reference branches needed to answer that question.
+   - The branches must share the same dataset/input, split, primary metric, resource budget, and available-information boundary unless a difference is explicitly part of the claim.
+
+8. **Resource feasibility**
    - Required downloads, environment, memory, runtime, and hardware fit the user constraints or have explicit approval.
 
 ## Route Preference
@@ -57,7 +61,7 @@ Treat changes to target, labels, population, metric meaning, or evaluation timin
 Required scope:
 
 - one representative dataset/input;
-- one original-method route;
+- one original-method route, or the smallest controlled comparison for comparative open-ended requirements;
 - one primary metric or meaningful output;
 - enough provenance and protocol detail for later comparison.
 

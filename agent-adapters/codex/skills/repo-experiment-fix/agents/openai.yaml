@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Experiment Fix"
-  short_description: "Adapt and integrate repos before onboarding"
-  default_prompt: "Use $repo-experiment-fix to make the selected repository base satisfy the research need before onboarding."
+  short_description: "Adapt repos for the required comparison"
+  default_prompt: "Use $repo-experiment-fix to expose the required baseline comparison branches before onboarding."

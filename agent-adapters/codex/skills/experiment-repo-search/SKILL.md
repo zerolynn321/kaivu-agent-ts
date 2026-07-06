@@ -1,6 +1,6 @@
 ---
 name: experiment-repo-search
-description: Turn an open-ended natural-language research requirement into a structured minimum-reproduction contract, consult benchmark-selection as an auxiliary decision index, find and compare credible repositories, select the smallest repository base that can reproduce the original method on one representative dataset or official pretrained evaluation path, clone or reuse the selected repositories, and hand the local workspace to repo-experiment-fix. Use after research-experiment-init for requirement-driven repository discovery. This skill does not install dependencies, acquire non-Git runtime resources, modify source code, or run the baseline.
+description: Turn an open-ended natural-language research requirement into a structured minimum controlled baseline contract, consult benchmark-selection as an auxiliary decision index, find and compare credible repositories, select the smallest repository base that can answer the research question on one representative benchmark, clone or reuse the selected repositories, and hand the local workspace to repo-experiment-fix. Use after research-experiment-init for requirement-driven repository discovery. This skill does not install dependencies, acquire non-Git runtime resources, modify source code, or run the baseline.
 ---
 
 # Experiment Repo Search
@@ -11,12 +11,23 @@ Do not implement a separate Python or TypeScript orchestration pipeline. Perform
 
 ## Project Definition
 
-This project does not require complete paper reproduction. The target is a **minimum reproducible optimization base**:
+This project does not require complete paper reproduction. The target is a **minimum reproducible optimization base**.
+
+For an open-ended research requirement, the baseline target is not merely "the chosen method runs." It is the smallest controlled experiment that can answer the user's question before later optimization. Use one representative benchmark when enough, but include the required control branch.
+
+Examples:
+
+- event information helps forecasting: `events_off` vs `events_on`;
+- retrieval diversity helps forecasting: similarity-only retrieval vs diversity-aware reranking;
+- causal graph priors help forecasting: default/adaptive graph vs causal-prior graph;
+- foundation models are useful: foundation-model evaluation vs representative classical baseline.
+
+The selected contract must ensure:
 
 - the original method is present and identifiable;
 - one representative public dataset, bundled example, saved result, or official pretrained checkpoint path is sufficient;
-- the selected path produces the method's meaningful output or metric;
-- the result can serve as the unchanged baseline for later optimization;
+- the selected path produces the meaningful metric or output needed for the minimum comparison;
+- the comparison result can serve as the unchanged baseline contract for later optimization;
 - all datasets, all paper tables, all seeds, full retraining, and appendix experiments are unnecessary unless the user explicitly requests them.
 
 Prefer official pretrained evaluation or released results over expensive retraining when they provide a valid original-method baseline.
@@ -64,8 +75,10 @@ Handoff:
    - Record the research question, task, input/output, intended optimization, must-have requirements, exclusions, and resource limits.
    - Ask only when ambiguity changes scientific meaning, repository class, data access, or resource class.
 
-2. Define the minimum reproduction contract.
+2. Define the minimum controlled baseline contract.
+   - Identify the research question type: single-method reproduction, on/off effect, method/control comparison, component ablation, or model-family comparison.
    - Identify the original-method behavior that must be observable before optimization.
+   - For comparative requirements, identify the smallest control branch needed to answer the question.
    - Select the smallest scientifically meaningful evidence unit: normally one representative dataset and one primary metric or output.
    - Accept an official pretrained checkpoint, released prediction/result file, evaluation-only route, or short documented training route.
    - Do not require full retraining when an official pretrained route establishes the baseline.
@@ -82,7 +95,8 @@ Handoff:
 
 4. Compare candidates against the requirement.
    - Prioritize requirement fit, minimum-reproduction evidence, and optimization suitability over popularity.
-   - Check whether the original method can produce a meaningful result without unnecessary full-paper training.
+   - Check whether the repository can produce the minimum controlled baseline without unnecessary full-paper training.
+   - For comparative requirements, reject candidates that only run one branch unless a bounded adapter or switch can create the missing control without changing scientific meaning.
    - Check whether the code exposes the model, retrieval, graph, data, evaluator, or other extension point needed by the future optimization.
    - Record rejected candidates and concrete reasons.
 
@@ -120,9 +134,11 @@ exclusions: []
 resource_constraints: {}
 minimum_reproduction:
   original_method_behavior: ""
+  baseline_kind: "controlled_comparison" # single_method | controlled_comparison
   representative_dataset_or_input: ""
   primary_metric_or_output: ""
   acceptable_route: "pretrained_eval" # pretrained_eval | released_result_eval | documented_training | bundled_example
+  required_branches: []
   reference_target: ""
   unnecessary_scope: []
 open_questions: []
@@ -148,7 +164,12 @@ selected:
   support_repos: []
 candidates: []
 minimum_reproduction_contract:
+  baseline_kind: "controlled_comparison" # single_method | controlled_comparison
   dataset_or_input: ""
+  branches:
+    - name: ""
+      role: "treatment" # treatment | control | reference
+      command_evidence: ""
   command_evidence: ""
   metric_or_output: ""
   reference_source: ""
@@ -185,7 +206,8 @@ warnings: []
 
 - A repository is not suitable merely because its README uses similar keywords.
 - Use `benchmark-selection` as the auxiliary source of truth for the representative dataset/input and minimum evaluation protocol.
-- A minimum reproduction must exercise the original method and produce a meaningful result suitable as an optimization baseline.
+- A minimum reproduction for a paper/repository route must exercise the original method and produce a meaningful result suitable as an optimization baseline.
+- A minimum baseline for an open-ended requirement must include the control or reference branch needed to answer the user's research question.
 - One representative dataset is enough when it provides a valid original-method result.
 - Prefer released checkpoints and evaluation-only paths over unnecessary expensive retraining.
 - Prefer the smallest credible repository base and lowest-risk adaptation.

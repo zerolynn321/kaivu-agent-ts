@@ -1,6 +1,6 @@
 ---
 name: benchmark-selection
-description: Provide an auxiliary benchmark decision for experiment-repo-search by selecting the smallest scientifically meaningful dataset, input, protocol, metric, checkpoint, or released-result route that can reproduce the original method and serve as the baseline for later optimization. Use when an open-ended research requirement needs benchmark evidence before repository comparison. One representative dataset is sufficient; do not require a full benchmark suite, every paper dataset, full retraining, or all paper results. Write benchmark_plan.yaml and benchmark_selection_report.md without selecting repositories, downloading resources, modifying code, or running experiments.
+description: Provide an auxiliary benchmark decision for experiment-repo-search by selecting the smallest scientifically meaningful dataset, input, protocol, metric, checkpoint, released-result route, and when needed control branches that can answer an open-ended research requirement and serve as the baseline contract for later optimization. Use when an open-ended research requirement needs benchmark evidence before repository comparison. One representative dataset is sufficient, but comparative questions require the minimum on/off, method/control, component/no-component, or reference-model branches. Do not require a full benchmark suite, every paper dataset, full retraining, or all paper results. Write benchmark_plan.yaml and benchmark_selection_report.md without selecting repositories, downloading resources, modifying code, or running experiments.
 ---
 
 # Benchmark Selection
@@ -17,6 +17,8 @@ Choose a **minimum credible benchmark unit** that:
 - produces a meaningful metric or method output;
 - has enough protocol evidence to preserve the result as the later optimization baseline;
 - fits the user's compute, access, and download constraints.
+
+For open-ended comparative requirements, the benchmark unit must include the smallest controlled comparison needed to answer the question. A single treatment branch is insufficient when the user asks whether some information, module, model family, or strategy improves performance.
 
 Prefer official pretrained evaluation, released predictions/results, bundled data, or one established public dataset over unnecessary full retraining.
 
@@ -56,6 +58,8 @@ Handoff:
 1. Define the minimum evidence requirement.
    - Preserve the research question and optimization goal.
    - Identify the original-method behavior that must be reproduced before optimization.
+   - Identify whether the question is comparative.
+   - For comparative questions, define required branches and fairness invariants before repository search.
    - Define one primary metric or meaningful output.
    - Separate hard requirements from preferences.
 
@@ -91,6 +95,7 @@ mode: "adopt_existing" # adopt_existing | adapt_existing | construct_minimal | u
 research_requirement_path: ""
 
 minimum_reproduction:
+  baseline_kind: "controlled_comparison" # single_method | controlled_comparison
   original_method_behavior: ""
   representative_dataset_or_input:
     name: ""
@@ -105,6 +110,10 @@ minimum_reproduction:
   primary_metric_or_output: ""
   reference_target: ""
   expected_cost: ""
+  required_branches:
+    - name: ""
+      role: "control" # control | treatment | reference
+      description: ""
 
 protocol:
   task_definition: ""
@@ -112,7 +121,10 @@ protocol:
   preprocessing_boundary: ""
   leakage_controls: []
   metric_direction: "unknown"
-  fairness_invariants: []
+  fairness_invariants:
+    - "same dataset/input"
+    - "same split or evaluation boundary"
+    - "same primary metric"
 
 adaptation:
   required: false
@@ -130,6 +142,8 @@ handoff:
 ## Decision Rules
 
 - One representative dataset or input is sufficient.
+- One treatment branch alone is not sufficient for a comparative open-ended requirement.
+- Required branches should be minimal; do not expand to a full ablation suite unless the user asks.
 - Use the original method's released checkpoint or result when it avoids unnecessary training and remains scientifically valid.
 - Missing a full paper benchmark suite is not a blocker.
 - A benchmark is invalid if it does not exercise the original method, cannot produce a meaningful result, leaks unavailable information, or cannot support later fair optimization comparison.

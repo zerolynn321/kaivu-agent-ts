@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Baseline Run"
-  short_description: "Run the final minimum reproduction baseline"
-  default_prompt: "Use $repo-baseline-run to reproduce the original method's minimum meaningful result and mark the repository ready for optimization."
+  short_description: "Run the final minimum baseline comparison"
+  default_prompt: "Use $repo-baseline-run to run the configured minimum baseline or controlled comparison and mark the repository ready for optimization."

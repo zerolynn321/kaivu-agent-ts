@@ -1,6 +1,6 @@
 ---
 name: repo-onboard
-description: Inspect the final cloned or adapted research repository, identify the minimum scientifically meaningful original-method reproduction path, discover one representative dataset or official pretrained/released-result evaluation route, find comparable documented reference results when available, and write the Agent-owned config.yaml for resource, environment, and baseline stages. Use after repo-experiment-fix for open-ended requirements, after paper-repo-discovery for a paper without a known repository, or directly when the user supplies a specific paper and repository. This skill does not install dependencies, acquire resources, modify experiment logic, or require complete paper reproduction.
+description: Inspect the final cloned or adapted research repository, identify the minimum scientifically meaningful reproduction or controlled baseline path, discover one representative dataset or official pretrained/released-result evaluation route, find comparable documented reference results when available, and write the Agent-owned config.yaml for resource, environment, and baseline stages. Use after repo-experiment-fix for open-ended requirements, after paper-repo-discovery for a paper without a known repository, or directly when the user supplies a specific paper and repository. For open-ended comparative requirements, preserve the required control/treatment branches in config.yaml. This skill does not install dependencies, acquire resources, modify experiment logic, or require complete paper reproduction.
 ---
 
 # Repo Onboard
@@ -8,6 +8,8 @@ description: Inspect the final cloned or adapted research repository, identify t
 Use this skill to convert one final repository path into an evidence-backed minimum-reproduction configuration.
 
 The target is not every experiment in the paper. Select the smallest credible path that exercises the original method, produces a meaningful result, and can serve as the baseline for later optimization.
+
+For open-ended comparative requirements, select the smallest controlled baseline path that answers the user's question. This may require multiple commands or one command matrix, but only for the required branches.
 
 ## Artifact Location
 
@@ -86,6 +88,8 @@ Do not select expensive full retraining when an earlier option is valid. Do not 
 4. Select the minimum reproduction path.
    - Identify one representative dataset or input.
    - Prefer evaluation-only or released-result paths over retraining.
+   - If `repo_experiment_fix.yaml` or `benchmark_plan.yaml` defines `controlled_baseline.required: true` or `baseline_kind: controlled_comparison`, preserve every required branch in the config.
+   - Require each branch to share the benchmark invariants unless the benchmark plan explicitly differs.
    - Record the original method entrypoint, command, working directory, pre-eval steps, expected outputs, primary metric or success criterion, and estimated cost.
    - A cheap smoke command may be used as an intermediate check, but it is not the final baseline target unless it produces the meaningful original-method result required above.
 
@@ -116,6 +120,7 @@ confidence: "high" # high | medium | low
 minimum_reproduction:
   original_method: ""
   purpose: "optimization_baseline"
+  baseline_kind: "single_method" # single_method | controlled_comparison
   route: "pretrained_eval" # pretrained_eval | released_result_eval | documented_training | bundled_example
   representative_dataset_or_input: ""
   checkpoint_or_result: ""
@@ -127,6 +132,12 @@ minimum_reproduction:
   expected_result_files: []
   estimated_cost: ""
   full_paper_reproduction_required: false
+  comparison_branches:
+    - name: ""
+      role: "control"
+      command: ""
+      expected_result_files: []
+  fairness_invariants: []
 
 baseline:
   status: "not_run" # passed | failed | not_run | pending_resources | pending_environment | blocked
@@ -160,6 +171,7 @@ next_skill: "repo-resource-prepare"
 - `blocked`: the repository is invalid or no meaningful original-method path can be identified.
 - Missing resources or dependencies do not block onboarding when their exact requirements can be handed to later stages.
 - A missing documented reference does not invalidate a meaningful local baseline.
+- For open-ended comparative requirements, missing a required control branch is not `ready`; return to `repo-experiment-fix` unless the user explicitly narrows the task.
 
 ## Boundaries
 
