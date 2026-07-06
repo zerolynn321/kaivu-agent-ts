@@ -1,4 +1,4 @@
 interface:
   display_name: "Agent Fix Error Recovery"
   short_description: "Diagnose errors and apply safe fixes"
-  default_prompt: "Automatically use $agent-fix-error-recovery after a failed workflow command; diagnose the error, apply safe fixes, and ask only before risky actions."
+  default_prompt: "Use $agent-fix-error-recovery after an unexpected workflow failure; apply safe fixes and return planned repository changes to repo-experiment-fix."

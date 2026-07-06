@@ -1,4 +1,0 @@
-interface:
-  display_name: "Repo Experiment Prepare"
-  short_description: "Modify and validate a repo for formal experiments"
-  default_prompt: "Use $repo-experiment-prepare to turn this baseline-validated repository into an experiment-ready codebase without starting the formal run."

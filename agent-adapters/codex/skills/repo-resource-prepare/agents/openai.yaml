@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Resource Prepare"
-  short_description: "Choose env, then stage resources"
-  default_prompt: "Use $repo-resource-prepare to ask whether to reuse the current environment or create a new repo environment before downloading resources, then stage required resources."
+  short_description: "Choose env and stage minimum baseline resources"
+  default_prompt: "Use $repo-resource-prepare to choose the environment and stage only the resources required by the selected minimum reproduction."

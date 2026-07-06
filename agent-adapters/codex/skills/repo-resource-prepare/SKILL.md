@@ -1,11 +1,11 @@
 ---
 name: repo-resource-prepare
-description: Ask the user to choose whether to reuse the current environment or create a new per-repository virtual environment before resource download, then identify, acquire, and stage all required runtime resources for an onboarded research repository into a run-local resource directory. Use after repo-onboard has produced or reused config.yaml, or whenever Codex acting as AgentInit must pause for an environment choice if the current request has not explicitly chosen current-env reuse or a new conda/venv name, create the empty environment if approved, inspect a repository for required datasets, pretrained models, checkpoints, caches, local path assumptions, API tokens, and external URLs; download or copy required resources into the run directory; optionally bind repository paths to staged resources; and write resource_manifest.yaml plus resource_acquisition_report.md. This skill does not install experiment dependencies, run baseline evaluations, or modify experiment logic.
+description: Ask the user to choose whether to reuse the current environment or create a repository-specific virtual environment, then acquire and stage only the resources required by the onboarded minimum original-method reproduction path. Use after repo-onboard has selected one representative dataset/input and a pretrained-evaluation, released-result, bundled-example, or shortest necessary training route. Prefer existing official checkpoints, released outputs, bundled resources, and reusable local files over unnecessary retraining or broad paper-resource downloads; write resource_manifest.yaml plus resource_acquisition_report.md. This skill does not install dependencies, run the baseline, modify experiment logic, or acquire every dataset/model used by the paper.
 ---
 
 # Repo Resource Prepare
 
-Use this skill when AgentInit receives an onboarded repository and must ask the user whether to reuse the current environment or create a new repository-specific environment before making resources available under the run directory.
+Use this skill when AgentInit receives an onboarded repository and must make only the selected minimum-reproduction resources available under the run directory.
 
 The agent does the work directly. Do not implement a separate Python or TypeScript pipeline for resource discovery or acquisition.
 
@@ -43,7 +43,7 @@ Optional outputs:
 
 Handoff:
 
-- After required resources are staged or blockers are documented, hand off to the environment setup skill.
+- After every resource required by the selected minimum reproduction is staged or a blocker is documented, hand off to `repo-environment-setup`.
 - Do not continue into experiment dependency installation, baseline execution, optimization, or code changes.
 
 ## Workflow
@@ -72,15 +72,20 @@ Handoff:
    - Inspect README files, docs, examples, scripts, notebooks, configs, CLI guides, evaluation commands, dataset loaders, model loaders, checkpoint paths, and hard-coded local paths.
    - Search for terms such as `data`, `dataset`, `datasets`, `download`, `pretrained`, `pre-trained`, `checkpoint`, `ckpt`, `weights`, `model`, `cache`, `embedding`, `corpus`, `index`, `tokenizer`, `huggingface`, `drive.google`, `dropbox`, `zenodo`, `kaggle`, `wget`, `curl`, and `gdown`.
    - Classify resources as `dataset`, `model`, `checkpoint`, or `misc`.
-   - Mark each resource as `required: true` only when the configured eval/smoke/baseline command or documented minimal run path needs it.
-   - Treat optional full-paper datasets, giant pretrained weights, or alternative benchmark resources as optional unless the selected command requires them.
+   - Read `minimum_reproduction` from `config.yaml` and use it as the scope boundary.
+   - Mark each resource as `required: true` only when the configured minimum original-method command needs it.
+   - Prefer an official checkpoint or released prediction/result when it avoids retraining and still establishes the original-method baseline.
+   - Require only the selected representative dataset or input. Treat every other paper dataset, horizon-specific asset, alternative checkpoint, appendix resource, and comparison-model asset as optional.
+   - Do not download training data when the selected released-result evaluator does not need it.
 
 4. Build the resource manifest before downloading.
    - Include the selected environment metadata before listing resources.
    - For each resource, record `name`, `type`, `source_url`, `local_path`, `acquired_path`, `expected_size_bytes` if known, `required`, `status`, and `notes`.
    - Use paths as seen from the repository root for `local_path`.
    - Put unresolved credentials, inaccessible URLs, license gates, manual forms, or ambiguous resources in `unresolved_requirements`.
+   - Record why every required resource is necessary for the minimum reproduction.
    - Present the plan before downloading large files, credentialed resources, or resources from untrusted/non-primary sources.
+   - If a smaller official route can produce the same valid baseline result, select it instead of the larger route.
 
 5. Acquire required resources.
    - Required resources must end up under `<run_dir>/resources/` or be explicitly marked blocked with a reason.
@@ -104,7 +109,8 @@ Handoff:
 8. Verify.
    - Re-read the manifest and report.
    - Confirm every `required: true` resource is either `available` with an existing `acquired_path`, or `blocked` with a concrete next action.
-   - Do not run the full baseline. Cheap file existence checks, checksums, archive listings, and directory listings are allowed.
+   - Confirm the manifest does not include unrelated full-paper resources as required.
+   - Do not run the baseline. Cheap file existence checks, checksums, archive listings, and directory listings are allowed.
 
 ## Manifest Shape
 
@@ -133,6 +139,11 @@ resources:
     notes: ""
 unresolved_requirements: []
 repo_assumptions: []
+minimum_reproduction:
+  route: ""
+  representative_dataset_or_input: ""
+  command: ""
+  required_resource_names: []
 notes: ""
 ```
 
@@ -151,12 +162,15 @@ Use this shape for each item in `resource_acquisition_report.md`:
 - `blocked_environment`: the current user request has not chosen either current-env reuse or a new repository-specific environment.
 - `failed`: attempted copy/download failed; include the command or URL and the error summary.
 - Optional resources may remain `discovered` or `missing` without blocking the handoff.
+- Resources for other paper datasets, tables, ablations, or full retraining must remain optional unless the user explicitly expands the scope.
 
 ## Boundaries
 
 Do:
 
 - stage every required resource into the run directory
+- scope required resources to the configured minimum original-method reproduction
+- prefer official checkpoints, released results, bundled assets, and reusable local files over unnecessary retraining
 - ask whether to reuse the current environment or create a new repository-specific environment before resource download
 - proceed only after the current user request makes that choice explicit
 - block all resource copy/download/staging and all dependency download/install attempts until that environment choice is explicit
@@ -172,5 +186,6 @@ Do not:
 - silently use the current active environment or old config metadata as the repository environment
 - download, copy, stage, extract, or bind resources before the current user request has made the environment choice explicit
 - run full training, long evaluation, or optimization
+- acquire every resource mentioned by the paper when the selected baseline does not need it
 - change dataset contents, labels, splits, metrics, or evaluation logic
 - overwrite existing repository files or directories without explicit user approval

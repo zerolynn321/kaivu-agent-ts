@@ -1,6 +1,6 @@
 ---
 name: paper-repo-discovery
-description: Find and clone the official or most credible public code repository for a specific research paper. Use when Codex is given a paper title, arXiv URL or ID, DOI, OpenReview page, publisher page, project page, PDF URL, or local paper file and needs to identify candidate code repositories, verify officialness or credibility, ask for confirmation when ambiguous, clone the selected repository locally, and write a resolution report. This skill covers repository discovery and cloning only; environment setup, resource acquisition, evaluation, and optimization belong to later runnable/onboard skills.
+description: Find and clone the official or most credible public code repository for a specific research paper when the repository has not already been identified. Use when research-experiment-init receives a paper title, arXiv/DOI/OpenReview/publisher/project page, PDF URL, or local paper file but no repository path or URL. Verify evidence, ask when ambiguous, clone the selection, and write a resolution report, then hand directly to repo-onboard. If the user already supplied the paper repository, skip this skill and enter repo-onboard, repo-resource-prepare, repo-environment-setup, and repo-baseline-run.
 ---
 
 # Paper Repo Discovery
@@ -52,6 +52,8 @@ The agent does the work directly. Do not implement a separate program or pipelin
 7. Write a resolution report.
    - Create or update `paper_repo_resolution.md` in the task run directory or the cloned repository parent when a task run directory is not established.
    - Include the original paper input, normalized paper identity, search sources, candidate table, selected repo URL, confidence, evidence, clone path, verification checks, and unresolved concerns.
+   - Hand the verified repository path to `repo-onboard`.
+   - Do not add repository adaptation or a post-baseline formal-reproduction stage. The later four stages prepare one minimum meaningful original-method result for optimization.
 
 ## Candidate Report Shape
 
@@ -102,3 +104,4 @@ Do not:
 - overwrite or delete an existing local repository
 - install dependencies, download datasets/models, run evaluation, or modify cloned code
 - continue into environment setup; hand off to a later runnable/onboard skill
+- require complete reproduction of every paper experiment

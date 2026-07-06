@@ -1,23 +1,28 @@
 ---
 name: repo-baseline-run
-description: Interactively run and record the configured baseline or evaluation command for a prepared research repository as the final AgentInit readiness check. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have produced config.yaml, resource manifests, and a ready environment; when Codex acting as AgentInit must verify baseline readiness, read documented baseline/reference values already identified by repo-onboard, ask before long or risky baseline execution, run the baseline only inside the environment selected by resource preparation, parse primary metrics, compare with onboard-recorded baselines or prior local baselines when available, write baseline_metrics.yaml and baseline_run_report.md, invoke AgentFix on execution or validation failures, and hand a passing baseline to repo-experiment-prepare without claiming that the codebase is ready for formal experiments.
+description: Run and record the configured minimum original-method reproduction as the final AgentInit stage and the project's formal optimization-readiness gate. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have prepared one coherent repository, the required representative dataset or official pretrained/released-result assets, and the selected environment. Execute the meaningful baseline or evaluation path, parse its result, compare with documented evidence when available, invoke AgentFix on failures, and write baseline_metrics.yaml plus baseline_run_report.md. A passed baseline means ready_for_optimization in this project; no separate formal-experiment preparation stage follows.
 ---
 
 # Repo Baseline Run
 
-Use this skill after resource and environment preparation when AgentInit must run the repository's configured baseline/eval command and record whether baseline initialization is complete enough for experiment preparation.
+Use this skill as the final initialization stage.
 
-The agent runs the baseline directly through Codex tool calls. Do not implement a separate Python or TypeScript baseline runner.
+In this project, a passed baseline means the repository can formally enter later optimization experiments. It does not mean every paper experiment was repeated; it means the smallest credible original-method result has been reproduced and preserved as the optimization comparator.
 
 ## Artifact Location
 
-Use the coordinator-provided `artifact_root`, or default to `<run_dir>/experiment_artifacts/`. Write baseline state under `manifests/`, reports under `reports/`, metric and regression evidence under `evidence/`, and command logs under `logs/`. Do not place these auxiliary files in the repository root. Bare artifact filenames below refer to their categorized path under `artifact_root`.
+Use the coordinator-provided `artifact_root`, or default to `<run_dir>/experiment_artifacts/`.
+
+- manifest: `<artifact_root>/manifests/baseline_metrics.yaml`
+- report: `<artifact_root>/reports/baseline_run_report.md`
+- evidence: metrics and produced result files
+- logs: detailed command output
 
 ## Terminal Output
 
-Keep terminal-facing progress concise. Report only readiness status, approval needs, baseline result, metric summary, artifact paths, blockers, and next step. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed commands, logs, metric evidence, and comparisons in the baseline report.
+Report only readiness status, approval needs, baseline result, reference comparison, artifact paths, blockers, and final `ready_for_optimization` state.
 
-At final handoff, state whether baseline initialization passed and whether the repository can enter `repo-experiment-prepare`. Do not claim that a passing baseline makes the codebase ready for optimization or formal experiments.
+Do not say that another formal-experiment preparation stage is required after a passed baseline.
 
 ## Agent Contract
 
@@ -25,101 +30,107 @@ Role: `AgentInit`
 
 Inputs:
 
-- cloned repository path
-- run directory
+- final repository path and run directory
 - `<artifact_root>/manifests/config.yaml`
 - `<artifact_root>/manifests/resource_manifest.yaml`
 - `<artifact_root>/reports/resource_acquisition_report.md`
 - `<artifact_root>/plans/environment_plan.yaml`
 - `<artifact_root>/reports/environment_setup_report.md`
-- optional user approval for long/full evaluation
-- optional user override for baseline command, timeout, metric parser, or expected metric
+- optional user-approved command, timeout, metric parser, or expected result override
 
 Required outputs:
 
 - `<artifact_root>/manifests/baseline_metrics.yaml`
 - `<artifact_root>/reports/baseline_run_report.md`
 
-Optional outputs:
+Final handoff:
 
-- small updates to `<artifact_root>/manifests/config.yaml` baseline metadata only
+- `status: passed` and `ready_for_optimization: true` complete the initialization workflow.
+- Later optimization work must preserve this command, dataset/input, metric/output, and result as the baseline comparator.
 
-Handoff:
+## Valid Baseline Standard
 
-- If the baseline passes, hand off to `repo-experiment-prepare`.
-- If baseline execution, metric parsing, or validation fails, automatically invoke `agent-fix-error-recovery` with the failed command, stdout/stderr, repo path, run directory, baseline report, and prior stage reports.
+The final baseline must:
+
+- execute the original method in the final repository;
+- use the selected representative dataset/input, official checkpoint, or released result;
+- produce a meaningful metric or method output;
+- save enough command, environment, resource, and output evidence to rerun it;
+- provide a stable comparison point for later optimization.
+
+An import check, `--help`, empty dry run, or unrelated toy output is insufficient.
+
+Acceptable efficient routes include:
+
+- evaluation of an official pretrained model;
+- scoring official released predictions/results;
+- evaluation on one bundled or public representative dataset;
+- the shortest necessary documented training route when no valid released artifact exists.
+
+Do not retrain merely to recreate an artifact that the official repository already releases. Do not require every dataset, seed, horizon, table, or ablation.
 
 ## Workflow
 
 1. Confirm readiness.
-   - Read `<artifact_root>/manifests/config.yaml`.
-   - Read resource and environment reports.
-   - Confirm required resources are available.
-   - Confirm environment status is `ready` or explicitly accepted by the user.
-   - Confirm the baseline command, primary metric, metric direction, pre-eval commands, timeout, and expected/documented baseline when present.
-   - If required resources or environment are blocked, do not run baseline. Write a blocked report and hand off to the appropriate previous stage.
+   - Read config, resource, and environment artifacts.
+   - Confirm the command exercises the original method and matches the selected minimum reproduction.
+   - Confirm every required resource is available and the environment is ready.
+   - If not, return to the owning stage or record a blocker.
 
 2. Confirm environment targeting.
-   - Run baseline only inside the environment selected or created by `repo-resource-prepare`.
-   - Never run baseline in a different active environment unless the user explicitly changes the environment policy.
-   - If the current shell is not inside the selected environment, ask the user to activate it or approve a scoped execution method such as `conda run -n <env>` or `<venv>/bin/python`.
+   - Run only inside the environment selected during `repo-resource-prepare`.
+   - Use scoped execution such as `conda run` or the venv interpreter when approved.
 
-3. Load onboard baseline references.
-   - Read documented baseline/reference values from `<artifact_root>/manifests/config.yaml` and `<artifact_root>/reports/onboard_report.md`.
-   - Treat `repo-onboard` as the owner of reference discovery.
-   - Do not perform a broad repository-wide reference search in this stage unless the user explicitly asks to refresh onboarding references.
-   - If onboard recorded a comparable reference, use it for comparison and preserve its source metadata.
-   - If onboard recorded `reference_status: not_found`, report that no onboard reference is available and compare only against prior local baselines when present.
-   - If config lacks reference metadata entirely, mark `reference_status: missing_from_onboard` and recommend rerunning `repo-onboard` to refresh documented references.
-   - If prior local `<artifact_root>/manifests/baseline_metrics.yaml` exists, preserve it as a historical reference before overwriting or write the new result under `<artifact_root>/evidence/` with a timestamp.
+3. Load reference evidence.
+   - Read documented references from `config.yaml` and `onboard_report.md`.
+   - Preserve dataset/input, checkpoint, split, metric, and command conditions.
+   - If no comparable reference exists, use the produced result as the initial local optimization baseline.
+   - Missing reference evidence does not block readiness when the original method and meaningful result are verified.
 
-4. Build the baseline plan.
-   - Use the configured `baseline.command` when present; otherwise use `eval_command`.
-   - Include pre-eval commands only when they are already configured and needed.
-   - Preserve the scientific protocol: do not change datasets, splits, metric computation, model architecture, seed, sample count, precision, batch size, or command flags unless the user explicitly approves a protocol change.
-   - Decide whether the command is cheap smoke/baseline or long/full evaluation.
+4. Freeze the baseline invocation.
+   - Record repository path, working directory, command, pre-eval commands, environment, resource paths, selected dataset/input, checkpoint/result artifact, metric parser, expected outputs, and timeout.
+   - Preserve the configured scientific path.
+   - Ask before changing the representative dataset, metric, checkpoint, split, model behavior, or result-selection rule.
 
-5. Ask before execution when needed.
-   - Ask before running long/full evaluation, GPU-heavy commands, expensive commands, or commands with unclear runtime.
-   - Ask before changing timeout, GPU selection, batch size, seed, precision, dataset subset, or checkpoint.
-   - Ask before running any command that may overwrite existing results.
-   - Cheap configured smoke/baseline commands may run without extra approval when resources and environment are ready and the command is already in `config.yaml`.
+5. Ask only when execution is risky.
+   - Ask before a large download, long training, GPU-heavy execution, overwriting results, or a materially different command.
+   - Prefer official pretrained or released-result evaluation when it avoids unnecessary expensive training.
 
-6. Run baseline.
-   - Execute in the repository root unless config evidence says otherwise.
-   - Keep outputs under the run directory when configurable.
-   - Capture return code, elapsed time, stdout/stderr excerpts, and produced metric/result files.
-   - Do not commit, tag, reset, clean, or mutate experiment logic.
+6. Run the baseline.
+   - Execute from the configured working directory.
+   - Capture return code, elapsed time, logs, produced files, metrics, and relevant result metadata.
+   - Keep generated outputs under the run directory when configurable.
 
-7. Parse metrics and compare.
-   - Parse the configured primary metric first.
-   - Capture additional printed or file-written metrics when obvious.
-   - If no numeric metric exists, record a success criterion such as command completion or generated artifact presence.
-   - Compare with onboard-recorded documented reference values when available and record `matches`, `better`, `worse`, or `not_available`.
-   - If no documented reference exists but a prior local baseline exists, compare against the prior local value and record `local_matches`, `local_better`, or `local_worse`.
-   - Treat missing references as an explicit finding, not a silent omission.
-   - Do not change success criteria after seeing a failure.
+7. Validate the result.
+   - Confirm the result is non-empty and came from the intended original-method path.
+   - Parse the primary metric or validate the defined method output.
+   - Compare with a documented reference when conditions are comparable.
+   - Do not require exact numerical equality when hardware, versions, or stochastic behavior justify a recorded tolerance.
+   - Do not change the success criterion after observing the result.
 
-8. Handle failure.
-   - If the command exits nonzero, times out, cannot find resources, uses the wrong environment, or metrics cannot be parsed, automatically invoke `agent-fix-error-recovery`.
-   - Let AgentFix apply only low-risk repairs automatically.
-   - Ask before any protocol-affecting change or long rerun.
-   - After AgentFix resolves the issue, rerun the same baseline command unless the user approved a changed command.
+8. Handle failures.
+   - Invoke `agent-fix-error-recovery` automatically for resource, environment, command, timeout, path, or metric-parsing failures.
+   - Return a missing source feature, broken integration, or requirement mismatch to `repo-experiment-fix`, then repeat onboarding and affected preparation stages.
+   - After a safe fix, rerun the same scientifically meaningful baseline path.
 
-9. Write reports.
-   - Write `<artifact_root>/manifests/baseline_metrics.yaml`.
-   - Write `<artifact_root>/reports/baseline_run_report.md`.
-   - If useful, update `<artifact_root>/manifests/config.yaml` baseline metadata only.
-   - Re-read outputs and report final status: `passed`, `failed`, `blocked`, or `partial`.
+9. Write and verify artifacts.
+   - Write the manifest and report.
+   - Set `ready_for_optimization: true` only for `status: passed`.
+   - Include the exact baseline comparator identity for future optimization work.
 
 ## Metrics Shape
-
-Use this shape for `baseline_metrics.yaml`:
 
 ```yaml
 repo_path: ""
 run_dir: ""
 status: "not_run" # passed | failed | blocked | partial | not_run
+ready_for_optimization: false
+original_method: ""
+minimum_reproduction:
+  route: ""
+  representative_dataset_or_input: ""
+  checkpoint_or_result: ""
+  working_directory: ""
 environment:
   manager: ""
   name: ""
@@ -128,19 +139,22 @@ command: ""
 pre_eval_commands: []
 returncode:
 elapsed_seconds:
-primary_metric: ""
+primary_metric_or_output: ""
 primary_metric_value:
-metric_direction: "unknown" # higher | lower | unknown
+metric_direction: "unknown"
 metrics: {}
+output_validation:
+  expected_files: []
+  produced_files: []
+  meaningful_result_verified: false
 documented_baseline: {}
 reference_status: "not_found" # found | not_found | ambiguous | missing_from_onboard
 reference_sources: []
-local_baseline_reference: {}
 comparison: "not_available" # matches | better | worse | not_available
-local_comparison: "not_available" # local_matches | local_better | local_worse | not_available
+accepted_tolerance: ""
 log_path: ""
-result_files: []
 agentfix_invoked: false
+optimization_baseline_id: ""
 notes: ""
 ```
 
@@ -149,60 +163,54 @@ Use this shape for `baseline_run_report.md`:
 ```markdown
 # Baseline Run Report
 
-## Summary
-- Status:
-- Environment:
-- Command source:
-- Primary metric:
-- Comparison:
-- Reference status:
-
-## Readiness
-| Check | Status | Notes |
-|---|---|---|
-
-## Onboard Reference
-| Source | Finding | Comparable | Notes |
-|---|---|---:|---|
+## Minimum Reproduction
+- Original method:
+- Route:
+- Representative dataset/input:
+- Checkpoint or released result:
+- Command and environment:
 
 ## Result
-| Metric | Value | Direction | Documented baseline | Comparison |
-|---|---:|---|---:|---|
+| Metric or output | Value/path | Reference | Comparison | Evidence |
+|---|---|---|---|---|
+
+## Optimization Readiness
+- Status:
+- Ready for optimization:
+- Baseline comparator ID:
+- Preserved command:
+- Remaining blockers:
 
 ## AgentFix
 - Invoked:
 - Outcome:
-
-## Remaining Blockers
-- ...
 ```
 
 ## Decision Rules
 
-- `passed`: baseline command exits successfully and the primary metric or success criterion is captured.
-- `partial`: command succeeds but metric extraction is incomplete, onboard reference metadata is missing/ambiguous, or comparison is unavailable.
-- `failed`: command fails, times out, or metric comparison is clearly worse than a documented baseline beyond known tolerance.
-- `blocked`: required resources, environment, approval, or credentials are missing.
-- A `passed` baseline proves only that the configured baseline path works; it does not prove that required methods, integrations, controls, ablations, or formal experiment scripts are ready.
+- `passed`: the original-method command succeeds, a meaningful result is verified, and its rerun evidence is recorded.
+- `partial`: execution succeeds but the meaningful output, method path, or metric cannot be verified; this is not ready for optimization.
+- `failed`: command fails, times out, produces invalid output, or a comparable result is outside an evidence-backed tolerance.
+- `blocked`: required resources, environment, credentials, approval, or hardware are missing.
+- Set `ready_for_optimization: true` only for `passed`.
+- A passed baseline is the final initialization state for this project.
 
 ## Boundaries
 
 Do:
 
-- run only the configured baseline/eval command or a user-approved override
-- run inside the environment selected by `repo-resource-prepare`
-- preserve resource paths and scientific protocol
-- parse and record metrics
-- compare with documented baselines recorded by `repo-onboard` or prior local baselines when available
-- invoke `agent-fix-error-recovery` automatically on failures
+- run the configured minimum original-method reproduction
+- prefer evaluation-only released assets over unnecessary retraining
+- preserve command, resource, environment, metric, and output evidence
+- compare with documented references when available
+- establish the result as the later optimization comparator
+- invoke AgentFix automatically on unexpected failures
 
 Do not:
 
-- implement baseline execution as a new Python or TypeScript pipeline
-- install dependencies or download resources; those belong to earlier stages
-- perform broad documented-reference discovery unless the user explicitly asks to refresh onboarding
-- modify datasets, splits, metrics, model logic, or evaluation protocol without explicit approval
-- run long/full evaluation without approval
-- change command flags to make a failing result look successful
-- write results outside the run directory unless the repository requires it and the user approves
-- run git commit, tag, checkout, reset, clean, or destructive file operations
+- require complete paper reproduction
+- require all datasets, tables, seeds, horizons, or ablations
+- add a post-baseline experiment-readiness stage
+- accept import-only or empty smoke success as the final baseline
+- modify source, metrics, dataset semantics, or model logic in this stage
+- install dependencies or acquire resources

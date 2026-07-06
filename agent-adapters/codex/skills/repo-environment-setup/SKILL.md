@@ -1,11 +1,11 @@
 ---
 name: repo-environment-setup
-description: Build and validate the runtime environment for an onboarded research repository after required resources have been staged and a new per-repository virtual environment has been selected or created. Use when Codex acting as AgentInit must inspect repo docs and config.yaml, verify that shell commands target the repository-specific conda/venv environment from resource preparation, prefer fast safe package mirrors such as Tsinghua mirrors when appropriate without changing package versions or global config silently, refuse to reuse the currently active environment unless the user explicitly chose that exact environment, infer Python/package manager/CUDA/PyTorch/TensorFlow requirements, install dependencies with user approval for dependency changes, run cheap validation checks, write environment_plan.yaml and environment_setup_report.md, and automatically invoke AgentFix when setup or validation fails.
+description: Build and validate the smallest runtime environment needed for the configured minimum original-method reproduction after repo-resource-prepare has staged its representative data, checkpoint, or released-result assets. Use when Codex acting as AgentInit must target the user-selected conda/venv environment, infer only dependencies required by the selected baseline path, handle Python/CUDA/framework compatibility, install approved packages, run cheap pre-baseline validation, write environment_plan.yaml and environment_setup_report.md, and invoke AgentFix on failures. Do not expand the environment for unrelated paper datasets, training paths, or optional experiments.
 ---
 
 # Repo Environment Setup
 
-Use this skill after `repo-onboard` and `repo-resource-prepare` when AgentInit must make the cloned repository runnable inside the repository-specific virtual environment selected before resource download. The current active shell environment is not a valid substitute unless the user explicitly selected it for this repository.
+Use this skill after `repo-onboard` and `repo-resource-prepare` when AgentInit must make the final repository's selected minimum-reproduction command runnable inside the environment chosen before resource download.
 
 The agent does the setup directly through Codex tool calls and shell commands. Do not implement a separate Python or TypeScript environment pipeline.
 
@@ -71,7 +71,9 @@ Handoff:
    - Identify Python version, package manager, dependency files, setup commands, validation commands, and command-scoped environment variables.
    - Identify GPU requirements: CUDA version, PyTorch/TensorFlow/JAX version constraints, compute capability notes, custom CUDA ops, `nvcc`, compiler, and driver assumptions.
    - Prefer explicit repository documentation over generic compatibility guesses.
-   - Prefer the smallest environment that can run the configured eval/smoke command.
+   - Prefer the smallest environment that can run the configured minimum original-method baseline command.
+   - Do not install dependencies used only by unselected datasets, full retraining, appendix experiments, notebooks, or optional comparison methods.
+   - When an official pretrained evaluation route is selected, do not add training-only packages unless the same command requires them.
    - If the repository requires old frameworks, preserve that evidence instead of upgrading by default.
    - Infer a safe install-source policy:
      - Prefer fast China-accessible mirrors when they are compatible with the required packages, such as Tsinghua PyPI (`https://pypi.tuna.tsinghua.edu.cn/simple`) for pip installs.
@@ -112,7 +114,7 @@ Handoff:
      - package import/version checks for core dependencies
      - `nvidia-smi` or CUDA visibility checks when GPU is required
      - `python -c` framework checks, such as importing torch/tensorflow and checking CUDA availability
-     - command `--help`, dry-run, smoke test, or the configured validation command when documented
+     - command `--help`, import check, bounded preflight, or the configured validation command when documented
    - Do not run long training or full evaluation unless the user explicitly approves.
    - If validation fails, automatically invoke `agent-fix-error-recovery`.
    - For validation failures that look like known environment conventions, such as absl `--help` returning nonzero after printing valid help, consult `repo-env-troubleshooting` and record the classification before invoking broad fixes.
@@ -222,12 +224,14 @@ Do:
 - keep commands auditable and scoped to the selected environment
 - invoke `agent-fix-error-recovery` automatically after setup or validation failures
 - preserve scientific protocol and resource provenance
+- scope the environment to the selected minimum reproduction and later optimization of that same code path
 
 Do not:
 
 - implement environment setup as a new Python or TypeScript pipeline
 - download datasets or checkpoints; those belong to `repo-resource-prepare`
 - run full baseline/training unless explicitly approved
+- install optional full-paper or unrelated training dependencies merely because they appear elsewhere in the repository
 - modify datasets, splits, metrics, evaluation scripts, or model logic
 - delete or replace existing environments, files, or directories without explicit user approval
 - hide environment failures by changing the benchmark command or success criterion

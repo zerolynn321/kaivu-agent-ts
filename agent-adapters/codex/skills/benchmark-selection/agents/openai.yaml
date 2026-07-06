@@ -1,4 +1,4 @@
 interface:
   display_name: "Benchmark Selection"
-  short_description: "Select, adapt, or specify a research benchmark"
-  default_prompt: "Use $benchmark-selection to choose an existing benchmark or define a valid benchmark construction plan for this research need."
+  short_description: "Choose the minimum credible optimization benchmark"
+  default_prompt: "Use $benchmark-selection to choose one representative benchmark route for the original-method baseline."

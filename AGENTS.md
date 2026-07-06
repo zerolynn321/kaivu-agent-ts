@@ -1,156 +1,226 @@
-# Literature Agent Instructions
+# Agent Instructions
 
-This project contains local agent adapters for the literature review and literature wiki system.
+This project contains local agent adapters for literature workflows and interactive research-repository initialization.
 
-Agent-specific packages live under `agent-adapters/<agent>/`. Do not assume every agent uses Codex-style `SKILL.md` directories.
+Agent-specific packages live under `agent-adapters/<agent>/`.
 
-- `agent-adapters/codex/skills`: Codex-compatible skills using `SKILL.md` and `agents/openai.yaml`.
-- `agent-adapters/claude-code`: reserved for Claude Code-compatible packaging.
-- `agent-adapters/openclaw`: reserved for OpenClaw-compatible packaging.
-- `agent-adapters/harness`: reserved for Harness-compatible packaging.
+- `agent-adapters/codex/skills`: Codex skills using `SKILL.md` and `agents/openai.yaml`.
+- `agent-adapters/claude-code`: reserved for Claude Code packaging.
+- `agent-adapters/openclaw`: reserved for OpenClaw packaging.
+- `agent-adapters/harness`: reserved for Harness packaging.
 
-Install one agent package at a time. For Codex, install the skill directories under `agent-adapters/codex/skills` as a set so literature review, digest, ingest, batch, wiki search, wiki query, and lint behavior stay consistent.
+Install the Codex skill directories as a set so routing and artifact contracts stay consistent.
 
-For research experiment workflows, keep Agent-generated plans, manifests, reports, evidence, and logs under the run's `experiment_artifacts/` directory. Do not scatter auxiliary workflow files across the repository root. Keep source, README, runtime configs, launchers, dependency definitions, resources, and formal results in their normal project locations.
+## Terminal Output
 
-## Terminal Output Style
+Show only:
 
-When reporting progress in the Codex terminal, show only key stage progress and final results. Do not paste detailed command transcripts, command strings, full command lists, stdout/stderr blocks, file content snippets, or file content diffs unless the user explicitly asks for them. Summarize what changed at the artifact level, such as file paths created, status fields updated, resources available, environment ready, or blockers found.
+- stage started or completed;
+- major repository or minimum-reproduction decision;
+- user approval needed;
+- artifact path;
+- blocker and AgentFix status;
+- final baseline result and `ready_for_optimization` state.
 
-For the paper-repo workflow, keep terminal messages in this shape:
+Do not repeat full commands, diffs, stdout/stderr, or long logs unless requested. Put details in stage artifacts.
 
-- stage started or completed
-- key decision or user approval needed
-- artifact path created or updated
-- final status and next step
+For the final repository-initialization summary, report:
 
-Write detailed commands, logs, evidence snippets, and diffs only into the stage report files. If the Codex UI itself displays tool calls such as `Ran ...` or `Edited ...`, do not repeat those details in model-authored progress or final messages.
+- final repository name and path;
+- why it was selected or how it was integrated;
+- the representative dataset/input and checkpoint/result route;
+- resources and environment;
+- baseline metric or meaningful output and reference comparison;
+- `ready_for_optimization`;
+- key artifact paths.
 
-For the final paper-repo workflow summary, report only:
+## Project Definition
 
-- cloned repository name and local path
-- why that repository was selected
-- resources downloaded, copied, or reused and where they were staged
-- dependencies installed and the target environment
-- baseline result and reference comparison
-- method, adapter, evaluator, or cross-repository changes made after baseline
-- formal experiment matrix and per-branch dry-run status
-- whether the codebase is ready for formal experiments and which readiness mode applies
-- the consolidated human-readable `experiment_readiness_report.md` path
-- the exact guarded formal-run command, repository README path, output location, and summarizer command
+The repository workflow prepares a **minimum reproducible optimization base**.
 
-## General Research Skills
+Completion does not mean reproducing every experiment in the original paper. Completion means:
 
-- `problem-frame`: clarify broad or ambiguous requests before literature review, paper wiki work, hypothesis generation, experiment planning, or research-oriented implementation.
-- `literature-review`: frame research questions, generate and validate literature search queries, search external literature sources, and return ranked candidate papers.
-- `literature-search`: run external literature search with `rag_arxiv_retrieve` and return candidate papers.
-- `research-experiment-init`: natural-language entrypoint for open-ended research-demand experiment initialization; act as AgentCoordinator to route through combined research repository setup, external benchmark decision support, repository onboarding, resource preparation, environment setup, baseline run, experiment preparation, and error recovery using the delegated skills and their artifacts.
-- `research-repo-setup`: for an open-ended research need, combine AgentResearchFrame, AgentSelector, and AgentResource responsibilities in one skill: structure the research question and benchmark requirements; consult `benchmark-selection`; compare repositories against the resulting benchmark contract; select a credible `single-repo`, `primary-repo-with-references`, or `composed-workspace` experiment base; clone or reuse approved repositories; verify remote, branch, commit, roles, and one primary runnable path; and write the scope, selection, and workspace artifact sets before handing off to `repo-onboard`.
-- `benchmark-selection`: external benchmark decision index used by `research-repo-setup`; determine whether to adopt an established benchmark, adapt one under explicit scientific invariants, or construct a new benchmark specification; define datasets, provenance, task protocol, splits, leakage controls, metrics, baselines, resources, fairness invariants, and acceptance tests; and write `benchmark_plan.yaml` plus `benchmark_selection_report.md` without selecting repositories or executing experiments.
-- `paper-repo-discovery`: given a specific paper title, URL, DOI, arXiv/OpenReview page, PDF, or local paper file, find the official or most credible public code repository, verify evidence, ask for confirmation when ambiguous, clone the selected repository locally, and write a resolution report.
-- `repo-onboard`: after a paper repository has been cloned or selected, act as AgentOnboard to reuse an existing root `config.yaml` or scan the repository and create one locally before resource, environment, or baseline stages; this stage owns documented baseline/reference discovery.
-- `repo-resource-prepare`: after repository onboarding, act as AgentInit to ask whether to reuse the current environment or create a new repository-specific environment before resource download, then identify required datasets, models, checkpoints, caches, and path assumptions; stage all required resources under the run directory; bind repository paths when needed; and write resource manifest and acquisition reports before dependency installation. Do not proceed from old `config.yaml` environment metadata alone.
-- `repo-environment-setup`: after resource preparation, act as AgentInit to verify setup commands target the environment selected or created by `repo-resource-prepare`, then infer, install, and validate runtime dependencies only inside that environment; ask before environment-changing dependency actions; and invoke AgentFix automatically on setup or validation failure.
-- `repo-baseline-run`: after resource and environment setup are ready, act as AgentInit to interactively run the configured baseline/eval command inside the prepared environment as the final initialization readiness check, parse metrics, compare against references recorded by `repo-onboard`, write baseline reports, and invoke AgentFix automatically on execution or metric failures.
-- `repo-experiment-prepare`: after baseline validation, act as AgentExperimentPrepare in `paper_reproduction` mode for an exact-paper reproduction, `optimization` mode for a new method in a specific repository, or `requirement_validation` mode for an open-ended research need. For an exact paper, inspect first and ask the user for experiment scope before modification, recommending paper reproduction by default; for a requirement-driven workflow, infer the necessary scope from the approved research and benchmark artifacts. Make the current server workspace ready for formal experiments, preserve the baseline, verify the bounded workflow, freeze and dry-run the required matrix, document exact commands in README, and produce a consolidated human-readable `experiment_readiness_report.md`.
-- `agent-fix-error-recovery`: automatically use this when resource download, environment setup, validation, baseline, or experiment execution fails; act as AgentFix to diagnose the error, execute common low-risk fixes, ask only before risky actions, verify the result, and write a fix report.
-- `repo-env-troubleshooting`: reference this from AgentInit or AgentFix when new virtual environments, dependency installs, mirrors, CUDA/framework compatibility, NumPy ABI, or environment validation produce common failures; it is advisory and does not own installation.
-- `agent-fix-knowledge-base`: reference this from AgentFix for repeated or difficult errors and compact reusable lessons; promote new shared cases only when the user explicitly asks.
+- one coherent repository contains the original method;
+- one representative dataset, bundled input, official checkpoint, or released result is sufficient;
+- the configured baseline/evaluation produces a meaningful original-method result;
+- the result is preserved as the comparator for later optimization;
+- `repo-baseline-run` records `status: passed` and `ready_for_optimization: true`.
 
-## Paper Literature Skills
+Do not require all datasets, horizons, seeds, paper tables, figures, comparisons, or ablations. Do not retrain when an official pretrained model or released result provides a valid baseline.
 
-Use `paper-wiki` first for routing and operation-boundary questions.
+Within this project, a passed minimum-reproduction baseline means the repository is ready to begin formal optimization experiments. Do not add a separate post-baseline formal-readiness stage.
 
-Use these skills before modifying or operating the paper ingest pipeline:
+## Research Repository Skills
 
-- `paper-wiki`: route digest, ingest, batch, query, lint, and save-like wiki operations.
-- `literature-review`: find external paper candidates before digest or ingest.
-- `literature-search`: retrieve external paper candidates with `rag_arxiv_retrieve`.
-- `paper-digest`: create or revise structured `PaperDigest` records from scientific papers.
-- `paper-ingest`: plan and materialize one structured `PaperDigest` into literature wiki pages.
-- `paper-ingest-batch`: orchestrate multi-paper digest, ingest, cross-reference, commit, and batch summary.
-- `paper-wiki-search`: retrieve relevant literature wiki pages before query, ingest planning, or cross-reference.
-- `paper-wiki-query`: answer questions using retrieved literature wiki pages with citations.
-- `paper-wiki-lint`: health-check wiki graph, evidence, stale claims, and missing cross-references.
+- `research-experiment-init`: common natural-language coordinator for open-ended research needs, specific papers, and existing repositories.
+- `experiment-repo-search`: structure an open-ended requirement, consult the benchmark auxiliary, find and compare repositories, clone or reuse the selected source base, and write search/workspace artifacts.
+- `benchmark-selection`: auxiliary decision index used inside `experiment-repo-search`; choose one representative dataset/input, checkpoint/result route, metric/output, and minimum protocol without becoming an additional top-level stage.
+- `repo-experiment-fix`: before onboarding, make only the source changes, adapters, benchmark wiring, or cross-repository integrations required by the research need; preserve the original baseline; record `no_change_required` when the selected repository already fits; output one final repository path.
+- `paper-repo-discovery`: when a specific paper is given without its repository, find and clone the official or most credible repository and hand it to `repo-onboard`.
+- `repo-onboard`: inspect the final repository, select one meaningful original-method reproduction path, prefer pretrained/released-result evaluation over unnecessary retraining, discover reference evidence, and write the Agent-owned `config.yaml`.
+- `repo-resource-prepare`: ask for the environment strategy, then stage only resources required by the selected minimum reproduction.
+- `repo-environment-setup`: create the smallest environment that can run the selected minimum reproduction, using only the environment approved during resource preparation.
+- `repo-baseline-run`: execute the selected meaningful original-method result as the final initialization gate; a passed result sets `ready_for_optimization: true`.
+- `agent-fix-error-recovery`: diagnose unexpected resource, environment, command, and baseline failures; planned source adaptation or integration belongs to `repo-experiment-fix`.
+- `repo-env-troubleshooting`: advisory reference for environment, resolver, mirror, CUDA/framework, and NumPy ABI failures.
+- `agent-fix-knowledge-base`: advisory reusable error lessons; do not use prior lessons to bypass approval gates.
 
-Use `paper-ingest-batch` as the orchestration pattern when multiple papers are processed together. Batch ingest owns deduplication, failures, cross-reference pass, commit, log/index/hot updates, and batch summary.
+## Roles
 
-## Boundary
+- `AgentCoordinator`: `research-experiment-init`
+- `AgentRepoSearch`: `experiment-repo-search`
+- `BenchmarkIndex`: `benchmark-selection` as an auxiliary advisor
+- `AgentRepoFix`: `repo-experiment-fix`
+- `AgentResource`: `paper-repo-discovery`
+- `AgentOnboard`: `repo-onboard`
+- `AgentInit`: `repo-resource-prepare`, `repo-environment-setup`, `repo-baseline-run`
+- `AgentFix`: `agent-fix-error-recovery`
 
-Use `research-experiment-init` as the natural-language entrypoint when the user asks to turn a research need into a suitable open-source experiment repository, benchmark choice, local runnable baseline, or full initialization workflow.
+Do not introduce a separate AgentBaseline or post-baseline AgentExperimentPrepare role.
 
-Use `research-repo-setup` when the user gives a research need, topic, desired comparison, or benchmark-seeking request instead of one specific paper.
+## Required Routes
 
-Keep workflow classification, stage sequencing, artifact readiness checks, and cross-stage approval gates in `research-experiment-init`.
-
-Keep broad research-demand scoping, method-family discovery, candidate repository comparison, experiment-base selection, local clone/reuse, workspace layout, Git identity verification, and primary runnable repository handoff in `research-repo-setup`. Preserve `research_scope.yaml`, `experiment_base_plan.yaml`, and `workspace_manifest.yaml` as internal phase checkpoints.
-
-Keep benchmark candidate discovery, existing-benchmark evaluation, adopt/adapt/construct decisions, dataset and protocol definition, split and leakage rules, metrics, baselines, fairness invariants, and benchmark acceptance criteria in `benchmark-selection`. Treat it as an external index consulted by `research-repo-setup`, not as a new top-level pipeline stage.
-
-Keep paper-to-code repository discovery and cloning in `paper-repo-discovery`.
-
-Keep cloned-repository onboarding and local `config.yaml` creation in `repo-onboard`.
-
-Keep documented baseline/reference discovery in `repo-onboard`.
-
-Keep the explicit environment choice before downloads, required runtime resource discovery, download/copy, staging, and repo path binding in `repo-resource-prepare`.
-
-Keep repository-specific virtual environment targeting, runtime dependency planning/installation, CUDA/PyTorch/TensorFlow compatibility, and cheap validation checks in `repo-environment-setup`.
-
-Keep common virtual environment and environment setup troubleshooting guidance in `repo-env-troubleshooting`.
-
-Keep baseline execution, metric parsing, comparison against onboard-recorded references, and baseline reports in `repo-baseline-run`.
-
-Treat `repo-resource-prepare`, `repo-environment-setup`, and `repo-baseline-run` as the three AgentInit skills. Do not introduce a separate AgentBaseline role unless the user explicitly changes this architecture.
-
-Keep post-baseline source inspection, requirement-to-code traceability, method implementation, content-level integration, root entrypoint and control plane, direct component interfaces, automatic artifact flow, bounded end-to-end verification, local workspace completeness, provenance, post-change baseline regression, formal experiment planning, per-branch dry runs, scripts, README, the consolidated report, and the `ready_for_formal_run` gate in `repo-experiment-prepare`. Treat it as AgentExperimentPrepare, not as AgentInit or AgentFix. Never infer integration from a shared directory or Git layout; judge the architecture and observed complete workflow. Git publication and reconstruction are separate tasks that require an explicit user request.
-
-For an exact-paper workflow, require a scope question before experiment-code modification. Recommend reproduction of the paper's main experiments, direct comparisons, and key ablations by default; present full appendix reproduction, selected subset, and new optimization as alternatives. For a requirement-driven workflow, let the Agent determine the minimum scientifically adequate scope from `research_scope.yaml` and `benchmark_plan.yaml`, asking only for materially unresolved scientific or resource choices.
-
-Make `repo-experiment-prepare` idempotent. When an existing codebase is already `ready_for_formal_run`, perform a fast read-only freshness audit first. If requirements, protocol, relevant code/configuration, resources/environment, commands, and evidence are unchanged, do not modify files or rerun baseline/smoke work; report that it is already ready. Reopen preparation only for a concrete violated readiness gate, and rerun only affected validation.
-
-For open-ended research-demand workflows, use this order:
+### Open-ended research requirement
 
 ```text
 research-experiment-init
-  -> research-repo-setup
-       <-> benchmark-selection
+  -> experiment-repo-search
+  -> repo-experiment-fix
   -> repo-onboard
   -> repo-resource-prepare
   -> repo-environment-setup
   -> repo-baseline-run
-  -> repo-experiment-prepare
 ```
 
-For one specific paper, keep the shorter existing order:
+### Specific paper and repository already identified
 
 ```text
-paper-repo-discovery
+research-experiment-init
   -> repo-onboard
   -> repo-resource-prepare
   -> repo-environment-setup
   -> repo-baseline-run
-  -> repo-experiment-prepare
 ```
 
-For a user-specified existing repository, skip discovery and repository selection but keep the same preparation tail:
+### Specific paper without a repository
 
 ```text
-repo-onboard
+research-experiment-init
+  -> paper-repo-discovery
+  -> repo-onboard
   -> repo-resource-prepare
   -> repo-environment-setup
   -> repo-baseline-run
-  -> repo-experiment-prepare
 ```
 
-Keep unexpected failure diagnosis, safe repair decisions, user approval gates, and fix reports in `agent-fix-error-recovery`. Keep intended method development and experiment design in `repo-experiment-prepare`.
+### Existing local repository
 
-Keep reusable AgentFix error lessons and reference notes in `agent-fix-knowledge-base`; do not use prior lessons to bypass user approval or environment-choice gates.
+```text
+research-experiment-init
+  -> repo-onboard
+  -> repo-resource-prepare
+  -> repo-environment-setup
+  -> repo-baseline-run
+```
 
-Invoke `agent-fix-error-recovery` automatically after a failed paper-repo workflow command. Do not ask the user whether to diagnose or run low-risk checks; ask only before applying medium/high-risk fixes, large downloads, dependency/environment changes, protocol-affecting edits, or destructive operations.
+If the user explicitly asks to adapt an already specified repository to a new research requirement, route it through `repo-experiment-fix` before onboarding.
 
-Keep per-paper source understanding in `paper-digest`.
+## Stage Boundaries
 
-Keep single-paper wiki planning in `paper-ingest`.
+Keep request classification, stage sequencing, artifact checks, and final readiness semantics in `research-experiment-init`.
 
-Keep multi-paper transaction control in the batch agent.
+Keep requirement structuring, minimum benchmark/reproduction definition, candidate search, repository comparison, Git clone/reuse, and workspace identity in `experiment-repo-search`.
+
+Keep representative dataset/input selection, pretrained or released-result route selection, minimum protocol, leakage controls, and benchmark evidence in the auxiliary `benchmark-selection` skill. It does not alter the required main route.
+
+Keep intended source modification, adapter creation, data/evaluator wiring, cross-repository integration, original-baseline preservation, and final runnable-root selection in `repo-experiment-fix`.
+
+Keep repository inspection, minimum original-method command discovery, and documented reference discovery in `repo-onboard`.
+
+Keep environment choice, runtime resource discovery, resource acquisition, staging, and path binding in `repo-resource-prepare`.
+
+Keep dependency inference, installation, framework compatibility, and cheap pre-baseline validation in `repo-environment-setup`.
+
+Keep meaningful original-method execution, metric/output validation, reference comparison, and final `ready_for_optimization` decision in `repo-baseline-run`.
+
+Keep unexpected failure diagnosis and low-risk repair in `agent-fix-error-recovery`. If a failure exposes a missing planned feature or integration, return to `repo-experiment-fix`.
+
+## Artifact Layout
+
+Keep Agent-generated auxiliary files under `<run_dir>/experiment_artifacts/`:
+
+```text
+experiment_artifacts/
+  plans/
+  manifests/
+  reports/
+  evidence/
+  logs/
+```
+
+Keep source, runtime configs, dependency definitions, resources, and experiment results in their normal repository/run locations.
+
+Core artifact chain for an open-ended requirement:
+
+```text
+plans/research_requirement.yaml
+  -> plans/benchmark_plan.yaml
+  -> plans/experiment_repo_plan.yaml
+  -> manifests/workspace_manifest.yaml
+  -> manifests/repo_experiment_fix.yaml
+  -> manifests/config.yaml
+  -> manifests/resource_manifest.yaml
+  -> plans/environment_plan.yaml
+  -> manifests/baseline_metrics.yaml
+```
+
+The final manifest must record:
+
+```yaml
+status: "passed"
+ready_for_optimization: true
+```
+
+## Approval Rules
+
+Ask before:
+
+- ambiguous or unofficial repository selection;
+- unclear license or provenance;
+- large or credentialed downloads;
+- creating, replacing, or changing environments;
+- major dependency, framework, CUDA, or system changes;
+- changing the scientific target, labels, split semantics, primary metric, or model objective;
+- destructive operations or overwriting user files.
+
+Do not ask:
+
+- merely to continue between ordinary completed stages;
+- to perform read-only inspection;
+- to apply small reversible changes already required by the approved research need;
+- to reuse an official pretrained checkpoint instead of unnecessary retraining when the route is clearly valid and download approval is not otherwise required.
+
+## Literature Skills
+
+The repository also contains literature and paper-wiki skills:
+
+- `problem-frame`
+- `literature-review`
+- `literature-search`
+- `paper-digest`
+- `paper-ingest`
+- `paper-ingest-batch`
+- `paper-wiki`
+- `paper-wiki-search`
+- `paper-wiki-query`
+- `paper-wiki-lint`
+
+Use `paper-wiki` for wiki routing. Use `paper-ingest-batch` for multi-paper ingestion. These literature skills do not replace the research repository workflow above.
+
+## General Boundaries
+
+- Execute skills interactively; do not implement clone, download, installation, baseline, or repair orchestration as a separate Python/TypeScript pipeline.
+- Preserve user changes and avoid destructive Git operations.
+- Use artifacts, not conversational confidence, as stage completion evidence.
+- Treat one representative original-method result as sufficient for this project's repository initialization.
+- Do not reinterpret a passed meaningful baseline as an intermediate-only state; it is the project's final ready-for-optimization gate.

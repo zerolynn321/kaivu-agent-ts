@@ -1,0 +1,4 @@
+interface:
+  display_name: "Experiment Repo Search"
+  short_description: "Find a minimal reproducible experiment repository"
+  default_prompt: "Use $experiment-repo-search to structure this research need and find the smallest credible repository base for optimization experiments."

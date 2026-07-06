@@ -1,4 +1,0 @@
-interface:
-  display_name: "Research Repo Setup"
-  short_description: "Scope, select, and materialize a research repo"
-  default_prompt: "Use $research-repo-setup to structure this research need, select a credible experiment repository, and prepare its local workspace."

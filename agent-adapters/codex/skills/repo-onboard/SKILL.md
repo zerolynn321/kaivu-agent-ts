@@ -1,21 +1,27 @@
 ---
 name: repo-onboard
-description: Inspect a cloned research code repository, discover the safest evaluation or baseline command, proactively identify documented baseline/reference results from repository docs/examples/configs/saved outputs, run a bounded baseline check when resources and environment are already available, parse and compare reported metrics or success criteria against documented baselines when possible, and ensure the workflow artifact directory has an onboarding config.yaml. Use after paper-repo-discovery has cloned or selected a repository, or whenever Codex acting as AgentOnboard must reuse or generate the Agent-owned config by scanning README files, scripts, dependency files, examples, entrypoints, existing runtime configs, and documented result references. This skill does not download resources, install dependencies, create environments, run long training/full evaluations without approval, modify experiment logic, or optimize code.
+description: Inspect the final cloned or adapted research repository, identify the minimum scientifically meaningful original-method reproduction path, discover one representative dataset or official pretrained/released-result evaluation route, find comparable documented reference results when available, and write the Agent-owned config.yaml for resource, environment, and baseline stages. Use after repo-experiment-fix for open-ended requirements, after paper-repo-discovery for a paper without a known repository, or directly when the user supplies a specific paper and repository. This skill does not install dependencies, acquire resources, modify experiment logic, or require complete paper reproduction.
 ---
 
 # Repo Onboard
 
-Use this skill when AgentOnboard receives a cloned repository and must leave the workflow artifact directory with a usable onboarding `config.yaml` backed by repository evidence and, when feasible, a real baseline/smoke result.
+Use this skill to convert one final repository path into an evidence-backed minimum-reproduction configuration.
 
-The agent does the onboarding work directly. Do not implement a separate Python or TypeScript pipeline for this logic.
+The target is not every experiment in the paper. Select the smallest credible path that exercises the original method, produces a meaningful result, and can serve as the baseline for later optimization.
 
 ## Artifact Location
 
-Use the coordinator-provided `artifact_root`, or default to `<repo>/experiment_artifacts/`. Write the Agent-owned onboarding `config.yaml` under `manifests/`, `onboard_report.md` under `reports/`, and command evidence or logs under `evidence/` or `logs/`. Do not place these auxiliary files in the repository root. This does not relocate repository-native runtime configs used by the actual program.
+Use the coordinator-provided `artifact_root`, or default to `<repo>/experiment_artifacts/`.
+
+- manifest: `<artifact_root>/manifests/config.yaml`
+- report: `<artifact_root>/reports/onboard_report.md`
+- evidence and logs: repository inspection and optional bounded checks
+
+Do not overwrite repository-native runtime configuration files.
 
 ## Terminal Output
 
-Keep terminal-facing progress concise. Report only stage status, key decisions, artifact paths, baseline status, blockers, and next steps. Do not print command strings, full command lists, stdout/stderr blocks, file content snippets, or diffs unless the user explicitly asks. Put detailed evidence, command output, and config details in `config.yaml` or `onboard_report.md`.
+Report only stage status, selected minimum-reproduction path, artifact paths, blockers, and next step. Put detailed commands, reference evidence, and repository findings in the artifacts.
 
 ## Agent Contract
 
@@ -23,111 +29,115 @@ Role: `AgentOnboard`
 
 Inputs:
 
-- cloned repository path
-- paper name or title, when available
-- optional paper PDF/path/URL
-- optional `paper_repo_resolution.md` from `paper-repo-discovery`
-- optional user overrides for eval command, metric, environment, or protected paths
-- optional user approval for longer baseline checks
+- final repository path
+- optional paper identity or paper artifact
+- optional `paper_repo_resolution.md`
+- optional `research_requirement.yaml`, `experiment_repo_plan.yaml`, or `repo_experiment_fix.yaml`
+- optional user command or metric override
 
 Required output:
 
 - `<artifact_root>/manifests/config.yaml`
 
-Optional output:
+Recommended output:
 
-- `<artifact_root>/reports/onboard_report.md` when evidence, uncertainty, or user decisions should be audited later
+- `<artifact_root>/reports/onboard_report.md`
 
 Handoff:
 
-- After `config.yaml` exists, hand off to the resource discovery/download skill when required resources are missing, or to the environment setup skill when dependencies are missing.
-- Do not continue into resource download, environment setup, optimization, or code modification.
+- Hand the selected minimum-reproduction command and resource hints to `repo-resource-prepare`.
+
+## Minimum Reproduction Standard
+
+The selected path must:
+
+- execute the original method, not only import modules or print help;
+- use one representative dataset, bundled input, official checkpoint, or released result;
+- produce the method's primary metric, prediction, retrieval output, graph, or other meaningful result;
+- be reusable as the unchanged comparator for future optimization;
+- have enough evidence to identify the command, input, output, and success criterion.
+
+Prefer, in order:
+
+1. official pretrained checkpoint plus documented evaluation;
+2. official released prediction/result plus documented evaluator;
+3. bundled representative dataset plus documented evaluation;
+4. the shortest documented training path that produces the original-method result.
+
+Do not select expensive full retraining when an earlier option is valid. Do not require all datasets, all paper tables, all seeds, or all ablations.
 
 ## Workflow
 
 1. Confirm repository context.
-   - Resolve the repository path and verify it exists.
-   - Inspect the repository root first.
-   - Read `paper_repo_resolution.md` from the inherited artifact reports when available; support legacy parent/root locations as read-only migration inputs.
+   - Resolve the final repository path and verify it exists.
+   - Read inherited search/fix or paper-resolution artifacts when present.
+   - Confirm this is the repository that later stages must run.
 
-2. Look for an existing `config.yaml`.
-   - If `<artifact_root>/manifests/config.yaml` exists, read and reuse it.
-   - Inspect repository-native `config.yaml` files as runtime evidence, but do not overwrite or confuse them with the Agent-owned onboarding config.
-   - Do not overwrite an existing root `config.yaml` unless the user explicitly asks.
-   - If the existing root config is incomplete, report missing fields and ask before changing it.
+2. Reuse existing Agent configuration when valid.
+   - Read `<artifact_root>/manifests/config.yaml` if present.
+   - Revalidate its repository path, command, minimum-reproduction evidence, and source identity.
+   - Treat repository-native configs as runtime evidence, not as the Agent manifest.
 
-3. Scan the repository when root config is missing.
-   - Read README files, docs, examples, CLI guides, scripts, notebooks, config files, dependency files, and common entrypoints.
-   - Prefer evidence from files such as `README.md`, `docs/`, `examples/`, `scripts/`, `train.py`, `eval.py`, `test.py`, `main.py`, `pyproject.toml`, `setup.py`, `requirements.txt`, `environment.yml`, `package.json`, and shell scripts.
-   - Use cheap read-only commands only, such as file listing, text search, `--help`, or import-free static inspection.
-   - Do not install packages, download datasets/models, start training, run long evaluation, or edit source code.
+3. Inspect repository evidence.
+   - Read README, docs, scripts, examples, runtime configs, dependency files, saved outputs, checkpoints, releases, and common entrypoints.
+   - Inspect training, evaluation, demo, data loader, checkpoint loader, and metric code.
+   - Use only cheap read-only commands such as listing, search, static inspection, and `--help` when dependencies permit.
 
-4. Infer onboarding fields and baseline target.
-   - Determine paper title/name, repository path, likely evaluation or demo command, primary metric, metric direction, setup hints, pre-eval commands, environment hints, protected paths, and confidence.
-   - Prefer a documented evaluation command that produces the paper's primary metric.
-   - If a full evaluation is too expensive or needs unavailable resources, choose the safest documented smoke/pretrained/demo command and mark the scope clearly.
-   - If no metric is evident, use an empty metric field plus warnings rather than inventing one.
-   - Search docs, logs, tables, READMEs, examples, and saved outputs for documented baseline values or expected success criteria.
-   - Record documented reference values before later stages run the baseline. Include source file, metric name, value, dataset/split/command conditions, whether it is comparable to the selected command, and confidence.
-   - If no comparable documented reference exists, record `reference_status: not_found` and include where the search looked.
-   - Treat user-provided overrides as policy unless repository evidence clearly contradicts them.
+4. Select the minimum reproduction path.
+   - Identify one representative dataset or input.
+   - Prefer evaluation-only or released-result paths over retraining.
+   - Record the original method entrypoint, command, working directory, pre-eval steps, expected outputs, primary metric or success criterion, and estimated cost.
+   - A cheap smoke command may be used as an intermediate check, but it is not the final baseline target unless it produces the meaningful original-method result required above.
 
-5. Run a bounded baseline check when feasible.
-   - Run only commands that are cheap, documented, and supported by currently available resources and dependencies.
-   - Run pre-eval commands only when they are local, reversible, and required for the selected eval command, such as extracting a bundled checkpoint.
-   - Do not install packages, download resources, create environments, start training, or run long/full evaluations unless the user explicitly approves.
-   - Capture stdout, stderr, return code, elapsed time, and parsed metrics.
-   - Compare parsed metrics with documented baseline values when available; otherwise record the observed result as the initial local baseline and mark comparison as `not_available`.
-   - If the command cannot run because resources or dependencies are missing, do not guess. Record `baseline_status: pending_resources`, `pending_environment`, or `blocked` with concrete next steps.
+5. Discover reference evidence.
+   - Search README, paper tables, docs, configs, examples, logs, saved outputs, and release notes for a result comparable to the selected path.
+   - Record source, dataset/input, split, checkpoint, metric, value, command conditions, confidence, and comparability.
+   - If no comparable reference exists, record `reference_status: not_found`; later stages may establish a local baseline.
+   - Do not expand to additional datasets solely to find a reference.
 
-6. Create or update `<artifact_root>/manifests/config.yaml`.
-   - Write the concise Agent-owned YAML file under the artifact manifest directory.
-   - Include enough fields for later agents to proceed without re-discovering the same facts.
-   - Include baseline result fields when a bounded baseline check ran.
-   - Include `warnings` for uncertain or missing fields.
-   - Include `evidence` entries with concrete file paths and snippets or summaries.
-   - Do not overwrite an existing root `config.yaml` without approval; if it exists, preserve user-authored values and append missing onboarding/baseline fields only when approved.
+6. Run a bounded check only when already feasible.
+   - If dependencies and resources already exist, a cheap execution of the selected command is allowed.
+   - Do not install, download, create environments, modify source, or start expensive training here.
+   - Record pending resource or environment blockers honestly.
 
-7. Verify and report.
-   - Re-read `<artifact_root>/manifests/config.yaml` after writing.
-   - Confirm the path in the final answer.
-   - State whether the config was reused or generated.
-   - State whether baseline was run, passed, pending, or blocked.
-   - List missing or low-confidence fields that the user should confirm before resource or environment setup.
+7. Write and verify `config.yaml`.
+   - Include enough evidence for resource, environment, and baseline stages to proceed without rediscovery.
+   - Mark `onboard_status: ready` only when a meaningful minimum-reproduction target is identified.
 
 ## Config Shape
-
-Use this shape for generated configs. Preserve existing config schemas when reusing a root `config.yaml`.
 
 ```yaml
 paper_name: ""
 paper_title: ""
 repo_path: ""
-paper_pdf_path: ""
-
 onboard_status: "ready" # ready | partial | blocked
-confidence: "low" # high | medium | low
+confidence: "high" # high | medium | low
 
-eval_command: ""
-primary_metric: ""
-metric_direction: "higher" # higher | lower | unknown
+minimum_reproduction:
+  original_method: ""
+  purpose: "optimization_baseline"
+  route: "pretrained_eval" # pretrained_eval | released_result_eval | documented_training | bundled_example
+  representative_dataset_or_input: ""
+  checkpoint_or_result: ""
+  command: ""
+  working_directory: ""
+  pre_eval_commands: []
+  primary_metric_or_output: ""
+  metric_direction: "unknown" # higher | lower | unknown
+  expected_result_files: []
+  estimated_cost: ""
+  full_paper_reproduction_required: false
+
 baseline:
   status: "not_run" # passed | failed | not_run | pending_resources | pending_environment | blocked
   command: ""
-  pre_eval_commands: []
-  returncode:
   metrics: {}
-  primary_metric_value:
-  documented_baseline:
+  documented_baseline: {}
   reference_status: "not_found" # found | not_found | ambiguous
   reference_sources: []
-  comparison: "not_available" # matches | better | worse | not_available
-  stdout_excerpt: ""
-  stderr_excerpt: ""
-  notes: ""
+  comparison: "not_available"
 
 setup_commands: []
-pre_eval_commands: []
 environment:
   package_manager: ""
   python_version: ""
@@ -140,37 +150,30 @@ protected_paths: []
 resource_hints: []
 warnings: []
 evidence: []
-notes: ""
+next_skill: "repo-resource-prepare"
 ```
 
 ## Decision Rules
 
-- Mark `onboard_status: ready` only when an eval/demo command and metric or success criterion are supported by repository evidence, and either a bounded baseline check passed or the only missing work belongs to later approved resource/environment stages.
-- Mark `onboard_status: partial` when a local config exists but important fields are missing, or when an inferred config is useful but requires user confirmation.
-- Mark `onboard_status: blocked` when the repository cannot be inspected or the requested repo path is invalid.
-- Mark `baseline.status: passed` when the selected command runs successfully and reported metrics match, improve on, or have no documented baseline to compare against.
-- Mark `baseline.status: failed` when the command runs but exits nonzero, emits invalid output, or reported metrics are clearly worse than a documented baseline beyond stated tolerance.
-- Mark `baseline.status: pending_resources` when required datasets, checkpoints, or model files are missing.
-- Mark `baseline.status: pending_environment` when dependencies, interpreters, compilers, CUDA, or package environments are missing.
-- Prefer a partial but honest config over a confident-looking invented config.
+- `ready`: the original method, one representative input, meaningful result, and command path are supported by evidence.
+- `partial`: useful evidence exists but the command, result, or representative input remains ambiguous.
+- `blocked`: the repository is invalid or no meaningful original-method path can be identified.
+- Missing resources or dependencies do not block onboarding when their exact requirements can be handed to later stages.
+- A missing documented reference does not invalidate a meaningful local baseline.
 
 ## Boundaries
 
 Do:
 
-- ensure `<artifact_root>/manifests/config.yaml` exists
-- reuse an existing root config when present
-- scan repository files to infer onboarding metadata
-- run a cheap documented baseline/smoke check when resources and environment are already available
-- parse and record metrics when the selected command prints or writes them
-- compare against documented baselines when the repository provides them
-- preserve uncertainty in `warnings`
-- write an audit-friendly `onboard_report.md` when useful
+- identify the smallest credible original-method reproduction path
+- prefer released checkpoints/results over unnecessary retraining
+- discover comparable documented results
+- write the Agent-owned `config.yaml`
+- preserve uncertainty and evidence
 
 Do not:
 
-- implement onboarding as a new Python or TypeScript pipeline
-- overwrite an existing root `config.yaml` without user approval
-- install dependencies, download resources, create environments, or run long training/full evaluation without explicit user approval
-- change source code, metrics, datasets, evaluation protocol, or generated experiment results
-- continue into resource download or environment setup
+- require all paper datasets, tables, seeds, or ablations
+- install dependencies, create environments, or acquire resources
+- modify repository source or scientific protocol
+- treat an import-only or help-only check as the final baseline
