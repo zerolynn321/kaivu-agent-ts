@@ -147,6 +147,7 @@ Use `paper-repo-discovery` only to resolve and clone the paper repository, then 
 1. Classify the request.
    - Preserve the user's wording.
    - Choose one route above.
+   - Preserve user-stated test intent, such as evaluating repository integration, source modification, benchmark construction, or error recovery. Pass it to downstream skills as part of the requirement rather than treating it as incidental wording.
    - Ask only when the route is genuinely ambiguous.
 
 2. Establish the run directory and `artifact_root`.
@@ -157,6 +158,7 @@ Use `paper-repo-discovery` only to resolve and clone the paper repository, then 
    - Invoke `experiment-repo-search`.
    - Allow it to consult `benchmark-selection` internally without adding another user-facing stage.
    - Require it to define the minimum controlled baseline contract when the user asks a comparative question.
+   - When the user wants to test repository integration, require explicit comparison of single-repo, primary-with-support, and composed-workspace options before accepting a low-risk fallback.
    - Continue only when `experiment_repo_plan.yaml` and `workspace_manifest.yaml` record `search_status: ready`.
 
 4. For an open-ended requirement, fix or integrate the repository base.

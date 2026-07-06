@@ -1,6 +1,6 @@
 ---
 name: experiment-repo-search
-description: Turn an open-ended natural-language research requirement into a structured minimum controlled baseline contract, consult benchmark-selection as an auxiliary decision index, find and compare credible repositories, select the smallest repository base that can answer the research question on one representative benchmark, clone or reuse the selected repositories, and hand the local workspace to repo-experiment-fix. Use after research-experiment-init for requirement-driven repository discovery. This skill does not install dependencies, acquire non-Git runtime resources, modify source code, or run the baseline.
+description: Turn an open-ended natural-language research requirement into a structured minimum controlled baseline contract, consult benchmark-selection as an auxiliary decision index, find and compare credible repositories, select the repository base that best satisfies the research need and can answer the question on one representative benchmark, clone or reuse the selected repositories, and hand the local workspace to repo-experiment-fix. Use after research-experiment-init for requirement-driven repository discovery, including cases where Codex must decide between single-repo modification, primary-repo-with-support, or composed-workspace integration. This skill does not install dependencies, acquire non-Git runtime resources, modify source code, or run the baseline.
 ---
 
 # Experiment Repo Search
@@ -14,6 +14,8 @@ Do not implement a separate Python or TypeScript orchestration pipeline. Perform
 This project does not require complete paper reproduction. The target is a **minimum reproducible optimization base**.
 
 For an open-ended research requirement, the baseline target is not merely "the chosen method runs." It is the smallest controlled experiment that can answer the user's question before later optimization. Use one representative benchmark when enough, but include the required control branch.
+
+Do not optimize only for lowest engineering risk. First satisfy the user's research intent and test intent, then choose the smallest credible implementation among the plans that satisfy it. If the user is explicitly testing repository integration or asks Codex to decide whether integration is needed, evaluate real external component repositories before falling back to a self-written lightweight substitute.
 
 Examples:
 
@@ -73,6 +75,8 @@ Handoff:
 1. Structure the requirement.
    - Preserve the original request.
    - Record the research question, task, input/output, intended optimization, must-have requirements, exclusions, and resource limits.
+   - Record any evaluation intent in the request, such as testing repository search, repository integration, source adaptation, benchmark construction, or error recovery.
+   - Treat an explicit integration-test intent as a requirement to fairly evaluate multi-repository options, not as a requirement to force integration when a single repository genuinely fits better.
    - Ask only when ambiguity changes scientific meaning, repository class, data access, or resource class.
 
 2. Define the minimum controlled baseline contract.
@@ -92,19 +96,24 @@ Handoff:
    - Search official paper/project pages, author or lab pages, GitHub organizations, benchmark pages, package documentation, and credible maintained implementations.
    - Classify each candidate as `primary_repo`, `component_repo`, `reference_repo`, `dataset_repo`, or `benchmark_tooling`.
    - Verify officialness, paper/task identity, license, runnable evidence, available checkpoints/results, representative dataset support, dependencies, hardware cost, and modification/integration cost.
+   - When the requirement naturally decomposes into producer and consumer components, search for both roles before choosing a base shape.
+   - For integration-oriented tests, include at least one credible external component repository as a candidate when such repositories exist, even if a simpler local reimplementation seems possible.
 
 4. Compare candidates against the requirement.
    - Prioritize requirement fit, minimum-reproduction evidence, and optimization suitability over popularity.
+   - Prioritize user-stated test intent over engineering convenience when they conflict.
    - Check whether the repository can produce the minimum controlled baseline without unnecessary full-paper training.
    - For comparative requirements, reject candidates that only run one branch unless a bounded adapter or switch can create the missing control without changing scientific meaning.
    - Check whether the code exposes the model, retrieval, graph, data, evaluator, or other extension point needed by the future optimization.
+   - If rejecting a component repository in favor of a self-written fallback, record a concrete reason such as incompatible interface, unusable license, missing runnable code, excessive resource cost, unavailable dependency, or mismatch with the scientific target.
    - Record rejected candidates and concrete reasons.
 
-5. Choose the smallest adequate repository base.
-   - Use `single-repo` when one repository already satisfies the requirement.
+5. Choose the best-fitting repository base.
+   - Use `single-repo` when one repository already satisfies the research need, controlled baseline, and user-stated test intent.
    - Use `primary-repo-with-support` when one runnable repository needs reference, data, evaluator, or small adapter support.
-   - Use `composed-workspace` only when multiple repositories or components are genuinely required.
-   - Do not force repository composition when one repository plus a bounded adapter is sufficient.
+   - Use `composed-workspace` when multiple repositories or components are required to faithfully satisfy the research need, or when the user's integration-test intent would be bypassed by a self-written substitute despite a credible external component being available.
+   - Do not force repository composition when one repository genuinely satisfies both the research question and the user's test intent.
+   - Do not avoid repository composition merely because a small fallback script would be lower risk.
    - Ask before an unofficial or low-confidence primary repository, unclear licensing, large downloads, private services, or materially different candidate choices.
 
 6. Clone or reuse selected repositories.
@@ -132,6 +141,10 @@ must_have: []
 preferred: []
 exclusions: []
 resource_constraints: {}
+test_intent:
+  search_required: true
+  integration_evaluation_required: false
+  source_adaptation_expected: false
 minimum_reproduction:
   original_method_behavior: ""
   baseline_kind: "controlled_comparison" # single_method | controlled_comparison
@@ -163,6 +176,13 @@ selected:
     risks: []
   support_repos: []
 candidates: []
+base_shape_decision:
+  chosen_shape: "single-repo"
+  alternatives_considered:
+    - shape: "composed-workspace"
+      reason_rejected: ""
+  self_written_fallback_used: false
+  fallback_justification: ""
 minimum_reproduction_contract:
   baseline_kind: "controlled_comparison" # single_method | controlled_comparison
   dataset_or_input: ""
@@ -210,7 +230,8 @@ warnings: []
 - A minimum baseline for an open-ended requirement must include the control or reference branch needed to answer the user's research question.
 - One representative dataset is enough when it provides a valid original-method result.
 - Prefer released checkpoints and evaluation-only paths over unnecessary expensive retraining.
-- Prefer the smallest credible repository base and lowest-risk adaptation.
+- Prefer the smallest credible repository base only after it satisfies the research question and user-stated test intent.
+- For integration-oriented tests, do not replace a credible component repository with a self-written lightweight fallback unless the component is demonstrably unsuitable and the reason is recorded.
 - Preserve uncertainty and ask only for decisions that materially affect the experiment.
 
 ## Boundaries

@@ -1,6 +1,6 @@
 ---
 name: repo-experiment-fix
-description: Inspect the repositories selected by experiment-repo-search and make the minimum source-level changes, adapters, benchmark wiring, comparison switches, or cross-repository integrations needed to produce one coherent repository for the requested optimization experiment before onboarding. Use when the selected repository base may already fit exactly, may need a bounded modification, or may require multiple repositories to be connected. Preserve the original-method baseline path and, for open-ended comparative requirements, expose the required control/treatment branches. Record no_change_required when appropriate and output one final repository path for repo-onboard. This skill does not install dependencies, acquire runtime resources, or run the final baseline.
+description: Inspect the repositories selected by experiment-repo-search and make the source-level changes, adapters, benchmark wiring, comparison switches, or cross-repository integrations needed to produce one coherent repository for the requested optimization experiment before onboarding. Use when the selected repository base may already fit exactly, may need a bounded modification, or may require multiple repositories to be connected. Preserve the original-method baseline path and, for open-ended comparative requirements, expose the required control/treatment branches. When the search plan selected or seriously considered component repositories, prefer integrating the selected component over replacing it with a self-written fallback unless the fallback is explicitly justified. Record no_change_required when appropriate and output one final repository path for repo-onboard. This skill does not install dependencies, acquire runtime resources, or run the final baseline.
 ---
 
 # Repo Experiment Fix
@@ -75,6 +75,7 @@ Handoff:
    - Map each requirement to repository role, file, symbol, expected behavior, and validation evidence.
    - Record the original baseline path that must remain available.
    - For comparative requirements, record each required branch, how it is activated, and which invariants must remain shared across branches.
+   - If `experiment_repo_plan.yaml` records an integration-oriented test intent, map each selected component repository to a concrete interface and verify whether integration is feasible before proposing a self-written fallback.
    - Record proposed files, adapters, interface contracts, provenance, protected invariants, and approval needs.
 
 4. Resolve approval gates.
@@ -84,12 +85,14 @@ Handoff:
 
 5. Apply the minimum required changes.
    - Prefer configuration, adapters, wrappers, and explicit interfaces over invasive rewrites.
+   - Prefer satisfying the selected integration or component-reuse plan over reducing engineering risk by rewriting the component locally.
    - Preserve an explicit original-method baseline mode.
    - Expose the minimum control/treatment switches needed by the requirement when the repository lacks them.
    - For on/off comparisons, change only the factor under test and keep data split, model capacity, training budget, metrics, and evaluator fixed unless the benchmark plan says otherwise.
    - Keep the selected representative benchmark path and evaluation meaning unchanged.
    - For data adaptation, preserve provenance and prevent future-information or target leakage.
    - Record every source or protocol change and why it is necessary.
+   - If a self-written substitute replaces an available external component, record why the external component could not be integrated and mark the substitute as `fallback`, not as repository integration.
 
 6. Integrate multiple repositories when required.
    - Select one final primary root.
@@ -137,6 +140,11 @@ requirement_mapping:
     files_and_symbols: []
     implemented_behavior: ""
 component_roles: []
+integration_decision:
+  selected_shape: "single-repo" # single-repo | primary-repo-with-support | composed-workspace
+  external_components_integrated: []
+  self_written_fallbacks: []
+  fallback_justifications: []
 changed_files: []
 added_files: []
 protocol_invariants: []
@@ -157,8 +165,10 @@ next_skill: "repo-onboard"
 
 - No source modification is a valid and preferred result when the repository already fits.
 - Make only changes necessary to satisfy the requirement and expose a usable optimization base.
+- Do not treat "lowest-risk implementation" as sufficient when it weakens the user's stated research or integration-test intent.
 - Preserve the original method as the baseline comparator.
 - For an open-ended comparative requirement, do not declare the repository ready for onboarding until the required comparison branches are available or explicitly documented as no_change_required because the upstream repository already provides them.
+- When a credible component repository was selected for integration, do not silently replace it with a small local reimplementation.
 - Do not require the optimized method itself to outperform the baseline in this stage.
 - Do not call a directory containing multiple untouched repositories an integrated experiment repository.
 - Runtime readiness is established later by a passing baseline, not by static confidence here.
