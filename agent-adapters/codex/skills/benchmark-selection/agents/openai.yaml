@@ -1,4 +1,4 @@
 interface:
   display_name: "Benchmark Selection"
-  short_description: "Choose the minimum benchmark comparison"
-  default_prompt: "Use $benchmark-selection to choose one representative benchmark and the required control branches for this research need."
+short_description: "Choose the minimum benchmark experiment"
+default_prompt: "Use $benchmark-selection to choose one representative benchmark and only the control branches required to answer comparative research needs."

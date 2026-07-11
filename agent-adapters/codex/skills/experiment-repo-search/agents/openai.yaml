@@ -1,4 +1,4 @@
 interface:
   display_name: "Experiment Repo Search"
-  short_description: "Find a repo for the minimum controlled baseline"
-  default_prompt: "Use $experiment-repo-search to structure this research need and find the smallest credible repository base for the required baseline comparison."
+short_description: "Find a repo for the minimum controlled experiment"
+default_prompt: "Use $experiment-repo-search to structure this research need and find the smallest credible repository base for the minimum experiment, using comparison branches only when required."

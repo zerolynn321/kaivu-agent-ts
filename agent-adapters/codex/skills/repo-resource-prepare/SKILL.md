@@ -1,6 +1,6 @@
 ---
 name: repo-resource-prepare
-description: Ask the user to choose whether to reuse the current environment or create a repository-specific virtual environment, then acquire and stage only the resources required by the onboarded minimum original-method reproduction path. Use after repo-onboard has selected one representative dataset/input and a pretrained-evaluation, released-result, bundled-example, or shortest necessary training route. Prefer existing official checkpoints, released outputs, bundled resources, and reusable local files over unnecessary retraining or broad paper-resource downloads; write resource_manifest.yaml plus resource_acquisition_report.md. This skill does not install dependencies, run the baseline, modify experiment logic, or acquire every dataset/model used by the paper.
+description: Ask the user to choose whether to reuse the current environment or create a repository-specific virtual environment, then acquire and stage only the resources required by the onboarded minimum original-method reproduction path. Use after repo-onboard has selected one representative dataset/input and a pretrained-evaluation, released-result, bundled-example, or shortest necessary training route. Prefer existing official checkpoints, released outputs, bundled resources, and reusable local files over unnecessary retraining or broad paper-resource downloads; when reusing local files, copy them into the run resource directory by default and report the source/copy paths so originals remain untouched. Write resource_manifest.yaml plus resource_acquisition_report.md. This skill does not install dependencies, run the baseline, modify experiment logic, or acquire every dataset/model used by the paper.
 ---
 
 # Repo Resource Prepare
@@ -89,14 +89,15 @@ Handoff:
 
 5. Acquire required resources.
    - Required resources must end up under `<run_dir>/resources/` or be explicitly marked blocked with a reason.
-   - If a required resource already exists in the repository, copy it into `<run_dir>/resources/` and record the copy.
-   - If it already exists in the run resource directory, reuse it.
+   - If a required resource already exists in the repository or elsewhere on the local filesystem, copy it into `<run_dir>/resources/` by default and record the source path and staged copy path.
+   - If it already exists in the run resource directory, reuse that staged copy.
    - If a required resource has a direct URL, download it into `<run_dir>/resources/`.
    - If a required resource requires manual access, authentication, license acceptance, or unclear source selection, stop and ask the user.
    - Do not silently skip required resources.
 
 6. Bind repository paths when needed.
    - If the configured command expects a repo-relative path and the resource was staged elsewhere, either create a symlink from the expected repo path to the staged resource or record an explicit path-binding instruction.
+   - Prefer binding the repository to the staged copy, not to the original local resource.
    - Ask before replacing an existing regular file or directory.
    - Never delete or overwrite repository resources without user approval.
    - Keep backups under a clearly named backup directory if the user approves replacement.
@@ -163,6 +164,7 @@ Use this shape for each item in `resource_acquisition_report.md`:
 - `failed`: attempted copy/download failed; include the command or URL and the error summary.
 - Optional resources may remain `discovered` or `missing` without blocking the handoff.
 - Resources for other paper datasets, tables, ablations, or full retraining must remain optional unless the user explicitly expands the scope.
+- Local reusable resources are sources, not working copies; copy them into `<run_dir>/resources/` before use unless the user explicitly requests direct in-place use.
 
 ## Boundaries
 
@@ -171,6 +173,7 @@ Do:
 - stage every required resource into the run directory
 - scope required resources to the configured minimum original-method reproduction
 - prefer official checkpoints, released results, bundled assets, and reusable local files over unnecessary retraining
+- copy reusable local resources into the run resource directory by default and report both original and staged paths
 - ask whether to reuse the current environment or create a new repository-specific environment before resource download
 - proceed only after the current user request makes that choice explicit
 - block all resource copy/download/staging and all dependency download/install attempts until that environment choice is explicit

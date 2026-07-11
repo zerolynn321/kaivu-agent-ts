@@ -1,6 +1,6 @@
 ---
 name: benchmark-selection
-description: Provide an auxiliary benchmark decision for experiment-repo-search by selecting the smallest scientifically meaningful dataset, input, protocol, metric, checkpoint, released-result route, and when needed control branches that can answer an open-ended research requirement and serve as the baseline contract for later optimization. Use when an open-ended research requirement needs benchmark evidence before repository comparison. One representative dataset is sufficient, but comparative questions require the minimum on/off, method/control, component/no-component, or reference-model branches. Do not require a full benchmark suite, every paper dataset, full retraining, or all paper results. Write benchmark_plan.yaml and benchmark_selection_report.md without selecting repositories, downloading resources, modifying code, or running experiments.
+description: Provide an auxiliary benchmark decision for experiment-repo-search by selecting the smallest scientifically meaningful dataset, input, protocol, metric, checkpoint, released-result route, and when needed control branches that can answer an open-ended research requirement and serve as the baseline contract for later optimization. Use when an open-ended research requirement needs benchmark evidence before repository comparison. One representative dataset is sufficient; comparative questions require the minimum on/off, method/control, component/no-component, or reference-model branches, but non-comparative questions may be answered by a single controlled experiment. Do not require a full benchmark suite, every paper dataset, full retraining, or all paper results. Write benchmark_plan.yaml and benchmark_selection_report.md without selecting repositories, downloading resources, modifying code, or running experiments.
 ---
 
 # Benchmark Selection
@@ -18,7 +18,7 @@ Choose a **minimum credible benchmark unit** that:
 - has enough protocol evidence to preserve the result as the later optimization baseline;
 - fits the user's compute, access, and download constraints.
 
-For open-ended comparative requirements, the benchmark unit must include the smallest controlled comparison needed to answer the question. A single treatment branch is insufficient when the user asks whether some information, module, model family, or strategy improves performance.
+For open-ended requirements, the benchmark unit must support the smallest controlled experiment needed to answer the question. A single meaningful branch can be sufficient for non-comparative questions. For comparative questions, include the smallest controlled comparison needed; a single treatment branch is insufficient when the user asks whether some information, module, model family, or strategy improves performance.
 
 Prefer official pretrained evaluation, released predictions/results, bundled data, or one established public dataset over unnecessary full retraining.
 
@@ -95,7 +95,7 @@ mode: "adopt_existing" # adopt_existing | adapt_existing | construct_minimal | u
 research_requirement_path: ""
 
 minimum_reproduction:
-  baseline_kind: "controlled_comparison" # single_method | controlled_comparison
+  baseline_kind: "single_method" # single_method | controlled_comparison
   original_method_behavior: ""
   representative_dataset_or_input:
     name: ""

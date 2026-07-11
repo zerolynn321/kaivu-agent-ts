@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Resource Prepare"
   short_description: "Choose env and stage minimum baseline resources"
-  default_prompt: "Use $repo-resource-prepare to choose the environment and stage only the resources required by the selected minimum reproduction."
+default_prompt: "Use $repo-resource-prepare to choose the environment and stage only the resources required by the selected minimum reproduction, copying reusable local resources into the run directory by default."

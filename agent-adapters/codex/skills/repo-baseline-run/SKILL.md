@@ -1,6 +1,6 @@
 ---
 name: repo-baseline-run
-description: Run and record the configured minimum baseline as the final AgentInit stage and the project's formal optimization-readiness gate. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have prepared one coherent repository, the required representative dataset or official pretrained/released-result assets, and the selected environment. For specific papers or supplied repositories, execute the meaningful original-method reproduction. For open-ended comparative research requirements, execute the smallest controlled baseline that answers the research question, such as on/off, method/control, component/no-component, or reference-model branches. Parse results, compare with documented evidence when available, invoke AgentFix on failures, and write baseline_metrics.yaml plus baseline_run_report.md. A passed baseline means ready_for_optimization in this project; no separate formal-experiment preparation stage follows.
+description: Run and record the configured minimum baseline as the final AgentInit stage and the project's formal optimization-readiness gate. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have prepared one coherent repository, the required representative dataset or official pretrained/released-result assets, and the selected environment. For specific papers or supplied repositories, execute the meaningful original-method reproduction. For open-ended research requirements, execute at least one smallest controlled experiment that answers the research question; comparative questions additionally require the minimum necessary on/off, method/control, component/no-component, or reference-model branches. Parse results, compare with documented evidence when available, invoke AgentFix on failures, and write baseline_metrics.yaml plus baseline_run_report.md. A passed baseline means ready_for_optimization in this project; no separate formal-experiment preparation stage follows.
 ---
 
 # Repo Baseline Run
@@ -10,7 +10,7 @@ Use this skill as the final initialization stage.
 In this project, a passed baseline means the repository can formally enter later optimization experiments. It does not mean every paper experiment was repeated.
 
 - For a specific paper or supplied repository, it means the smallest credible original-method result has been reproduced and preserved as the optimization comparator.
-- For an open-ended research requirement, it means the smallest controlled comparison needed to answer the user's question has run and been preserved as the baseline contract for later optimization.
+- For an open-ended research requirement, it means the smallest controlled experiment needed to answer the user's question has run and been preserved as the baseline contract for later optimization. If the question is comparative, the required comparison branches and delta are part of that contract.
 
 ## Artifact Location
 
@@ -67,6 +67,8 @@ For open-ended comparative requirements, the baseline must additionally:
 - keep dataset/input, split, primary metric, evaluator, target, model capacity, and budget fixed across branches unless the benchmark plan says otherwise;
 - compute and record the branch deltas needed to answer the research question;
 - avoid `ready_for_optimization: true` when only the treatment branch ran.
+
+For non-comparative open-ended requirements, do not require comparison branches when one controlled experiment directly answers the stated question.
 
 An import check, `--help`, empty dry run, or unrelated toy output is insufficient.
 

@@ -1,6 +1,6 @@
 ---
 name: research-experiment-init
-description: Common natural-language entrypoint for preparing a research repository for later optimization experiments. Use when Codex receives an open-ended research requirement, a specific paper, or an existing repository and must route the request through the correct Agent + Skill stages. For open-ended research requirements, run experiment-repo-search, repo-experiment-fix, repo-onboard, repo-resource-prepare, repo-environment-setup, and repo-baseline-run, and require the final baseline to be the smallest controlled experiment that can answer the research question. For a specific paper with an already identified repository or an existing local repository, skip search and source adaptation and enter the final four stages directly. A passing minimum baseline is the final ready-for-optimization state; do not add a separate formal-experiment preparation stage.
+description: Common natural-language entrypoint for preparing a research repository for later optimization experiments. Use when Codex receives an open-ended research requirement, a specific paper, or an existing repository and must route the request through the correct Agent + Skill stages. For open-ended research requirements, run experiment-repo-search, repo-experiment-fix, repo-onboard, repo-resource-prepare, repo-environment-setup, and repo-baseline-run, and require the final baseline to be at least one smallest controlled experiment that can answer the research question. Comparative questions need the minimum necessary control/treatment or reference branches, but not every open-ended requirement is a comparison. For a specific paper with an already identified repository or an existing local repository, skip search and source adaptation and enter the final four stages directly. A passing minimum baseline is the final ready-for-optimization state; do not add a separate formal-experiment preparation stage.
 ---
 
 # Research Experiment Init
@@ -18,7 +18,8 @@ A workflow is complete when:
 - one coherent repository contains the original method;
 - one representative dataset, bundled input, released result, or official pretrained checkpoint path is prepared;
 - for a specific paper or supplied repository, the selected baseline/evaluation command produces a meaningful original-method result;
-- for an open-ended research requirement, the selected baseline runs the smallest controlled comparison that can answer the user's research question, such as on/off, method/control, component/no-component, or primary/reference-model branches;
+- for an open-ended research requirement, the selected baseline runs at least one smallest controlled experiment that can answer the user's research question;
+- when the question is comparative, that controlled experiment includes the minimum necessary on/off, method/control, component/no-component, or primary/reference-model branches;
 - the produced result or comparison can be retained as the comparator contract for later optimization;
 - `repo-baseline-run` records `status: passed` and `ready_for_optimization: true`.
 
@@ -36,7 +37,7 @@ Within this project, a passed minimum baseline means the repository can formally
 Distinguish the task type before delegating:
 
 - **Specific paper or supplied repository**: baseline means a minimum representative reproduction of the original paper/method. One dataset, checkpoint, or released-result route is enough when it matches the method and produces a meaningful metric or output.
-- **Open-ended research requirement**: baseline means a minimum controlled experiment that answers the research question before optimization. The baseline may contain multiple branches, but only the smallest set needed for the claim.
+- **Open-ended research requirement**: baseline means a minimum controlled experiment that answers the research question before optimization. It may be a single-method experiment when that is enough, or multiple branches when the claim is comparative; use only the smallest set needed for the question.
 
 Examples for open-ended requirements:
 
@@ -45,7 +46,7 @@ Examples for open-ended requirements:
 - causal priors improve graph forecasting: run the default graph branch and causal-prior graph branch;
 - foundation model comparison: run the selected foundation model and a representative classical baseline under the same evaluation protocol.
 
-Do not mark an open-ended requirement as ready merely because one event-aware, retrieval-aware, causal-aware, or foundation-model branch ran successfully. It must include the control needed to answer the user's requirement unless the user explicitly asks only to prepare one branch.
+Do not mark a comparative open-ended requirement as ready merely because one event-aware, retrieval-aware, causal-aware, or foundation-model branch ran successfully. It must include the control needed to answer the user's requirement unless the user explicitly asks only to prepare one branch. For non-comparative open-ended requirements, one meaningful controlled experiment can be sufficient when it directly answers the stated question.
 
 ## Artifact Layout
 
@@ -153,11 +154,12 @@ Use `paper-repo-discovery` only to resolve and clone the paper repository, then 
 2. Establish the run directory and `artifact_root`.
    - Reuse existing artifacts when they belong to the same repository and requirement.
    - Pass absolute repository, run, and artifact paths to every skill.
+   - When reusing a local repository or local resource for a new experiment, default to creating an isolated copy under the run/workspace root before modifications, staging, or binding. Tell the user the source path, copy path, and that the original was left untouched.
 
 3. For an open-ended requirement, search repositories.
    - Invoke `experiment-repo-search`.
    - Allow it to consult `benchmark-selection` internally without adding another user-facing stage.
-   - Require it to define the minimum controlled baseline contract when the user asks a comparative question.
+   - Require it to define the minimum controlled experiment contract, with comparison branches only when the user asks a comparative question.
    - When the user wants to test repository integration, require explicit comparison of single-repo, primary-with-support, and composed-workspace options before accepting a low-risk fallback.
    - Continue only when `experiment_repo_plan.yaml` and `workspace_manifest.yaml` record `search_status: ready`.
 
@@ -169,7 +171,7 @@ Use `paper-repo-discovery` only to resolve and clone the paper repository, then 
 5. Onboard the final repository.
    - Invoke `repo-onboard`.
    - For paper/repository routes, require a minimum-reproduction command that exercises the original method on one representative input and produces a meaningful metric or output.
-   - For open-ended requirement routes, require the configured baseline to preserve every branch in the minimum controlled comparison.
+   - For open-ended requirement routes, require the configured baseline to preserve the minimum controlled experiment, including every branch only when the requirement is comparative.
    - Continue only when `config.yaml` records `onboard_status: ready`.
 
 6. Prepare only required resources.
@@ -186,7 +188,7 @@ Use `paper-repo-discovery` only to resolve and clone the paper repository, then 
 8. Run the minimum-reproduction baseline.
    - Invoke `repo-baseline-run`.
    - For paper/repository routes, require a meaningful original-method result, not only an import or empty command success.
-   - For open-ended requirement routes, require the smallest meaningful controlled comparison that answers the research question.
+   - For open-ended requirement routes, require the smallest meaningful controlled experiment that answers the research question.
    - Compare with a documented reference when available; absence of a comparable reference does not block a valid local baseline.
    - Finish when `baseline_metrics.yaml` records `status: passed` and `ready_for_optimization: true`.
 
