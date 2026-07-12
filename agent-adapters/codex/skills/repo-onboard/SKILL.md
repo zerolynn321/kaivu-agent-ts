@@ -1,13 +1,13 @@
 ---
 name: repo-onboard
-description: Inspect the final cloned or adapted research repository, identify the minimum scientifically meaningful reproduction or controlled experiment path, discover one representative dataset or official pretrained/released-result evaluation route, find comparable documented reference results when available, and write the Agent-owned config.yaml for resource, environment, and baseline stages. Use after repo-experiment-fix for open-ended requirements, after paper-repo-discovery for a paper without a known repository, or directly when the user supplies a specific paper and repository. For open-ended comparative requirements, preserve the required control/treatment branches in config.yaml; for non-comparative requirements, a single controlled experiment can be sufficient. This skill does not install dependencies, acquire resources, modify experiment logic, or require complete paper reproduction.
+description: Inspect the final cloned or adapted research repository, identify the minimum scientifically meaningful reproduction or controlled experiment path, discover one representative dataset or official pretrained/released-result evaluation route, find comparable documented reference results when available, and write the Agent-owned config.yaml for resource, environment, and baseline stages. Use after repo-experiment-fix for open-ended requirements, after paper-repo-discovery for a paper without a known repository, or directly when the user supplies a specific paper and repository. For specific-paper reproduction, the selected path must align with a core experiment, official demonstration, task type, or evaluation route used to support the paper's main contribution. For open-ended comparative requirements, preserve the required control/treatment branches in config.yaml; for non-comparative requirements, a single controlled experiment can be sufficient. This skill does not install dependencies, acquire resources, modify experiment logic, or require complete paper reproduction.
 ---
 
 # Repo Onboard
 
 Use this skill to convert one final repository path into an evidence-backed minimum-reproduction configuration.
 
-The target is not every experiment in the paper. Select the smallest credible path that exercises the original method, produces a meaningful result, and can serve as the baseline for later optimization.
+The target is not every experiment in the paper. Select the smallest credible path that exercises the original method on a paper-aligned core experiment, produces a meaningful result, and can serve as the baseline for later optimization.
 
 For open-ended requirements, select the smallest controlled experiment path that answers the user's question. Comparative requirements may require multiple commands or one command matrix, but only for the required branches.
 
@@ -54,6 +54,7 @@ Handoff:
 The selected path must:
 
 - execute the original method, not only import modules or print help;
+- for a specific paper, align with the paper's core experiment, official example, task type, protocol family, or documented evaluation route used to demonstrate the main contribution;
 - use one representative dataset, bundled input, official checkpoint, or released result;
 - produce the method's primary metric, prediction, retrieval output, graph, or other meaningful result;
 - be reusable as the unchanged comparator for future optimization;
@@ -66,7 +67,7 @@ Prefer, in order:
 3. bundled representative dataset plus documented evaluation;
 4. the shortest documented training path that produces the original-method result.
 
-Do not select expensive full retraining when an earlier option is valid. Do not require all datasets, all paper tables, all seeds, or all ablations.
+Do not select expensive full retraining when an earlier option is valid. Do not require all datasets, all paper tables, all seeds, or all ablations. Do not select an unrelated demo, generic package example, or toy smoke test when it does not correspond to the paper's core experiment.
 
 ## Workflow
 
@@ -89,10 +90,12 @@ Do not select expensive full retraining when an earlier option is valid. Do not 
 
 4. Select the minimum reproduction path.
    - Identify one representative dataset or input.
+   - For specific-paper routes, identify the paper's core experiment or official demonstration path first, then choose the smallest runnable route that still matches it.
    - Prefer evaluation-only or released-result paths over retraining.
    - If `repo_experiment_fix.yaml` or `benchmark_plan.yaml` defines `controlled_baseline.required: true` or `baseline_kind: controlled_comparison`, preserve every required branch in the config.
    - Require each branch to share the benchmark invariants unless the benchmark plan explicitly differs.
    - Do not invent comparison branches for a non-comparative requirement when one controlled experiment directly answers the question.
+   - Reject generic demos that only prove the package works but do not exercise the paper's claimed method or core scientific workflow.
    - Record the original method entrypoint, command, working directory, pre-eval steps, expected outputs, primary metric or success criterion, and estimated cost.
    - A cheap smoke command may be used as an intermediate check, but it is not the final baseline target unless it produces the meaningful original-method result required above.
 
@@ -122,6 +125,10 @@ confidence: "high" # high | medium | low
 
 minimum_reproduction:
   original_method: ""
+  paper_core_experiment:
+    aligned: false
+    paper_claim_or_experiment: ""
+    alignment_evidence: []
   purpose: "optimization_baseline"
   baseline_kind: "single_method" # single_method | controlled_comparison
   route: "pretrained_eval" # pretrained_eval | released_result_eval | documented_training | bundled_example
@@ -169,7 +176,7 @@ next_skill: "repo-resource-prepare"
 
 ## Decision Rules
 
-- `ready`: the original method, one representative input, meaningful result, and command path are supported by evidence.
+- `ready`: the original method, paper-core alignment when applicable, one representative input, meaningful result, and command path are supported by evidence.
 - `partial`: useful evidence exists but the command, result, or representative input remains ambiguous.
 - `blocked`: the repository is invalid or no meaningful original-method path can be identified.
 - Missing resources or dependencies do not block onboarding when their exact requirements can be handed to later stages.
@@ -182,6 +189,7 @@ next_skill: "repo-resource-prepare"
 Do:
 
 - identify the smallest credible original-method reproduction path
+- preserve paper-core alignment for specific-paper reproduction
 - prefer released checkpoints/results over unnecessary retraining
 - discover comparable documented results
 - write the Agent-owned `config.yaml`
@@ -193,3 +201,4 @@ Do not:
 - install dependencies, create environments, or acquire resources
 - modify repository source or scientific protocol
 - treat an import-only or help-only check as the final baseline
+- treat an unrelated generic demo as the final baseline for a specific paper

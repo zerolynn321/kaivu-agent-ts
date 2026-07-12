@@ -1,6 +1,6 @@
 ---
 name: repo-baseline-run
-description: Run and record the configured minimum baseline as the final AgentInit stage and the project's formal optimization-readiness gate. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have prepared one coherent repository, the required representative dataset or official pretrained/released-result assets, and the selected environment. For specific papers or supplied repositories, execute the meaningful original-method reproduction. For open-ended research requirements, execute at least one smallest controlled experiment that answers the research question; comparative questions additionally require the minimum necessary on/off, method/control, component/no-component, or reference-model branches. Parse results, compare with documented evidence when available, invoke AgentFix on failures, and write baseline_metrics.yaml plus baseline_run_report.md. A passed baseline means ready_for_optimization in this project; no separate formal-experiment preparation stage follows.
+description: Run and record the configured minimum baseline as the final AgentInit stage and the project's formal optimization-readiness gate. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have prepared one coherent repository, the required representative dataset or official pretrained/released-result assets, and the selected environment. For specific papers or supplied repositories, execute the meaningful original-method reproduction on a paper-aligned core experiment or official demonstration path. For open-ended research requirements, execute at least one smallest controlled experiment that answers the research question; comparative questions additionally require the minimum necessary on/off, method/control, component/no-component, or reference-model branches. Parse results, compare with documented evidence when available, invoke AgentFix on failures, and write baseline_metrics.yaml plus baseline_run_report.md. A passed baseline means ready_for_optimization in this project; no separate formal-experiment preparation stage follows.
 ---
 
 # Repo Baseline Run
@@ -9,7 +9,7 @@ Use this skill as the final initialization stage.
 
 In this project, a passed baseline means the repository can formally enter later optimization experiments. It does not mean every paper experiment was repeated.
 
-- For a specific paper or supplied repository, it means the smallest credible original-method result has been reproduced and preserved as the optimization comparator.
+- For a specific paper or supplied repository, it means the smallest credible paper-aligned original-method core experiment has been reproduced and preserved as the optimization comparator.
 - For an open-ended research requirement, it means the smallest controlled experiment needed to answer the user's question has run and been preserved as the baseline contract for later optimization. If the question is comparative, the required comparison branches and delta are part of that contract.
 
 ## Artifact Location
@@ -56,6 +56,7 @@ Final handoff:
 The final baseline must:
 
 - execute the original method in the final repository;
+- for specific-paper reproduction, match the paper-aligned core experiment or official demonstration path recorded by `repo-onboard`;
 - use the selected representative dataset/input, official checkpoint, or released result;
 - produce a meaningful metric or method output;
 - save enough command, environment, resource, and output evidence to rerun it;
@@ -70,7 +71,7 @@ For open-ended comparative requirements, the baseline must additionally:
 
 For non-comparative open-ended requirements, do not require comparison branches when one controlled experiment directly answers the stated question.
 
-An import check, `--help`, empty dry run, or unrelated toy output is insufficient.
+An import check, `--help`, empty dry run, unrelated toy output, or generic demo that is not aligned with the paper's core experiment is insufficient.
 
 Acceptable efficient routes include:
 
@@ -86,6 +87,7 @@ Do not retrain merely to recreate an artifact that the official repository alrea
 1. Confirm readiness.
    - Read config, resource, and environment artifacts.
    - Confirm the command exercises the original method and matches the selected minimum reproduction.
+   - For specific-paper routes, confirm `config.yaml` records paper-core alignment evidence and do not run a generic demo as the final baseline unless it is the paper's official demonstration path.
    - For `baseline_kind: controlled_comparison`, confirm every required branch has a command, resource path, metric parser, and success criterion.
    - Confirm every required resource is available and the environment is ready.
    - If not, return to the owning stage or record a blocker.
@@ -118,6 +120,7 @@ Do not retrain merely to recreate an artifact that the official repository alrea
 
 7. Validate the result.
    - Confirm the result is non-empty and came from the intended original-method path.
+   - For specific-paper routes, confirm the result came from the configured paper-core experiment path, official example, or documented evaluation route.
    - Parse the primary metric or validate the defined method output.
    - For controlled comparisons, compute the treatment-control delta for the primary metric and record whether it improves, worsens, or is inconclusive under the chosen metric direction.
    - Compare with a documented reference when conditions are comparable.
@@ -145,6 +148,10 @@ original_method: ""
 minimum_reproduction:
   route: ""
   baseline_kind: "single_method" # single_method | controlled_comparison
+  paper_core_experiment:
+    aligned: false
+    paper_claim_or_experiment: ""
+    alignment_evidence: []
   representative_dataset_or_input: ""
   checkpoint_or_result: ""
   working_directory: ""
@@ -184,6 +191,7 @@ Use this shape for `baseline_run_report.md`:
 
 ## Minimum Reproduction
 - Original method:
+- Paper-core experiment alignment:
 - Route:
 - Representative dataset/input:
 - Checkpoint or released result:
@@ -213,7 +221,7 @@ Use this shape for `baseline_run_report.md`:
 
 ## Decision Rules
 
-- `passed`: the original-method command succeeds, a meaningful result is verified, and its rerun evidence is recorded.
+- `passed`: the original-method command succeeds, paper-core alignment is verified when applicable, a meaningful result is verified, and its rerun evidence is recorded.
 - For `baseline_kind: controlled_comparison`, `passed` additionally requires every required branch to succeed and the primary delta to be recorded.
 - `partial`: execution succeeds but the meaningful output, method path, or metric cannot be verified; this is not ready for optimization.
 - `failed`: command fails, times out, produces invalid output, or a comparable result is outside an evidence-backed tolerance.
@@ -238,5 +246,6 @@ Do not:
 - require all datasets, tables, seeds, horizons, or ablations
 - add a post-baseline experiment-readiness stage
 - accept import-only or empty smoke success as the final baseline
+- accept an unrelated generic demo as the final baseline for a specific paper
 - modify source, metrics, dataset semantics, or model logic in this stage
 - install dependencies or acquire resources

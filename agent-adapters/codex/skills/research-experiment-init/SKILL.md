@@ -17,7 +17,7 @@ A workflow is complete when:
 
 - one coherent repository contains the original method;
 - one representative dataset, bundled input, released result, or official pretrained checkpoint path is prepared;
-- for a specific paper or supplied repository, the selected baseline/evaluation command produces a meaningful original-method result;
+- for a specific paper or supplied repository, the selected baseline/evaluation command reproduces a paper-aligned core experiment of the original method and produces a meaningful result;
 - for an open-ended research requirement, the selected baseline runs at least one smallest controlled experiment that can answer the user's research question;
 - when the question is comparative, that controlled experiment includes the minimum necessary on/off, method/control, component/no-component, or primary/reference-model branches;
 - the produced result or comparison can be retained as the comparator contract for later optimization;
@@ -36,7 +36,7 @@ Within this project, a passed minimum baseline means the repository can formally
 
 Distinguish the task type before delegating:
 
-- **Specific paper or supplied repository**: baseline means a minimum representative reproduction of the original paper/method. One dataset, checkpoint, or released-result route is enough when it matches the method and produces a meaningful metric or output.
+- **Specific paper or supplied repository**: baseline means a minimum representative reproduction of the original paper/method's core experiment. The command must exercise the same task type, protocol family, official example, or evaluation route used to demonstrate the paper's main contribution. One dataset, input, checkpoint, bundled example, or released-result route is enough when it is paper-aligned and produces a meaningful metric or output.
 - **Open-ended research requirement**: baseline means a minimum controlled experiment that answers the research question before optimization. It may be a single-method experiment when that is enough, or multiple branches when the claim is comparative; use only the smallest set needed for the question.
 
 Examples for open-ended requirements:
@@ -47,6 +47,8 @@ Examples for open-ended requirements:
 - foundation model comparison: run the selected foundation model and a representative classical baseline under the same evaluation protocol.
 
 Do not mark a comparative open-ended requirement as ready merely because one event-aware, retrieval-aware, causal-aware, or foundation-model branch ran successfully. It must include the control needed to answer the user's requirement unless the user explicitly asks only to prepare one branch. For non-comparative open-ended requirements, one meaningful controlled experiment can be sufficient when it directly answers the stated question.
+
+For specific-paper reproduction, do not accept an unrelated repository demo, generic library example, import check, help command, or toy smoke test as the final baseline. A shortened route is valid only when it still corresponds to the paper's core experiment or official demonstration path. Prefer official checkpoints, released outputs, bundled examples, or documented evaluation scripts over full retraining when they reproduce that core experiment.
 
 ## Artifact Layout
 
@@ -170,7 +172,7 @@ Use `paper-repo-discovery` only to resolve and clone the paper repository, then 
 
 5. Onboard the final repository.
    - Invoke `repo-onboard`.
-   - For paper/repository routes, require a minimum-reproduction command that exercises the original method on one representative input and produces a meaningful metric or output.
+   - For paper/repository routes, require a minimum-reproduction command that exercises the original method on a paper-aligned core experiment, using one representative input when enough, and produces a meaningful metric or output.
    - For open-ended requirement routes, require the configured baseline to preserve the minimum controlled experiment, including every branch only when the requirement is comparative.
    - Continue only when `config.yaml` records `onboard_status: ready`.
 
@@ -187,7 +189,7 @@ Use `paper-repo-discovery` only to resolve and clone the paper repository, then 
 
 8. Run the minimum-reproduction baseline.
    - Invoke `repo-baseline-run`.
-   - For paper/repository routes, require a meaningful original-method result, not only an import or empty command success.
+   - For paper/repository routes, require a meaningful paper-aligned original-method result, not only an unrelated demo, import, or empty command success.
    - For open-ended requirement routes, require the smallest meaningful controlled experiment that answers the research question.
    - Compare with a documented reference when available; absence of a comparable reference does not block a valid local baseline.
    - Finish when `baseline_metrics.yaml` records `status: passed` and `ready_for_optimization: true`.
