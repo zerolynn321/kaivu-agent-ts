@@ -88,6 +88,13 @@ Inputs:
 - optional compute, framework, data, license, download, or environment constraints
 - optional run directory
 
+Default resource policy when the user has not specified stricter limits:
+
+- A single reproduction task may acquire official or trusted resources and install dependencies up to about 6 GB of new local downloads.
+- Downloads or installs within this budget are not "large" by default when they are required for the paper-aligned minimum reproduction and stay inside the selected run/environment roots.
+- Ask before exceeding this budget, using credentialed or license-gated sources, using untrusted mirrors, changing global package-manager configuration, or installing outside the selected repository-specific environment.
+- Do not replace a paper-aligned official path with a weaker fallback only because the required dependency or resource download is several GB but still within this default budget.
+
 Outputs are owned by delegated skills. The final required outputs are:
 
 - `<artifact_root>/manifests/config.yaml`
@@ -219,7 +226,7 @@ Ask before:
 
 - ambiguous or unofficial repository selection;
 - unclear license or provenance;
-- large or credentialed downloads;
+- downloads or dependency installs expected to exceed the default 6 GB per-task budget, or any credentialed/license-gated download;
 - creating or replacing environments;
 - major framework, CUDA, or dependency changes;
 - scientific target, split, label, metric, or model-objective changes;

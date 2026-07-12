@@ -30,6 +30,13 @@ Inputs:
 - optional repository-specific virtual environment name or path
 - optional user approval for large downloads, credentials, or path binding
 
+Default size policy:
+
+- Unless the user provides a stricter limit, treat official or trusted required resources up to about 6 GB of new downloads for this reproduction task as acceptable after the environment-choice gate is satisfied.
+- A required resource within this budget is not a blocker merely because it is several GB.
+- Ask before downloading resources expected to exceed 6 GB total for this task, resources with unknown but plausibly larger size, credentialed/license-gated resources, or resources from untrusted/non-primary sources.
+- Do not switch away from a paper-aligned minimum reproduction path solely to avoid a required official/trusted download that is within this budget.
+
 Required outputs:
 
 - `<run_dir>/resources/` containing every acquired required resource
@@ -84,7 +91,7 @@ Handoff:
    - Use paths as seen from the repository root for `local_path`.
    - Put unresolved credentials, inaccessible URLs, license gates, manual forms, or ambiguous resources in `unresolved_requirements`.
    - Record why every required resource is necessary for the minimum reproduction.
-   - Present the plan before downloading large files, credentialed resources, or resources from untrusted/non-primary sources.
+   - Present the plan before downloading files expected to exceed the default 6 GB per-task budget, credentialed resources, resources with unknown but plausibly larger size, or resources from untrusted/non-primary sources.
    - If a smaller official route can produce the same valid baseline result, select it instead of the larger route.
 
 5. Acquire required resources.
@@ -159,7 +166,7 @@ Use this shape for each item in `resource_acquisition_report.md`:
 
 - `available`: resource exists under `<run_dir>/resources/` and any required repo path binding is done or documented.
 - `missing`: resource is required but no local copy or direct source was found.
-- `blocked`: resource requires user action, credentials, license acceptance, huge download approval, or source disambiguation.
+- `blocked`: resource requires user action, credentials, license acceptance, download approval above the default 6 GB per-task budget, or source disambiguation.
 - `blocked_environment`: the current user request has not chosen either current-env reuse or a new repository-specific environment.
 - `failed`: attempted copy/download failed; include the command or URL and the error summary.
 - Optional resources may remain `discovered` or `missing` without blocking the handoff.
@@ -179,7 +186,7 @@ Do:
 - block all resource copy/download/staging and all dependency download/install attempts until that environment choice is explicit
 - prefer repository, paper, project page, README, and official data links over third-party mirrors
 - preserve provenance for every copied or downloaded file
-- ask before environment creation, large downloads, credentialed sources, untrusted mirrors, or path replacement
+- ask before environment creation, downloads above the default 6 GB per-task budget, credentialed sources, untrusted mirrors, or path replacement
 - keep the process auditable with manifest and acquisition report files
 
 Do not:

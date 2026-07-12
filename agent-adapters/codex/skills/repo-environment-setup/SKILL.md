@@ -32,6 +32,12 @@ Inputs:
 - optional `<artifact_root>/reports/resource_acquisition_report.md`
 - optional user policy: environment name, package manager preference, CUDA/GPU target, allowed installs, maximum setup time, package mirror preference
 
+Default dependency size policy:
+
+- Unless the user provides a stricter limit, dependency installs up to about 6 GB of new downloads for this reproduction task are acceptable when they are required by the selected paper-aligned minimum reproduction and install only into the selected repository-specific environment.
+- Major frameworks such as PyTorch, TensorFlow, JAX, CUDA toolkits, faiss, RAPIDS, or AutoGluon may still require approval because they change the environment meaningfully, but they should not be rejected or replaced by a weaker fallback solely because their download size is several GB and within the default budget.
+- Ask before installs expected to exceed 6 GB total for this task, installs with unknown but plausibly larger size, global package-manager configuration changes, source builds expected to take a long time, or installs outside the selected environment.
+
 Required outputs:
 
 - `<artifact_root>/plans/environment_plan.yaml`
@@ -92,6 +98,7 @@ Handoff:
    - Ask before installing or upgrading dependencies.
    - Ask before installing major frameworks such as PyTorch, TensorFlow, JAX, CUDA toolkits, faiss, RAPIDS, AutoGluon, or system packages.
    - Ask before using non-official mirrors unless the user has already requested or approved a fast mirror policy for this setup.
+   - Ask before dependency installs expected to exceed the default 6 GB per-task budget, or when package-manager resolution indicates an unexpectedly large install above that budget.
    - Ask before changing global pip/conda configuration, using editable installs that modify the repo, long source builds, or commands expected to take a long time.
    - If the user has already approved a specific environment policy in this turn, apply it without asking repeatedly.
 
@@ -220,6 +227,7 @@ Do:
 - prefer fast safe package mirrors such as Tsinghua mirrors when appropriate, using command-scoped options when possible
 - reject generic/current workflow environments unless the user explicitly chose them for this repository
 - ask before changing environments or major dependencies
+- allow required official/trusted dependency downloads within the default 6 GB per-task budget when they preserve the paper-aligned baseline path
 - ask before changing global pip/conda mirror configuration
 - keep commands auditable and scoped to the selected environment
 - invoke `agent-fix-error-recovery` automatically after setup or validation failures
@@ -235,6 +243,7 @@ Do not:
 - modify datasets, splits, metrics, evaluation scripts, or model logic
 - delete or replace existing environments, files, or directories without explicit user approval
 - hide environment failures by changing the benchmark command or success criterion
+- hide environment or dependency cost by replacing a paper-aligned baseline with a weaker fallback when the required install is within the default 6 GB per-task budget
 - silently install into or validate against the current active environment when it is not the repository-specific environment
 - install dependencies into any environment other than the one selected during `repo-resource-prepare` without explicit user approval
 - change package versions, framework wheel indexes, CUDA selectors, or experiment requirements only to make downloads faster

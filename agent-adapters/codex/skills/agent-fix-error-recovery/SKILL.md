@@ -34,6 +34,12 @@ Inputs:
 - current `config.yaml`, manifests, setup plans, and previous fix attempts when available
 - user policy such as allow downloads, allow dependency installs, allowed environment name, or protected paths
 
+Default size policy:
+
+- Unless the user provides a stricter limit, downloads or dependency installs up to about 6 GB of new local data for the current reproduction task are acceptable when they are official/trusted, required by the selected baseline, and scoped to the approved run/resource/environment roots.
+- Do not downgrade the scientific path, replace the official method, or switch to a weaker fallback solely because a required package/resource is several GB but within this default budget.
+- Ask before exceeding 6 GB, using credentialed/license-gated resources, using untrusted mirrors, changing global package-manager configuration, installing outside the approved environment, or making scientifically meaningful protocol changes.
+
 Outputs:
 
 - diagnosis
@@ -114,7 +120,7 @@ AgentFix may execute these without asking when they are clearly limited to the c
 
 Ask the user before:
 
-- downloading large files or any credential/license-gated resource
+- downloading files or installing dependencies expected to exceed the default 6 GB per-task budget, or any credential/license-gated resource
 - installing or upgrading major frameworks such as PyTorch, TensorFlow, CUDA, JAX, RAPIDS, faiss, AutoGluon, or system packages
 - creating, deleting, or replacing conda/venv environments
 - changing Python, CUDA, compiler, driver, or system library versions
@@ -129,6 +135,7 @@ Ask the user before:
 
 - Do not modify datasets, labels, train/test splits, metric computation, or protected files without explicit user approval.
 - Do not hide a failed fix by changing the success criterion.
+- Do not replace a paper-aligned baseline with a weaker fallback only because a required official/trusted dependency or resource is several GB but within the default 6 GB per-task budget.
 - Do not mark a scientific result fixed unless the original command or an agreed validation command passes.
 - Do not delete partial downloads or generated outputs unless the user approves or they are inside a clearly named temporary path created by this fix attempt.
 - Do not keep trying the same failed fix. After two failed attempts, stop and ask with the evidence.
