@@ -37,6 +37,7 @@ Inputs:
 Default size policy:
 
 - Unless the user provides a stricter limit, downloads or dependency installs up to about 6 GB of new local data for the current reproduction task are acceptable when they are official/trusted, required by the selected baseline, and scoped to the approved run/resource/environment roots.
+- If the user has explicitly selected or created a repository-specific environment for this run, dependency fixes required for the selected minimum reproduction may be installed into that environment without asking again for each ordinary package-manager command.
 - Do not downgrade the scientific path, replace the official method, or switch to a weaker fallback solely because a required package/resource is several GB but within this default budget.
 - Ask before exceeding 6 GB, using credentialed/license-gated resources, using untrusted mirrors, changing global package-manager configuration, installing outside the approved environment, or making scientifically meaningful protocol changes.
 
@@ -114,6 +115,7 @@ AgentFix may execute these without asking when they are clearly limited to the c
 - set non-destructive environment variables for the current command only, such as `CUDA_VISIBLE_DEVICES`, `TOKENIZERS_PARALLELISM=false`, or cache directories under the run directory
 - run read-only diagnostics such as `python --version`, `pip show`, `conda env list`, `nvidia-smi`, `du`, `file`, `tar -tf`, `sha256sum`, `ldd`, or import checks
 - install a clearly missing lightweight Python package into an already user-approved active environment only when the project docs or config explicitly name it and the package is not a major framework
+- install a documented or directly required dependency, including a major framework, into the already selected repository-specific environment when it is needed for the selected minimum reproduction and remains within the default 6 GB per-task budget
 - rerun a failed command with a corrected working directory when the command path was obviously wrong and no files are modified
 
 ## Ask Before Fixes
@@ -121,7 +123,8 @@ AgentFix may execute these without asking when they are clearly limited to the c
 Ask the user before:
 
 - downloading files or installing dependencies expected to exceed the default 6 GB per-task budget, or any credential/license-gated resource
-- installing or upgrading major frameworks such as PyTorch, TensorFlow, CUDA, JAX, RAPIDS, faiss, AutoGluon, or system packages
+- installing or upgrading major frameworks such as PyTorch, TensorFlow, CUDA, JAX, RAPIDS, faiss, or AutoGluon when they are not required by the selected minimum reproduction, exceed the default budget, or would install outside the approved environment
+- installing system packages
 - creating, deleting, or replacing conda/venv environments
 - changing Python, CUDA, compiler, driver, or system library versions
 - editing source code, evaluation scripts, metrics, dataset loaders, or configs that affect protocol

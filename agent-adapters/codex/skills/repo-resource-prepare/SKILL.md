@@ -37,6 +37,13 @@ Default size policy:
 - Ask before downloading resources expected to exceed 6 GB total for this task, resources with unknown but plausibly larger size, credentialed/license-gated resources, or resources from untrusted/non-primary sources.
 - Do not switch away from a paper-aligned minimum reproduction path solely to avoid a required official/trusted download that is within this budget.
 
+Environment approval semantics:
+
+- Once the user explicitly chooses current-environment reuse or a repository-specific environment for this run, downstream `repo-environment-setup` may install the selected minimum-reproduction dependencies into that environment without asking again for each package-manager command.
+- Explicit choice means the current user message says to reuse the current environment or says to create/use a named repository-specific environment. A numbered run directory, inferred default environment name, prior experiments, or the agent's own proposed name is not approval.
+- This skill still does not install dependencies itself; it only records the environment approval so the next stage can proceed without a second ordinary install gate.
+- A separate approval is still required for installs outside the selected environment, global package-manager configuration changes, untrusted mirrors, credentialed resources, or downloads expected to exceed the default 6 GB per-task budget.
+
 Required outputs:
 
 - `<run_dir>/resources/` containing every acquired required resource
@@ -64,8 +71,10 @@ Handoff:
 2. Ask for the environment decision before downloading resources.
    - This is a hard gate: do not download, copy, stage, or bind resources before the current user request has explicitly chosen the environment strategy.
    - Do not start dependency downloads at all in this skill; dependency installation belongs to `repo-environment-setup` after the same environment choice has been recorded.
+   - Treat that environment choice as approval for downstream installation of dependencies required by the selected minimum reproduction, as long as installs stay inside the selected environment and within the default size/source policy.
    - Treat the current user request as the only source of environment approval for this run.
    - Do not treat `<artifact_root>/manifests/config.yaml`, prior reports, or the active shell environment as approval to proceed.
+   - Do not treat an inferred environment name, matching run directory name, existing numbering convention, or the agent's statement "I will create env X" as approval.
    - If the current request does not explicitly say to reuse the current environment and does not provide a new environment name/path, stop before resource discovery, staging, copy, download, extraction, path binding, package-manager calls, or other network/resource actions and ask:
      - reuse the current active environment for this repository, or
      - create a new repository-specific environment; if so, what name/path?
@@ -182,7 +191,8 @@ Do:
 - prefer official checkpoints, released results, bundled assets, and reusable local files over unnecessary retraining
 - copy reusable local resources into the run resource directory by default and report both original and staged paths
 - ask whether to reuse the current environment or create a new repository-specific environment before resource download
-- proceed only after the current user request makes that choice explicit
+- proceed only after the current user request makes that choice explicit, then record that it authorizes downstream minimum-reproduction dependency installs in the selected environment
+- never infer environment-creation approval from a default directory name, previous task pattern, or agent-proposed name
 - block all resource copy/download/staging and all dependency download/install attempts until that environment choice is explicit
 - prefer repository, paper, project page, README, and official data links over third-party mirrors
 - preserve provenance for every copied or downloaded file

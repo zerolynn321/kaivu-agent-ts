@@ -92,6 +92,8 @@ Default resource policy when the user has not specified stricter limits:
 
 - A single reproduction task may acquire official or trusted resources and install dependencies up to about 6 GB of new local downloads.
 - Downloads or installs within this budget are not "large" by default when they are required for the paper-aligned minimum reproduction and stay inside the selected run/environment roots.
+- When the user explicitly chooses or creates a repository-specific environment for the run, that approval also authorizes installing the selected minimum-reproduction dependencies into that environment. Do not ask again for each ordinary `pip` or `conda` install.
+- Do not infer environment approval from the run directory name, numbering convention, previous experiments, or an agent-proposed environment name. Creation or reuse must be explicitly chosen by the user in the current request.
 - Ask before exceeding this budget, using credentialed or license-gated sources, using untrusted mirrors, changing global package-manager configuration, or installing outside the selected repository-specific environment.
 - Do not replace a paper-aligned official path with a weaker fallback only because the required dependency or resource download is several GB but still within this default budget.
 
@@ -227,8 +229,8 @@ Ask before:
 - ambiguous or unofficial repository selection;
 - unclear license or provenance;
 - downloads or dependency installs expected to exceed the default 6 GB per-task budget, or any credentialed/license-gated download;
-- creating or replacing environments;
-- major framework, CUDA, or dependency changes;
+- creating, replacing, or reusing environments unless the current user request explicitly chose that environment strategy;
+- installing outside the user-selected repository-specific environment, changing global package-manager configuration, or changing major framework/CUDA/dependency versions beyond what the selected minimum reproduction requires;
 - scientific target, split, label, metric, or model-objective changes;
 - destructive operations or overwriting user files.
 
