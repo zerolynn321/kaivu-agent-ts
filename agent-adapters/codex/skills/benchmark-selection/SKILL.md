@@ -1,11 +1,11 @@
 ---
 name: benchmark-selection
-description: Provide an auxiliary benchmark decision for experiment-repo-search by selecting the smallest scientifically meaningful dataset, input, protocol, metric, checkpoint, released-result route, and when needed control branches that can answer an open-ended research requirement and serve as the baseline contract for later optimization. Use when an open-ended research requirement needs benchmark evidence before repository comparison. One representative dataset is sufficient; comparative questions require the minimum on/off, method/control, component/no-component, or reference-model branches, but non-comparative questions may be answered by a single controlled experiment. Do not require a full benchmark suite, every paper dataset, full retraining, or all paper results. Write benchmark_plan.yaml and benchmark_selection_report.md without selecting repositories, downloading resources, modifying code, or running experiments.
+description: Select the smallest scientifically meaningful benchmark contract that is tightly linked to the research requirement or source paper's core claim, method behavior, representative task/data, published metric, and reference result. Use as an auxiliary decision for experiment-repo-search, or during paper/repository onboarding when the core benchmark route is ambiguous and a generic demo could be mistaken for reproduction. Comparative questions require the minimum necessary branches; non-comparative questions may use one controlled experiment. Reject environment, API, random-action, import, and reward-only smoke tests as final baselines unless that exact behavior and output support the paper's core claim. Write benchmark_plan.yaml and benchmark_selection_report.md without selecting repositories, downloading resources, modifying code, or running experiments.
 ---
 
 # Benchmark Selection
 
-Use this skill as an auxiliary decision index called by `experiment-repo-search`. It is not a top-level workflow stage.
+Use this skill as an auxiliary decision index called by `experiment-repo-search` or by `repo-onboard` when a paper/repository route does not yet identify a defensible core benchmark. It is not a top-level workflow stage.
 
 Read [references/benchmark-criteria.md](references/benchmark-criteria.md) before deciding.
 
@@ -13,8 +13,11 @@ Read [references/benchmark-criteria.md](references/benchmark-criteria.md) before
 
 Choose a **minimum credible benchmark unit** that:
 
+- traces the research requirement or paper's main empirical claim to an executable task;
 - exercises the original method on one representative dataset or input;
-- produces a meaningful metric or method output;
+- runs the learned, fitted, planned, or otherwise claim-bearing method path rather than a random/untrained placeholder;
+- produces the same metric family used to support the relevant claim, or a justified faithful proxy;
+- records a published/documented reference value when one exists;
 - has enough protocol evidence to preserve the result as the later optimization baseline;
 - fits the user's compute, access, and download constraints.
 
@@ -39,6 +42,7 @@ Advisory role: `BenchmarkIndex`
 Inputs:
 
 - `research_requirement.yaml` or equivalent natural-language requirement
+- when applicable, the source paper, paper extraction, official repository documentation, or `paper_repo_resolution.md`
 - task, modality, target, optimization goal, and minimum original-method behavior
 - data, license, privacy, compute, runtime, download, and service constraints
 - optional candidate datasets, checkpoints, released results, or evaluation tooling
@@ -57,6 +61,8 @@ Handoff:
 
 1. Define the minimum evidence requirement.
    - Preserve the research question and optimization goal.
+   - Extract a claim-linked benchmark tuple: claim, claim-bearing method behavior, representative task/data, primary metric, documented reference result, and optional comparator.
+   - Cite where each tuple element comes from: paper table/figure/section, official repository evaluation instructions, benchmark documentation, or released result metadata.
    - Identify the original-method behavior that must be reproduced before optimization.
    - Identify whether the question is comparative.
    - For comparative questions, define required branches and fairness invariants before repository search.
@@ -69,9 +75,11 @@ Handoff:
 
 3. Evaluate candidate routes.
    - Apply the hard gates in the criteria reference.
+   - Require an end-to-end evidence chain from the core claim to the executable evaluator; do not infer scientific validity merely because an official repository exposes a runnable example.
    - Prefer the smallest route that produces a valid original-method result.
    - Treat a pretrained checkpoint evaluation or released-result evaluation as valid when it preserves the intended method and metric.
-   - Reject import-only checks, unrelated toy demos, and outputs that cannot serve as an optimization comparator.
+   - Classify environment creation, reset/step checks, random actions, nonzero reward, rendering, import-only checks, and unrelated toy demos as `smoke_only` unless the paper's core claim is specifically about that behavior.
+   - Reject `smoke_only` routes as the final benchmark and record the missing claim-bearing policy/model, task success metric, evaluator, data/checkpoint, or reference target.
 
 4. Choose a mode.
    - `adopt_existing`: use an established dataset/protocol or official evaluation directly.
@@ -97,6 +105,8 @@ research_requirement_path: ""
 minimum_reproduction:
   baseline_kind: "single_method" # single_method | controlled_comparison
   original_method_behavior: ""
+  core_claim: ""
+  claim_evidence: []
   representative_dataset_or_input:
     name: ""
     version: ""
@@ -108,7 +118,9 @@ minimum_reproduction:
     source: ""
     required: false
   primary_metric_or_output: ""
+  metric_evaluator: ""
   reference_target: ""
+  reference_evidence: []
   expected_cost: ""
   required_branches:
     - name: ""
@@ -125,6 +137,14 @@ protocol:
     - "same dataset/input"
     - "same split or evaluation boundary"
     - "same primary metric"
+
+claim_alignment:
+  task_matches_claim: false
+  method_path_is_claim_bearing: false
+  metric_matches_paper_or_requirement: false
+  reference_is_traceable: false
+  smoke_only: false
+  missing_elements: []
 
 adaptation:
   required: false
@@ -147,6 +167,10 @@ handoff:
 - Use the original method's released checkpoint or result when it avoids unnecessary training and remains scientifically valid.
 - Missing a full paper benchmark suite is not a blocker.
 - A benchmark is invalid if it does not exercise the original method, cannot produce a meaningful result, leaks unavailable information, or cannot support later fair optimization comparison.
+- Repository authority is evidence of provenance, not evidence that every bundled demo reproduces the paper's core result.
+- A random or untrained policy producing reward is not evidence of task completion, learned-policy quality, benchmark success rate, sample efficiency, or generalization.
+- When a paper reports task success or generalization, select at least one representative task and the paper-aligned success/generalization metric using an official learned policy, checkpoint, demonstration-driven method, or shortest documented training route. Do not substitute raw reward unless reward itself is the reported claim metric.
+- If no feasible claim-bearing route exists, return `blocked` or `needs_user_confirmation`; do not weaken the benchmark to obtain `ready`.
 - Keep optional broader experiments outside the required resource scope.
 
 ## Boundaries

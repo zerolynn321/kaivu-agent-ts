@@ -11,26 +11,45 @@ A selected benchmark unit must pass every applicable gate:
    - The route executes or evaluates the original method and produces a meaningful metric or output.
    - Import checks and unrelated demos do not pass.
 
-3. **Representative input**
+3. **Core-claim alignment**
+   - The benchmark records a traceable chain from the research requirement or paper's main empirical claim to the claim-bearing method behavior, representative task/data, evaluator, primary metric, and documented reference result when available.
+   - Each element is supported by the paper, official repository instructions, benchmark documentation, or released-result metadata.
+   - An official example is not sufficient merely because it is official; it must exercise the path and metric that support the relevant claim.
+
+4. **Representative input**
    - At least one public, bundled, or otherwise approved dataset/input is available.
    - One representative dataset is sufficient.
 
-4. **Traceable provenance**
+5. **Traceable provenance**
    - Dataset, checkpoint, released result, and evaluator sources are identifiable.
 
-5. **Protocol and leakage safety**
+6. **Protocol and leakage safety**
    - Split, temporal boundary, preprocessing, and available-at-decision-time information are compatible with the intended claim.
 
-6. **Comparable output**
+7. **Comparable output**
    - The result can be preserved as the baseline comparator for later optimization on the same protocol.
 
-7. **Controlled comparison for comparative requirements**
+8. **Controlled comparison for comparative requirements**
    - If the user asks whether a factor improves performance, the benchmark must define the minimum treatment/control or reference branches needed to answer that question.
    - The branches must share the same dataset/input, split, primary metric, resource budget, and available-information boundary unless a difference is explicitly part of the claim.
    - Do not require control/treatment branches for non-comparative questions when one controlled experiment can directly answer the requirement.
 
-8. **Resource feasibility**
+9. **Resource feasibility**
    - Required downloads, environment, memory, runtime, and hardware fit the user constraints or have explicit approval.
+
+## Smoke-Test Boundary
+
+Treat the following as engineering validation, not a final scientific baseline, unless the core claim explicitly concerns that behavior:
+
+- environment construction, reset, stepping, rendering, imports, or CLI help;
+- random or untrained actions;
+- observing any finite or nonzero reward without task completion evidence;
+- one forward pass without the paper-aligned task metric;
+- a toy or generic demo disconnected from the source paper's representative evaluation.
+
+For learning, control, or robotics papers, require the smallest feasible claim-bearing route: an official learned policy/checkpoint, a demonstration-driven method, released benchmark result plus evaluator, or the shortest documented training/evaluation path. When the paper's evidence is success rate, sample efficiency, or generalization, raw reward alone is not a faithful substitute.
+
+Example: for a manipulation platform paper evaluated on `PickCube`, environment creation plus random rollouts is `smoke_only`. A credible minimum route evaluates a learned or demonstration-derived policy on the documented task protocol and reports task success rate; if the selected claim is multi-task generalization, include the smallest documented task split or task subset that actually measures it.
 
 ## Route Preference
 
@@ -84,6 +103,7 @@ Optional scope must not block repository initialization unless the user explicit
 Set `status: ready` when:
 
 - one route passes every hard gate;
+- the claim-to-task-to-method-to-metric evidence chain is explicit and is not `smoke_only`;
 - the required input and output are explicit;
 - adaptation obligations are bounded;
 - repository search can evaluate implementation fit;

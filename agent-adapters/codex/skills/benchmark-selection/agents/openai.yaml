@@ -1,4 +1,4 @@
 interface:
   display_name: "Benchmark Selection"
-short_description: "Choose the minimum benchmark experiment"
-default_prompt: "Use $benchmark-selection to choose one representative benchmark and only the control branches required to answer comparative research needs."
+  short_description: "Choose a claim-aligned minimum benchmark"
+  default_prompt: "Use $benchmark-selection to choose the smallest benchmark that exercises the claim-bearing method path and reproduces a paper- or requirement-aligned metric, rejecting smoke-only demos."
