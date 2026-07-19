@@ -7,6 +7,8 @@ description: Run and record the configured minimum baseline as the final AgentIn
 
 Use this skill as the final initialization stage.
 
+Interpret the configured minimum baseline as the smallest scope that still reproduces the core experiment. Do not reinterpret it as the cheapest runnable command or the fewest possible resources.
+
 In this project, a passed baseline means the repository can formally enter later optimization experiments. It does not mean every paper experiment was repeated.
 
 - For a specific paper or supplied repository, it means the smallest credible paper-aligned original-method core experiment has been reproduced and preserved as the optimization comparator.
@@ -82,12 +84,16 @@ Acceptable efficient routes include:
 
 Do not retrain merely to recreate an artifact that the official repository already releases. Do not require every dataset, seed, horizon, table, or ablation.
 
+For a selected paper core experiment, preserve the paper's convergence- and performance-bearing protocol when feasible. Reduce breadth before fidelity. Do not reduce epochs/steps, training examples, model size, evaluation episodes, or similar parameters merely to save ordinary runtime.
+
 ## Workflow
 
 1. Confirm readiness.
    - Read config, resource, and environment artifacts.
    - Confirm the command exercises the original method and matches the selected minimum reproduction.
    - For specific-paper routes, confirm `config.yaml` records paper-core alignment evidence and do not run a generic demo as the final baseline unless it is the paper's official demonstration path.
+   - Compare the configured epochs/steps, data scale, model configuration, evaluator, metric, and evaluation budget with the paper or official reproduction command.
+   - Reject an undocumented or convenience-only shortened core protocol. Require either the feasible paper protocol or recorded material cost evidence, changed parameters, expected scientific impact, and the closest full-run command.
    - For `baseline_kind: controlled_comparison`, confirm every required branch has a command, resource path, metric parser, and success criterion.
    - Confirm every required resource is available and the environment is ready.
    - If not, return to the owning stage or record a blocker.
@@ -154,6 +160,14 @@ minimum_reproduction:
     alignment_evidence: []
   representative_dataset_or_input: ""
   checkpoint_or_result: ""
+  protocol_fidelity: "paper_exact" # paper_exact | paper_reduced_scope | shortened_core_protocol
+  simplification:
+    applied: false
+    reason: ""
+    cost_evidence: ""
+    changed_parameters: []
+    expected_scientific_impact: ""
+    full_protocol_command: ""
   working_directory: ""
 environment:
   manager: ""
@@ -222,6 +236,7 @@ Use this shape for `baseline_run_report.md`:
 ## Decision Rules
 
 - `passed`: the original-method command succeeds, paper-core alignment is verified when applicable, a meaningful result is verified, and its rerun evidence is recorded.
+- For specific-paper routes, `passed` additionally requires `paper_exact` or `paper_reduced_scope`, unless a `shortened_core_protocol` has a material constraint and is explicitly reported as a local optimization baseline rather than paper-result reproduction.
 - For `baseline_kind: controlled_comparison`, `passed` additionally requires every required branch to succeed and the primary delta to be recorded.
 - `partial`: execution succeeds but the meaningful output, method path, or metric cannot be verified; this is not ready for optimization.
 - `failed`: command fails, times out, produces invalid output, or a comparable result is outside an evidence-backed tolerance.

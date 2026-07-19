@@ -37,6 +37,11 @@ A selected benchmark unit must pass every applicable gate:
 9. **Resource feasibility**
    - Required downloads, environment, memory, runtime, and hardware fit the user constraints or have explicit approval.
 
+10. **Protocol fidelity**
+   - Use the paper's epochs/steps, data scale, model configuration, evaluation episodes, evaluator, and primary metric for the selected core experiment when feasible.
+   - Reduce breadth first: fewer datasets, seeds, secondary methods, ablations, or sweep points usually preserve the selected experiment better than shortening its convergence- or performance-bearing protocol.
+   - Any shortened core protocol records a concrete material constraint, cost evidence, changed parameters, expected scientific impact, and the closest full-paper command.
+
 ## Smoke-Test Boundary
 
 Treat the following as engineering validation, not a final scientific baseline, unless the core claim explicitly concerns that behavior:
@@ -97,6 +102,8 @@ Optional scope:
 - full retraining when released artifacts are sufficient.
 
 Optional scope must not block repository initialization unless the user explicitly requests it.
+
+Do not classify a reduced-epoch or reduced-data run as paper-result reproduction merely because it matches a deterministic golden value created for that shortened configuration. It may be a valid local regression or optimization baseline, but paper-level alignment requires evidence that the shortened protocol preserves the reported result or conclusion.
 
 ## Readiness
 

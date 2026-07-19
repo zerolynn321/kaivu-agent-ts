@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Onboard"
   short_description: "Find the minimum original-method reproduction path"
-  default_prompt: "Use $repo-onboard to configure the smallest meaningful original-method baseline for this repository."
+  default_prompt: "Use $repo-onboard to configure the smallest scope that still reproduces the paper-aligned core experiment, without weakening it merely to reduce resources."

@@ -1,4 +1,4 @@
 interface:
   display_name: "Benchmark Selection"
   short_description: "Choose a claim-aligned minimum benchmark"
-  default_prompt: "Use $benchmark-selection to choose the smallest benchmark that exercises the claim-bearing method path and reproduces a paper- or requirement-aligned metric, rejecting smoke-only demos."
+  default_prompt: "Use $benchmark-selection to choose the smallest benchmark scope that fully satisfies the core-claim evidence gates, treating resource efficiency as secondary and rejecting smoke-only demos."

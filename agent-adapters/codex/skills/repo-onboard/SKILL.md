@@ -5,9 +5,9 @@ description: Inspect the final cloned or adapted research repository, identify t
 
 # Repo Onboard
 
-Use this skill to convert one final repository path into an evidence-backed minimum-reproduction configuration.
+Use this skill to convert one final repository path into an evidence-backed minimum-reproduction configuration. Treat core-experiment reproduction as a hard constraint and resource minimization as a secondary optimization objective.
 
-The target is not every experiment in the paper. Select the smallest credible path that exercises the original method on a paper-aligned core experiment, produces a meaningful result, and can serve as the baseline for later optimization.
+The target is not every experiment in the paper. Select one smallest credible paper-aligned core experiment, but keep that experiment's original training and evaluation protocol when it is feasible. Reduce breadth before fidelity: omit extra datasets, seeds, methods, ablations, and sweeps before reducing epochs, steps, data scale, model size, or evaluation episodes.
 
 For open-ended requirements, select the smallest controlled experiment path that answers the user's question. Comparative requirements may require multiple commands or one command matrix, but only for the required branches.
 
@@ -67,7 +67,7 @@ Prefer, in order:
 3. bundled representative dataset plus documented evaluation;
 4. the shortest documented training path that produces the original-method result.
 
-Do not select expensive full retraining when an earlier option is valid. Do not require all datasets, all paper tables, all seeds, or all ablations. Do not select an unrelated demo, generic package example, or toy smoke test when it does not correspond to the paper's core experiment.
+Prefer released artifacts over redundant retraining. Otherwise, do not shorten the selected core experiment merely for convenience. Simplify its protocol only when the closest paper configuration has a concrete material runtime, compute, hardware, data, access, or user-budget constraint. Do not require all datasets, all paper tables, all seeds, or all ablations. Do not select an unrelated demo, generic package example, or toy smoke test when it does not correspond to the paper's core experiment.
 
 ## Workflow
 
@@ -91,6 +91,8 @@ Do not select expensive full retraining when an earlier option is valid. Do not 
 4. Select the minimum reproduction path.
    - Identify one representative dataset or input.
    - For specific-paper routes, identify the paper's core experiment or official demonstration path first, then choose the smallest runnable route that still matches it.
+   - Compare the chosen route against the paper configuration, including epochs/steps, training examples, model configuration, evaluation episodes, evaluator, and metric.
+   - If the paper configuration is feasible, preserve it. If it is materially costly or infeasible, record cost evidence, every protocol reduction, its expected scientific impact, and the closest full-run command.
    - Prefer evaluation-only or released-result paths over retraining.
    - If `repo_experiment_fix.yaml` or `benchmark_plan.yaml` defines `controlled_baseline.required: true` or `baseline_kind: controlled_comparison`, preserve every required branch in the config.
    - Require each branch to share the benchmark invariants unless the benchmark plan explicitly differs.
@@ -141,6 +143,14 @@ minimum_reproduction:
   metric_direction: "unknown" # higher | lower | unknown
   expected_result_files: []
   estimated_cost: ""
+  protocol_fidelity: "paper_exact" # paper_exact | paper_reduced_scope | shortened_core_protocol
+  simplification:
+    applied: false
+    reason: ""
+    cost_evidence: ""
+    changed_parameters: []
+    expected_scientific_impact: ""
+    full_protocol_command: ""
   full_paper_reproduction_required: false
   comparison_branches:
     - name: ""
@@ -177,6 +187,8 @@ next_skill: "repo-resource-prepare"
 ## Decision Rules
 
 - `ready`: the original method, paper-core alignment when applicable, one representative input, meaningful result, and command path are supported by evidence.
+- A shortened core protocol without a material constraint and explicit impact record is not `ready` for a specific-paper route.
+- Matching a shortened-run golden value proves that shortened configuration is reproducible; it does not by itself prove the paper's reported result.
 - `partial`: useful evidence exists but the command, result, or representative input remains ambiguous.
 - `blocked`: the repository is invalid or no meaningful original-method path can be identified.
 - Missing resources or dependencies do not block onboarding when their exact requirements can be handed to later stages.

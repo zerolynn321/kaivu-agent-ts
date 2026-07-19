@@ -11,7 +11,7 @@ Execute delegated skills interactively. Do not implement a separate Python or Ty
 
 ## Project Completion Semantics
 
-The goal is not complete paper reproduction. The goal is a **minimum reproducible repository for subsequent optimization**.
+The goal is not complete paper reproduction. The goal is a **minimum reproducible repository for subsequent optimization**. In this workflow, minimum means the smallest scope that still reproduces the core experiment and a scientifically meaningful result; it does not mean independently minimizing resources, runtime, epochs, data, or evaluation effort. Establish the core reproduction first, then remove only peripheral scope that is not needed to support it.
 
 A workflow is complete when:
 
@@ -49,6 +49,8 @@ Examples for open-ended requirements:
 Do not mark a comparative open-ended requirement as ready merely because one event-aware, retrieval-aware, causal-aware, or foundation-model branch ran successfully. It must include the control needed to answer the user's requirement unless the user explicitly asks only to prepare one branch. For non-comparative open-ended requirements, one meaningful controlled experiment can be sufficient when it directly answers the stated question.
 
 For specific-paper reproduction, do not accept an unrelated repository demo, generic library example, import check, help command, or toy smoke test as the final baseline. A shortened route is valid only when it still corresponds to the paper's core experiment or official demonstration path. Prefer official checkpoints, released outputs, bundled examples, or documented evaluation scripts over full retraining when they reproduce that core experiment.
+
+Do not choose a route by minimizing resource use first. First identify what evidence is required to reproduce the core experiment; then choose the least costly route that satisfies that evidence without weakening it.
 
 ## Artifact Layout
 

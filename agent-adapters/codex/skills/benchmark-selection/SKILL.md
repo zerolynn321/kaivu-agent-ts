@@ -21,11 +21,15 @@ Choose a **minimum credible benchmark unit** that:
 - has enough protocol evidence to preserve the result as the later optimization baseline;
 - fits the user's compute, access, and download constraints.
 
+Interpret **minimum** as the smallest benchmark scope that passes all core-claim gates, not as the lowest-resource runnable route. Scientific sufficiency is a prerequisite; resource efficiency is a secondary selection criterion among sufficient routes.
+
 For open-ended requirements, the benchmark unit must support the smallest controlled experiment needed to answer the question. A single meaningful branch can be sufficient for non-comparative questions. For comparative questions, include the smallest controlled comparison needed; a single treatment branch is insufficient when the user asks whether some information, module, model family, or strategy improves performance.
 
 Prefer official pretrained evaluation, released predictions/results, bundled data, or one established public dataset over unnecessary full retraining.
 
 Do not require all datasets, horizons, seeds, tables, figures, comparisons, or ablations from the paper.
+
+Minimize **breadth before fidelity**. First reduce the number of datasets, seeds, comparison methods, ablations, or sweep points. Keep the selected core experiment's paper-reported epochs/steps, data scale, model configuration, evaluator, and metric when they are feasible. Do not shorten them merely to make the run faster.
 
 ## Artifact Location
 
@@ -80,6 +84,8 @@ Handoff:
    - Treat a pretrained checkpoint evaluation or released-result evaluation as valid when it preserves the intended method and metric.
    - Classify environment creation, reset/step checks, random actions, nonzero reward, rendering, import-only checks, and unrelated toy demos as `smoke_only` unless the paper's core claim is specifically about that behavior.
    - Reject `smoke_only` routes as the final benchmark and record the missing claim-bearing policy/model, task success metric, evaluator, data/checkpoint, or reference target.
+   - Estimate the cost of the closest paper configuration before considering a shortened protocol.
+   - Allow protocol simplification only for a concrete material constraint such as excessive runtime/compute, unavailable hardware/data, access restrictions, or a user-imposed budget. Record the evidence, changed parameters, expected scientific impact, and the closest later full-run command.
 
 4. Choose a mode.
    - `adopt_existing`: use an established dataset/protocol or official evaluation directly.
@@ -122,6 +128,14 @@ minimum_reproduction:
   reference_target: ""
   reference_evidence: []
   expected_cost: ""
+  protocol_fidelity: "paper_exact" # paper_exact | paper_reduced_scope | shortened_core_protocol
+  simplification:
+    applied: false
+    reason: ""
+    cost_evidence: ""
+    changed_parameters: []
+    expected_scientific_impact: ""
+    full_protocol_command: ""
   required_branches:
     - name: ""
       role: "control" # control | treatment | reference
@@ -164,6 +178,9 @@ handoff:
 - One representative dataset or input is sufficient.
 - One treatment branch alone is not sufficient for a comparative open-ended requirement.
 - Required branches should be minimal; do not expand to a full ablation suite unless the user asks.
+- Prefer `paper_exact` or `paper_reduced_scope`: reduce experiment breadth before changing the selected core experiment's training or evaluation protocol.
+- Do not reduce epochs, optimization steps, training examples, model size, evaluation episodes, or other convergence/performance-bearing parameters solely for convenience.
+- A shortened core protocol is acceptable only when the closest paper configuration is materially costly or infeasible and the reduction still exercises the claim-bearing path. It establishes a local optimization baseline, not paper-level metric reproduction, unless evidence shows equivalence.
 - Use the original method's released checkpoint or result when it avoids unnecessary training and remains scientifically valid.
 - Missing a full paper benchmark suite is not a blocker.
 - A benchmark is invalid if it does not exercise the original method, cannot produce a meaningful result, leaks unavailable information, or cannot support later fair optimization comparison.

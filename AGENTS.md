@@ -38,6 +38,8 @@ For the final repository-initialization summary, report:
 
 The repository workflow prepares a **minimum reproducible optimization base**.
 
+Here, **minimum** means the smallest scope that still reproduces the core experiment and its scientifically meaningful result. It does not mean minimizing compute, runtime, downloads, epochs, data, or evaluation effort independently. Establish core-experiment validity first; only then remove peripheral datasets, seeds, sweeps, ablations, or comparisons that are unnecessary for that validity.
+
 Completion does not mean reproducing every experiment in the original paper. Completion means:
 
 - one coherent repository contains the original method;
