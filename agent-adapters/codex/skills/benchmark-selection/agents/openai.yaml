@@ -1,4 +1,4 @@
 interface:
   display_name: "Benchmark Selection"
   short_description: "Choose a claim-aligned minimum benchmark"
-  default_prompt: "Use $benchmark-selection to choose the smallest benchmark scope that fully satisfies the core-claim evidence gates, treating resource efficiency as secondary and rejecting smoke-only demos."
+  default_prompt: "Use $benchmark-selection to choose the smallest core-valid benchmark, requiring paper-aligned aggregate evaluation for dataset-level claims and rejecting smoke-only or demo-only inference."

@@ -50,6 +50,8 @@ Completion does not mean reproducing every experiment in the original paper. Com
 
 Do not require all datasets, horizons, seeds, paper tables, figures, comparisons, or ablations. Do not retrain when an official pretrained model or released result provides a valid baseline.
 
+For empirical papers with dataset-level claims, evaluate the original method on at least one representative paper benchmark dataset or a justified subset using the paper-aligned evaluator and primary metric. Reuse official checkpoints when available, but classify single-sample or arbitrary-folder inference as `demo_only`; loading official weights does not by itself reproduce a core benchmark.
+
 Within this project, a passed minimum-reproduction baseline means the repository is ready to begin formal optimization experiments. Do not add a separate post-baseline formal-readiness stage.
 
 ## Research Repository Skills
@@ -224,5 +226,5 @@ Use `paper-wiki` for wiki routing. Use `paper-ingest-batch` for multi-paper inge
 - Execute skills interactively; do not implement clone, download, installation, baseline, or repair orchestration as a separate Python/TypeScript pipeline.
 - Preserve user changes and avoid destructive Git operations.
 - Use artifacts, not conversational confidence, as stage completion evidence.
-- Treat one representative original-method result as sufficient for this project's repository initialization.
+- Treat one representative core-experiment result as sufficient. For dataset-level claims, this means a representative benchmark dataset or justified subset plus its aggregate metric, not one sample prediction.
 - Do not reinterpret a passed meaningful baseline as an intermediate-only state; it is the project's final ready-for-optimization gate.

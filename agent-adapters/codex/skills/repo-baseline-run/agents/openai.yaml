@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Baseline Run"
   short_description: "Run the core-valid minimum baseline"
-  default_prompt: "Use $repo-baseline-run to run the configured core-valid minimum baseline, rejecting convenience-only protocol reductions before marking the repository ready for optimization."
+  default_prompt: "Use $repo-baseline-run to run the core-valid baseline and require representative benchmark aggregate metrics instead of demo-only inference for dataset-level claims."

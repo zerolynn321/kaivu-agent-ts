@@ -1,6 +1,6 @@
 ---
 name: repo-baseline-run
-description: Run and record the configured minimum baseline as the final AgentInit stage and the project's formal optimization-readiness gate. Use after repo-onboard, repo-resource-prepare, and repo-environment-setup have prepared one coherent repository, the required representative dataset or official pretrained/released-result assets, and the selected environment. For specific papers or supplied repositories, execute the meaningful original-method reproduction on a paper-aligned core experiment or official demonstration path. For open-ended research requirements, execute at least one smallest controlled experiment that answers the research question; comparative questions additionally require the minimum necessary on/off, method/control, component/no-component, or reference-model branches. Parse results, compare with documented evidence when available, invoke AgentFix on failures, and write baseline_metrics.yaml plus baseline_run_report.md. A passed baseline means ready_for_optimization in this project; no separate formal-experiment preparation stage follows.
+description: Run and record the configured core-experiment baseline as the final optimization-readiness gate. Use after repo-onboard, resource preparation, and environment setup. For specific papers, execute the original method through a paper-aligned evaluation route; dataset-level claims require a representative paper benchmark dataset or justified subset, the paper evaluator, and its primary aggregate metric. Official-checkpoint single-sample or arbitrary-folder inference is demo-only and cannot pass. For open-ended requirements, execute the smallest controlled experiment that answers the question, including necessary comparison branches. Parse and compare results, invoke AgentFix on failures, and write baseline_metrics.yaml plus baseline_run_report.md.
 ---
 
 # Repo Baseline Run
@@ -58,11 +58,13 @@ Final handoff:
 The final baseline must:
 
 - execute the original method in the final repository;
-- for specific-paper reproduction, match the paper-aligned core experiment or official demonstration path recorded by `repo-onboard`;
-- use the selected representative dataset/input, official checkpoint, or released result;
-- produce a meaningful metric or method output;
+- for specific-paper reproduction, match the paper-aligned core experiment and evidence unit recorded by `repo-onboard`;
+- use the selected representative paper benchmark dataset or justified subset, plus the official checkpoint or released result when applicable;
+- produce the paper-aligned primary aggregate metric for dataset-level claims, or another result type only when it directly supports the core claim;
 - save enough command, environment, resource, and output evidence to rerun it;
 - provide a stable comparison point for later optimization.
+
+For dataset-level empirical claims, run the configured representative paper benchmark dataset or justified subset through the paper-aligned evaluator and record the primary aggregate metric. A valid probability or prediction from official weights on one sample or an arbitrary folder is only `demo_only`.
 
 For open-ended comparative requirements, the baseline must additionally:
 
@@ -77,7 +79,7 @@ An import check, `--help`, empty dry run, unrelated toy output, or generic demo 
 
 Acceptable efficient routes include:
 
-- evaluation of an official pretrained model;
+- paper-aligned benchmark evaluation of an official pretrained model;
 - scoring official released predictions/results;
 - evaluation on one bundled or public representative dataset;
 - the shortest necessary documented training route when no valid released artifact exists.
@@ -91,7 +93,8 @@ For a selected paper core experiment, preserve the paper's convergence- and perf
 1. Confirm readiness.
    - Read config, resource, and environment artifacts.
    - Confirm the command exercises the original method and matches the selected minimum reproduction.
-   - For specific-paper routes, confirm `config.yaml` records paper-core alignment evidence and do not run a generic demo as the final baseline unless it is the paper's official demonstration path.
+   - For specific-paper routes, confirm `config.yaml` records paper-core alignment evidence and the correct evidence unit. Do not run a demo as the final baseline unless the paper itself uses that exact protocol and output to support the core claim.
+   - For dataset-level claims, require a representative benchmark dataset or justified subset, evaluator, aggregate metric parser, and comparable reference evidence when available.
    - Compare the configured epochs/steps, data scale, model configuration, evaluator, metric, and evaluation budget with the paper or official reproduction command.
    - Reject an undocumented or convenience-only shortened core protocol. Require either the feasible paper protocol or recorded material cost evidence, changed parameters, expected scientific impact, and the closest full-run command.
    - For `baseline_kind: controlled_comparison`, confirm every required branch has a command, resource path, metric parser, and success criterion.
@@ -187,6 +190,8 @@ output_validation:
   expected_files: []
   produced_files: []
   meaningful_result_verified: false
+  demo_only: false
+  aggregate_metric_verified: false
 documented_baseline: {}
 reference_status: "not_found" # found | not_found | ambiguous | missing_from_onboard
 reference_sources: []
@@ -239,6 +244,7 @@ Use this shape for `baseline_run_report.md`:
 - For specific-paper routes, `passed` additionally requires `paper_exact` or `paper_reduced_scope`, unless a `shortened_core_protocol` has a material constraint and is explicitly reported as a local optimization baseline rather than paper-result reproduction.
 - For `baseline_kind: controlled_comparison`, `passed` additionally requires every required branch to succeed and the primary delta to be recorded.
 - `partial`: execution succeeds but the meaningful output, method path, or metric cannot be verified; this is not ready for optimization.
+- `partial`: official-checkpoint inference succeeds but produces only per-sample predictions for a dataset-level claim; record `demo_only: true` and keep `ready_for_optimization: false`.
 - `failed`: command fails, times out, produces invalid output, or a comparable result is outside an evidence-backed tolerance.
 - `blocked`: required resources, environment, credentials, approval, or hardware are missing.
 - Set `ready_for_optimization: true` only for `passed`.
@@ -262,5 +268,6 @@ Do not:
 - add a post-baseline experiment-readiness stage
 - accept import-only or empty smoke success as the final baseline
 - accept an unrelated generic demo as the final baseline for a specific paper
+- accept official-checkpoint single-sample or arbitrary-folder inference as a dataset-level core experiment
 - modify source, metrics, dataset semantics, or model logic in this stage
 - install dependencies or acquire resources

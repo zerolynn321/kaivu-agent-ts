@@ -36,7 +36,7 @@ Within this project, a passed minimum baseline means the repository can formally
 
 Distinguish the task type before delegating:
 
-- **Specific paper or supplied repository**: baseline means a minimum representative reproduction of the original paper/method's core experiment. The command must exercise the same task type, protocol family, official example, or evaluation route used to demonstrate the paper's main contribution. One dataset, input, checkpoint, bundled example, or released-result route is enough when it is paper-aligned and produces a meaningful metric or output.
+- **Specific paper or supplied repository**: baseline means a minimum representative reproduction of the original paper/method's core experiment. Reuse official checkpoints or released results when valid, but still run the paper-aligned evaluation needed to support the core claim. For dataset-level claims, evaluate at least one representative paper benchmark dataset or a justified subset with the paper evaluator and primary aggregate metric. A single-sample prediction or arbitrary-folder inference is `demo_only`.
 - **Open-ended research requirement**: baseline means a minimum controlled experiment that answers the research question before optimization. It may be a single-method experiment when that is enough, or multiple branches when the claim is comparative; use only the smallest set needed for the question.
 
 Examples for open-ended requirements:
@@ -48,7 +48,7 @@ Examples for open-ended requirements:
 
 Do not mark a comparative open-ended requirement as ready merely because one event-aware, retrieval-aware, causal-aware, or foundation-model branch ran successfully. It must include the control needed to answer the user's requirement unless the user explicitly asks only to prepare one branch. For non-comparative open-ended requirements, one meaningful controlled experiment can be sufficient when it directly answers the stated question.
 
-For specific-paper reproduction, do not accept an unrelated repository demo, generic library example, import check, help command, or toy smoke test as the final baseline. A shortened route is valid only when it still corresponds to the paper's core experiment or official demonstration path. Prefer official checkpoints, released outputs, bundled examples, or documented evaluation scripts over full retraining when they reproduce that core experiment.
+For specific-paper reproduction, do not accept a repository demo, generic library example, import check, help command, toy smoke test, single-sample inference, or arbitrary-folder inference merely because it uses official code or weights. A demo is valid only when the paper itself uses that exact protocol and output as evidence for the core claim. Prefer official checkpoints and released outputs over retraining, but evaluate them through the documented core benchmark protocol.
 
 Do not choose a route by minimizing resource use first. First identify what evidence is required to reproduce the core experiment; then choose the least costly route that satisfies that evidence without weakening it.
 
@@ -183,7 +183,7 @@ Use `paper-repo-discovery` only to resolve and clone the paper repository, then 
 
 5. Onboard the final repository.
    - Invoke `repo-onboard`.
-   - For paper/repository routes, require a minimum-reproduction command that exercises the original method on a paper-aligned core experiment, using one representative input when enough, and produces a meaningful metric or output.
+   - For paper/repository routes, require a command that exercises the original method on a paper-aligned core experiment. For dataset-level claims, require a representative benchmark dataset or justified subset, the paper evaluator, and the primary aggregate metric; do not substitute one input or raw prediction.
    - For open-ended requirement routes, require the configured baseline to preserve the minimum controlled experiment, including every branch only when the requirement is comparative.
    - Continue only when `config.yaml` records `onboard_status: ready`.
 

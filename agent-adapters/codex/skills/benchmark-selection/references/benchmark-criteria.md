@@ -15,6 +15,7 @@ A selected benchmark unit must pass every applicable gate:
    - The benchmark records a traceable chain from the research requirement or paper's main empirical claim to the claim-bearing method behavior, representative task/data, evaluator, primary metric, and documented reference result when available.
    - Each element is supported by the paper, official repository instructions, benchmark documentation, or released-result metadata.
    - An official example is not sufficient merely because it is official; it must exercise the path and metric that support the relevant claim.
+   - For a dataset-level empirical claim, one prediction or arbitrary-folder inference cannot replace benchmark evaluation. Require a representative paper dataset or justified subset, the paper-aligned evaluator, and the primary aggregate metric.
 
 4. **Representative input**
    - At least one public, bundled, or otherwise approved dataset/input is available.
@@ -51,6 +52,7 @@ Treat the following as engineering validation, not a final scientific baseline, 
 - observing any finite or nonzero reward without task completion evidence;
 - one forward pass without the paper-aligned task metric;
 - a toy or generic demo disconnected from the source paper's representative evaluation.
+- single-image, single-sample, or arbitrary-folder inference when the paper reports dataset-level metrics.
 
 For learning, control, or robotics papers, require the smallest feasible claim-bearing route: an official learned policy/checkpoint, a demonstration-driven method, released benchmark result plus evaluator, or the shortest documented training/evaluation path. When the paper's evidence is success rate, sample efficiency, or generalization, raw reward alone is not a faithful substitute.
 

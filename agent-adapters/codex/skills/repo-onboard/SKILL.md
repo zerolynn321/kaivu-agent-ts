@@ -1,6 +1,6 @@
 ---
 name: repo-onboard
-description: Inspect the final cloned or adapted research repository, identify the minimum scientifically meaningful reproduction or controlled experiment path, discover one representative dataset or official pretrained/released-result evaluation route, find comparable documented reference results when available, and write the Agent-owned config.yaml for resource, environment, and baseline stages. Use after repo-experiment-fix for open-ended requirements, after paper-repo-discovery for a paper without a known repository, or directly when the user supplies a specific paper and repository. For specific-paper reproduction, the selected path must align with a core experiment, official demonstration, task type, or evaluation route used to support the paper's main contribution. For open-ended comparative requirements, preserve the required control/treatment branches in config.yaml; for non-comparative requirements, a single controlled experiment can be sufficient. This skill does not install dependencies, acquire resources, modify experiment logic, or require complete paper reproduction.
+description: Inspect a research repository, identify the minimum core-experiment reproduction or controlled experiment path, discover a representative benchmark dataset or justified subset and official pretrained/released-result route when available, find comparable references, and write config.yaml. Use after repo-experiment-fix, paper-repo-discovery, or when a paper repository is supplied. For dataset-level paper claims, require the paper-aligned evaluator and primary aggregate metric; do not accept single-sample or arbitrary-folder inference as the final baseline merely because it uses official code or weights. Preserve required comparison branches for comparative requirements. This skill does not install dependencies, acquire resources, modify experiment logic, or require complete paper reproduction.
 ---
 
 # Repo Onboard
@@ -54,11 +54,13 @@ Handoff:
 The selected path must:
 
 - execute the original method, not only import modules or print help;
-- for a specific paper, align with the paper's core experiment, official example, task type, protocol family, or documented evaluation route used to demonstrate the main contribution;
-- use one representative dataset, bundled input, official checkpoint, or released result;
-- produce the method's primary metric, prediction, retrieval output, graph, or other meaningful result;
+- for a specific paper, align with the paper's core experiment and documented evidence route used to demonstrate the main contribution;
+- use a representative benchmark dataset or justified subset and reuse an official checkpoint or released result when valid;
+- produce the paper-aligned primary aggregate metric for dataset-level claims, or another core result only when that result type directly supports the paper's claim;
 - be reusable as the unchanged comparator for future optimization;
 - have enough evidence to identify the command, input, output, and success criterion.
+
+For dataset-level empirical claims, the selected path must additionally use at least one representative paper benchmark dataset or a justified subset, the paper-aligned evaluator, and the primary aggregate metric. Official-checkpoint inference on one sample or an arbitrary folder is `demo_only` and cannot make onboarding `ready`.
 
 Prefer, in order:
 
@@ -89,8 +91,8 @@ Prefer released artifacts over redundant retraining. Otherwise, do not shorten t
    - Use only cheap read-only commands such as listing, search, static inspection, and `--help` when dependencies permit.
 
 4. Select the minimum reproduction path.
-   - Identify one representative dataset or input.
-   - For specific-paper routes, identify the paper's core experiment or official demonstration path first, then choose the smallest runnable route that still matches it.
+   - Identify one representative paper benchmark dataset or justified subset; use a single input only when the paper's core evidence is genuinely single-instance or qualitative rather than dataset-level.
+   - For specific-paper routes, identify the paper's core experiment and evidence unit first: dataset, split, evaluator, aggregate metric, and reference result when applicable.
    - Compare the chosen route against the paper configuration, including epochs/steps, training examples, model configuration, evaluation episodes, evaluator, and metric.
    - If the paper configuration is feasible, preserve it. If it is materially costly or infeasible, record cost evidence, every protocol reduction, its expected scientific impact, and the closest full-run command.
    - Prefer evaluation-only or released-result paths over retraining.
@@ -98,6 +100,7 @@ Prefer released artifacts over redundant retraining. Otherwise, do not shorten t
    - Require each branch to share the benchmark invariants unless the benchmark plan explicitly differs.
    - Do not invent comparison branches for a non-comparative requirement when one controlled experiment directly answers the question.
    - Reject generic demos that only prove the package works but do not exercise the paper's claimed method or core scientific workflow.
+   - Reject single-sample or arbitrary-folder inference for dataset-level claims, even when it loads the official checkpoint and outputs a valid probability or prediction.
    - Record the original method entrypoint, command, working directory, pre-eval steps, expected outputs, primary metric or success criterion, and estimated cost.
    - A cheap smoke command may be used as an intermediate check, but it is not the final baseline target unless it produces the meaningful original-method result required above.
 
@@ -140,6 +143,10 @@ minimum_reproduction:
   working_directory: ""
   pre_eval_commands: []
   primary_metric_or_output: ""
+  evidence_unit: "dataset_metric" # dataset_metric | structured_result | qualitative_core_output
+  demo_only: false
+  evaluator: ""
+  benchmark_subset_justification: ""
   metric_direction: "unknown" # higher | lower | unknown
   expected_result_files: []
   estimated_cost: ""
@@ -186,7 +193,7 @@ next_skill: "repo-resource-prepare"
 
 ## Decision Rules
 
-- `ready`: the original method, paper-core alignment when applicable, one representative input, meaningful result, and command path are supported by evidence.
+- `ready`: the original method, paper-core alignment, evidence unit, meaningful result, and command path are supported. Dataset-level claims additionally require a representative benchmark dataset or justified subset, evaluator, and aggregate metric.
 - A shortened core protocol without a material constraint and explicit impact record is not `ready` for a specific-paper route.
 - Matching a shortened-run golden value proves that shortened configuration is reproducible; it does not by itself prove the paper's reported result.
 - `partial`: useful evidence exists but the command, result, or representative input remains ambiguous.
@@ -214,3 +221,4 @@ Do not:
 - modify repository source or scientific protocol
 - treat an import-only or help-only check as the final baseline
 - treat an unrelated generic demo as the final baseline for a specific paper
+- treat official-checkpoint single-sample or arbitrary-folder inference as a core benchmark for a dataset-level claim

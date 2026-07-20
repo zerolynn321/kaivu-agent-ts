@@ -84,6 +84,8 @@ Handoff:
    - Treat a pretrained checkpoint evaluation or released-result evaluation as valid when it preserves the intended method and metric.
    - Classify environment creation, reset/step checks, random actions, nonzero reward, rendering, import-only checks, and unrelated toy demos as `smoke_only` unless the paper's core claim is specifically about that behavior.
    - Reject `smoke_only` routes as the final benchmark and record the missing claim-bearing policy/model, task success metric, evaluator, data/checkpoint, or reference target.
+   - Classify single-sample prediction and arbitrary-folder inference as `demo_only` when the paper's core evidence is a dataset-level benchmark metric, even if they use official checkpoints.
+   - For dataset-level empirical claims, require at least one representative paper benchmark dataset or a justified subset, the paper-aligned evaluator, and its primary aggregate metric.
    - Estimate the cost of the closest paper configuration before considering a shortened protocol.
    - Allow protocol simplification only for a concrete material constraint such as excessive runtime/compute, unavailable hardware/data, access restrictions, or a user-imposed budget. Record the evidence, changed parameters, expected scientific impact, and the closest later full-run command.
 
@@ -158,6 +160,9 @@ claim_alignment:
   metric_matches_paper_or_requirement: false
   reference_is_traceable: false
   smoke_only: false
+  demo_only: false
+  dataset_level_evaluation_required: false
+  representative_benchmark_coverage: ""
   missing_elements: []
 
 adaptation:
@@ -186,6 +191,7 @@ handoff:
 - A benchmark is invalid if it does not exercise the original method, cannot produce a meaningful result, leaks unavailable information, or cannot support later fair optimization comparison.
 - Repository authority is evidence of provenance, not evidence that every bundled demo reproduces the paper's core result.
 - A random or untrained policy producing reward is not evidence of task completion, learned-policy quality, benchmark success rate, sample efficiency, or generalization.
+- Loading an official checkpoint and producing a prediction proves inference plumbing, not a dataset-level paper result. For classification, detection, retrieval, segmentation, forecasting, and similar tasks, require the relevant aggregate metric over a representative paper benchmark dataset or justified subset.
 - When a paper reports task success or generalization, select at least one representative task and the paper-aligned success/generalization metric using an official learned policy, checkpoint, demonstration-driven method, or shortest documented training route. Do not substitute raw reward unless reward itself is the reported claim metric.
 - If no feasible claim-bearing route exists, return `blocked` or `needs_user_confirmation`; do not weaken the benchmark to obtain `ready`.
 - Keep optional broader experiments outside the required resource scope.
