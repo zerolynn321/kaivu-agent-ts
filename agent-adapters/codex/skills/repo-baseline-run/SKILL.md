@@ -119,7 +119,7 @@ For a selected paper core experiment, preserve the paper's convergence- and perf
    - Ask before changing the representative dataset, metric, checkpoint, split, model behavior, or result-selection rule.
 
 5. Ask only when execution is risky.
-   - Ask before a large download, long training, GPU-heavy execution, overwriting results, or a materially different command.
+   - Ask before a large download, materially expensive or long hardware use not already approved, overwriting results, or a materially different command. GPU use alone is not a reason to ask or switch to CPU.
    - Prefer official pretrained or released-result evaluation when it avoids unnecessary expensive training.
 
 6. Run the baseline.

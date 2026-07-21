@@ -79,6 +79,7 @@ Handoff:
 3. Infer environment requirements.
    - Identify Python version, package manager, dependency files, setup commands, validation commands, and command-scoped environment variables.
    - Identify GPU requirements: CUDA version, PyTorch/TensorFlow/JAX version constraints, compute capability notes, custom CUDA ops, `nvcc`, compiler, and driver assumptions.
+   - Select CPU, GPU, or another accelerator from repository guidance, the configured core experiment, available hardware, and scientific fidelity. Do not prefer CPU merely to reduce setup effort or avoid accelerator dependencies.
    - Prefer explicit repository documentation over generic compatibility guesses.
    - Prefer the smallest environment that can run the configured minimum original-method baseline command.
    - Do not install dependencies used only by unselected datasets, full retraining, appendix experiments, notebooks, or optional comparison methods.
@@ -216,6 +217,7 @@ Use this shape for `environment_setup_report.md`:
   - Check repository docs and dependency pins first.
   - Check host GPU/driver only with read-only commands.
   - Match PyTorch/TensorFlow/JAX packages to the available driver/CUDA and the repo's supported Python version.
+- Do not impose a CPU-first or GPU-first policy. Use the device that best preserves the documented core experiment on available hardware; record device substitutions that may affect metrics or runtime.
 - Do not assume the newest framework version is correct.
 - For old TensorFlow 1.x projects, prefer an isolated old-Python environment when feasible and document GPU limitations.
 - For modern PyTorch projects on new GPUs, prefer official framework install selectors or documented wheel indexes; ask before changing major versions.
