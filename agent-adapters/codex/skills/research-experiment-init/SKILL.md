@@ -23,6 +23,8 @@ A workflow is complete when:
 - the produced result or comparison can be retained as the comparator contract for later optimization;
 - `repo-baseline-run` records `status: passed` and `ready_for_optimization: true`.
 
+This is the only successful terminal state. `partial`, `blocked`, and `failed` are diagnostic outcomes, not acceptable substitutes for initialization completion. Continue safe in-scope recovery toward the successful state; stop only for a real blocker that requires user action or an external-state change.
+
 Do not require:
 
 - every dataset or benchmark used by the paper;

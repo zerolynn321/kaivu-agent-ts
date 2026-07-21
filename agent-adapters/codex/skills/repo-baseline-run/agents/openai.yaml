@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Baseline Run"
   short_description: "Run the core-valid minimum baseline"
-  default_prompt: "Use $repo-baseline-run to run one representative paper-aligned core experiment; allow valid official checkpoints or trained models, and rerun training or artifact generation only when the recorded reproduction target requires it."
+  default_prompt: "Use $repo-baseline-run to run one representative paper-aligned core experiment and mark readiness only when required resources, raw logs, raw metrics, outputs, and rerun assets are present and verified."

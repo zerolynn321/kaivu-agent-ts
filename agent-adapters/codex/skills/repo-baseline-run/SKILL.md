@@ -99,7 +99,7 @@ For a selected paper core experiment, preserve the paper's convergence- and perf
    - Compare the configured epochs/steps, data scale, model configuration, evaluator, metric, and evaluation budget with the paper or official reproduction command.
    - Reject an undocumented or convenience-only shortened core protocol. Require either the feasible paper protocol or recorded material cost evidence, changed parameters, expected scientific impact, and the closest full-run command.
    - For `baseline_kind: controlled_comparison`, confirm every required branch has a command, resource path, metric parser, and success criterion.
-   - Confirm every required resource is available and the environment is ready.
+   - Recheck every required resource path directly; do not trust `available` from the manifest alone. Confirm non-empty command-required contents, bindings, and environment readiness.
    - If not, return to the owning stage or record a blocker.
 
 2. Confirm environment targeting.
@@ -124,7 +124,7 @@ For a selected paper core experiment, preserve the paper's convergence- and perf
 
 6. Run the baseline.
    - Execute from the configured working directory.
-   - Capture return code, elapsed time, logs, produced files, metrics, and relevant result metadata.
+   - Capture return code, elapsed time, complete raw logs, produced files, parsed metrics, and relevant result metadata under the run artifact directories.
    - Keep generated outputs under the run directory when configurable.
    - For controlled comparisons, run each required branch and stop only for a real blocker or user-approved risk decision.
 
@@ -132,6 +132,8 @@ For a selected paper core experiment, preserve the paper's convergence- and perf
    - Confirm the result is non-empty and came from the intended original-method path.
    - For specific-paper routes, confirm the result came from the configured claim-bearing method and evaluation route.
    - Parse the primary metric or validate the defined method output.
+   - Confirm the raw log, raw metric/result file, and every required produced output exist and are non-empty after execution. A report summary or copied numeric value is not raw evidence.
+   - Confirm recorded resource paths still exist after execution and are sufficient to rerun the same command.
    - For controlled comparisons, compute the treatment-control delta for the primary metric and record whether it improves, worsens, or is inconclusive under the chosen metric direction.
    - Compare with a documented reference when conditions are comparable.
    - Do not require exact numerical equality when hardware, versions, or stochastic behavior justify a recorded tolerance.
@@ -145,6 +147,8 @@ For a selected paper core experiment, preserve the paper's convergence- and perf
 9. Write and verify artifacts.
    - Write the manifest and report.
    - Set `ready_for_optimization: true` only for `status: passed`.
+   - Before writing `passed`, re-open the manifest, raw log, raw metric/result file, and required output paths. Record their paths and checksums when practical.
+   - During an audit, preserve prior raw evidence and status history. Do not delete or overwrite historical logs/results; distinguish the previous recorded state from current verified readiness.
    - Include the exact baseline comparator identity for future optimization work.
 
 ## Metrics Shape
@@ -200,6 +204,11 @@ output_validation:
   aggregate_metric_verified: false
   method_stages_verified: false
   generated_artifact_verified: false
+  raw_metric_or_result_path: ""
+  required_output_paths: []
+  evidence_checksums: {}
+  resources_reverified: false
+  rerun_assets_verified: false
 documented_baseline: {}
 reference_status: "not_found" # found | not_found | ambiguous | missing_from_onboard
 reference_sources: []
@@ -249,6 +258,7 @@ Use this shape for `baseline_run_report.md`:
 ## Decision Rules
 
 - `passed`: the original-method command succeeds, paper-core alignment is verified when applicable, a meaningful result is verified, and its rerun evidence is recorded.
+- `passed` additionally requires all required resources and rerun assets to exist at their recorded paths, plus non-empty raw logs and raw metric/result evidence. A narrative report or historical metric alone cannot pass.
 - For specific-paper routes, `passed` additionally requires `paper_exact` or `paper_reduced_scope`, unless a `shortened_core_protocol` has a material constraint and is explicitly reported as a local optimization baseline rather than paper-result reproduction.
 - For `baseline_kind: controlled_comparison`, `passed` additionally requires every required branch to succeed and the primary delta to be recorded.
 - `partial`: execution succeeds but required method execution, generated artifact, evidence unit, or metric cannot be verified. Record `evaluation_only` or `demo_only` when applicable and keep `ready_for_optimization: false`.

@@ -1,6 +1,6 @@
 ---
 name: repo-resource-prepare
-description: Ask the user to choose whether to reuse the current environment or create a repository-specific virtual environment, then acquire and stage only the resources required by the onboarded minimum original-method reproduction path. Use after repo-onboard has selected one representative dataset/input and a pretrained-evaluation, released-result, bundled-example, or shortest necessary training route. Prefer existing official checkpoints, released outputs, bundled resources, and reusable local files over unnecessary retraining or broad paper-resource downloads; when reusing local files, copy them into the run resource directory by default and report the source/copy paths so originals remain untouched. Write resource_manifest.yaml plus resource_acquisition_report.md. This skill does not install dependencies, run the baseline, modify experiment logic, or acquire every dataset/model used by the paper.
+description: Ask the user to choose whether to reuse the current environment or create a repository-specific virtual environment, then acquire, stage, and re-validate only the resources required by the onboarded minimum original-method reproduction path. Use after repo-onboard has selected one representative dataset/input and a pretrained-evaluation, released-result, bundled-example, or shortest necessary training route, or when auditing missing or stale resources from an existing baseline. Prefer existing official checkpoints, released outputs, bundled resources, and reusable local files over unnecessary retraining or broad paper-resource downloads; when reusing local files, copy them into the run resource directory by default and report the source/copy paths so originals remain untouched. Write resource_manifest.yaml plus resource_acquisition_report.md. This skill does not install dependencies, run the baseline, modify experiment logic, or acquire every dataset/model used by the paper.
 ---
 
 # Repo Resource Prepare
@@ -96,7 +96,8 @@ Handoff:
 
 4. Build the resource manifest before downloading.
    - Include the selected environment metadata before listing resources.
-   - For each resource, record `name`, `type`, `source_url`, `local_path`, `acquired_path`, `expected_size_bytes` if known, `required`, `status`, and `notes`.
+   - For each resource, record `name`, `type`, `source_url`, `local_path`, `acquired_path`, expected and observed size when known, checksum when practical, `required`, `status`, and `notes`.
+   - Record a reproducible acquisition instruction for every downloaded resource, including revision or version when supported.
    - Use paths as seen from the repository root for `local_path`.
    - Put unresolved credentials, inaccessible URLs, license gates, manual forms, or ambiguous resources in `unresolved_requirements`.
    - Record why every required resource is necessary for the minimum reproduction.
@@ -125,7 +126,9 @@ Handoff:
 
 8. Verify.
    - Re-read the manifest and report.
-   - Confirm every `required: true` resource is either `available` with an existing `acquired_path`, or `blocked` with a concrete next action.
+   - Confirm every `required: true` resource is either `available` with an existing non-empty `acquired_path`, or `blocked` with a concrete next action.
+   - Recheck the staged path immediately before handoff. For directories, confirm the command-required model shards, dataset files, or other contents exist rather than accepting metadata-only directories.
+   - Record observed size, checksum when practical, and verification time. Never carry forward `available` solely from an older manifest.
    - Confirm the manifest does not include unrelated full-paper resources as required.
    - Do not run the baseline. Cheap file existence checks, checksums, archive listings, and directory listings are allowed.
 
@@ -151,6 +154,11 @@ resources:
     local_path: ""
     acquired_path: ""
     expected_size_bytes:
+    observed_size_bytes:
+    checksum: ""
+    acquisition_instruction: ""
+    source_revision: ""
+    verified_at: ""
     required: true
     status: "discovered" # discovered | available | missing | blocked | blocked_environment | failed
     notes: ""
@@ -173,7 +181,7 @@ Use this shape for each item in `resource_acquisition_report.md`:
 
 ## Decision Rules
 
-- `available`: resource exists under `<run_dir>/resources/` and any required repo path binding is done or documented.
+- `available`: resource exists under `<run_dir>/resources/`, required contents are non-empty and structurally complete for the configured command, and any required repo path binding is done or documented.
 - `missing`: resource is required but no local copy or direct source was found.
 - `blocked`: resource requires user action, credentials, license acceptance, download approval above the default 6 GB per-task budget, or source disambiguation.
 - `blocked_environment`: the current user request has not chosen either current-env reuse or a new repository-specific environment.
@@ -181,6 +189,7 @@ Use this shape for each item in `resource_acquisition_report.md`:
 - Optional resources may remain `discovered` or `missing` without blocking the handoff.
 - Resources for other paper datasets, tables, ablations, or full retraining must remain optional unless the user explicitly expands the scope.
 - Local reusable resources are sources, not working copies; copy them into `<run_dir>/resources/` before use unless the user explicitly requests direct in-place use.
+- A stale manifest entry, metadata-only model directory, missing shard, broken symlink, or inaccessible cache path is not `available`.
 
 ## Boundaries
 
