@@ -1,6 +1,6 @@
 ---
 name: repo-baseline-run
-description: Run and record the configured core-experiment baseline as the final optimization-readiness gate. Use after repo-onboard, resource preparation, and environment setup. For specific papers, execute the original method through a paper-aligned evaluation route; dataset-level claims require a representative paper benchmark dataset or justified subset, the paper evaluator, and its primary aggregate metric. Official-checkpoint single-sample or arbitrary-folder inference is demo-only and cannot pass. For open-ended requirements, execute the smallest controlled experiment that answers the question, including necessary comparison branches. Parse and compare results, invoke AgentFix on failures, and write baseline_metrics.yaml plus baseline_run_report.md.
+description: Run, record, or audit the configured core-experiment baseline as the final optimization-readiness gate. Use after repo-onboard, resource preparation, and environment setup, or when reviewing an existing passed/partial baseline and its ready_for_optimization claim. Re-evaluate recorded conclusions from underlying commands, outputs, and evidence rather than trusting existing status fields. For specific papers, execute the original method through a paper-aligned evaluation route; dataset-level claims require a representative paper benchmark dataset or justified subset, the paper evaluator, and its primary aggregate metric. Official-checkpoint single-sample or arbitrary-folder inference is demo-only and cannot pass. For open-ended requirements, execute the smallest controlled experiment that answers the question, including necessary comparison branches. Parse and compare results, invoke AgentFix on failures, and write baseline_metrics.yaml plus baseline_run_report.md.
 ---
 
 # Repo Baseline Run
@@ -64,7 +64,7 @@ The final baseline must:
 - save enough command, environment, resource, and output evidence to rerun it;
 - provide a stable comparison point for later optimization.
 
-When `method_execution_required: true`, run every claim-bearing stage, produce a new artifact, and evaluate it. Dataset-level claims additionally require the configured representative benchmark dataset or justified subset, paper-aligned evaluator, and primary aggregate metric. Mark a route `evaluation_only` or `demo_only` when it omits the corresponding required evidence; it cannot pass readiness.
+An official checkpoint, trained model, or released result can pass when it incorporates the core method and the run reproduces a representative paper-aligned core experiment. When `method_execution_required: true` for a recorded target-specific reason, run the required stages and verify their outputs. Dataset-level claims additionally require the configured representative benchmark dataset or justified subset, paper-aligned evaluator, and primary aggregate metric.
 
 For open-ended comparative requirements, the baseline must additionally:
 
@@ -84,7 +84,7 @@ Acceptable efficient routes include:
 - evaluation on one bundled or public representative dataset;
 - the shortest necessary documented training route when no valid released artifact exists.
 
-Do not regenerate released artifacts when evaluation itself embodies the contribution. When artifact generation is the contribution, execute the required procedure rather than substituting released output. Do not require peripheral paper scope.
+Do not regenerate a valid released artifact merely because the paper originally trained or generated it. Require that process only when it is part of the current reproduction target. Do not require peripheral paper scope.
 
 For a selected paper core experiment, preserve the paper's convergence- and performance-bearing protocol when feasible. Reduce breadth before fidelity. Do not reduce epochs/steps, training examples, model size, evaluation episodes, or similar parameters merely to save ordinary runtime.
 
@@ -94,7 +94,7 @@ For a selected paper core experiment, preserve the paper's convergence- and perf
    - Read config, resource, and environment artifacts.
    - Confirm the command exercises the original method and matches the selected minimum reproduction.
    - For specific-paper routes, confirm `config.yaml` records paper-core alignment evidence and the correct evidence unit.
-   - Confirm `core_contribution_type`, `method_execution_required`, required stages, and generated artifact. Reject checkpoint-only evaluation when method execution is required.
+   - Confirm `core_contribution_type`, `method_execution_required`, its recorded reason, and any required stages or generated artifact.
    - For dataset-level claims, require a representative benchmark dataset or justified subset, evaluator, aggregate metric parser, and comparable reference evidence when available.
    - Compare the configured epochs/steps, data scale, model configuration, evaluator, metric, and evaluation budget with the paper or official reproduction command.
    - Reject an undocumented or convenience-only shortened core protocol. Require either the feasible paper protocol or recorded material cost evidence, changed parameters, expected scientific impact, and the closest full-run command.
@@ -164,6 +164,7 @@ minimum_reproduction:
     alignment_evidence: []
   core_contribution_type: "artifact_evaluation"
   method_execution_required: false
+  method_execution_reason: ""
   required_method_stages: []
   generated_artifact: ""
   representative_dataset_or_input: ""

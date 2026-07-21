@@ -1,4 +1,4 @@
 interface:
   display_name: "Research Experiment Init"
   short_description: "Prepare a minimal reproducible optimization repository"
-  default_prompt: "Use $research-experiment-init to prepare a repository whose minimum scope reproduces the core experiment; classify whether the contribution requires method execution, and require the corresponding claim-bearing evidence."
+  default_prompt: "Use $research-experiment-init to prepare a repository whose minimum scope reproduces one representative core experiment, reusing valid official checkpoints or trained models unless the reproduction target requires rerunning their creation process."

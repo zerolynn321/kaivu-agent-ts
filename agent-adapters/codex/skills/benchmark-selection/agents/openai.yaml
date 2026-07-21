@@ -1,4 +1,4 @@
 interface:
   display_name: "Benchmark Selection"
   short_description: "Choose a claim-aligned minimum benchmark"
-  default_prompt: "Use $benchmark-selection to choose the smallest core-valid benchmark, classify the core contribution, and require method execution plus a new artifact when the contribution generates or changes one."
+  default_prompt: "Use $benchmark-selection to choose one representative core-valid experiment, preferring valid official checkpoints or trained models and requiring training or artifact generation only when the reproduction target needs it."

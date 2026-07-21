@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Onboard"
   short_description: "Find the minimum original-method reproduction path"
-  default_prompt: "Use $repo-onboard to configure a paper-aligned core experiment, including claim-bearing method stages, generated artifacts, and evaluation evidence required by the classified contribution."
+  default_prompt: "Use $repo-onboard to configure one paper-aligned representative core experiment, reusing valid released artifacts and recording any target-specific reason that method execution is required."

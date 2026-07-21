@@ -41,7 +41,7 @@ Distinguish the task type before delegating:
 
 For comparative open-ended requirements, require every branch needed to answer the question under a fair protocol. For non-comparative requirements, one controlled experiment can be sufficient.
 
-For specific papers, classify the core contribution before selecting a route. If it is a procedure that creates or changes a scientific artifact, execute the claim-bearing stages at least once and evaluate the newly produced artifact. Evaluating an author-provided artifact alone is `evaluation_only`; a runnable check without core-claim evidence is `demo_only`. Neither can establish readiness for optimizing the procedure.
+For specific papers, define the evidence needed for the current reproduction target before selecting a route. An official checkpoint, trained model, or released result is valid when it incorporates the core method and supports a representative paper-aligned core experiment. Require training or artifact generation only when the stated target concerns that process, no valid released artifact exists, or later optimization requires proving that process runs. A runnable check without core-claim evidence is `demo_only`.
 
 Do not choose a route by minimizing resource use first. First identify what evidence is required to reproduce the core experiment; then choose the least costly route that satisfies that evidence without weakening it.
 
@@ -177,7 +177,7 @@ Use `paper-repo-discovery` only to resolve and clone the paper repository, then 
 5. Onboard the final repository.
    - Invoke `repo-onboard`.
    - For paper/repository routes, require a command that exercises the original method on a paper-aligned core experiment. For dataset-level claims, require a representative benchmark dataset or justified subset, the paper evaluator, and the primary aggregate metric; do not substitute one input or raw prediction.
-   - Record the core contribution type and whether method execution is required. Do not mark onboarding ready when a method-execution paper only evaluates an author-provided artifact.
+   - Record the core contribution type, whether the current reproduction target requires method execution, and why. Do not infer that requirement solely because the paper originally trained or generated an artifact.
    - For open-ended requirement routes, require the configured baseline to preserve the minimum controlled experiment, including every branch only when the requirement is comparative.
    - Continue only when `config.yaml` records `onboard_status: ready`.
 

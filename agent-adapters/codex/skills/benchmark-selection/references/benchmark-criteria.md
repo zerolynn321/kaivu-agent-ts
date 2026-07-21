@@ -17,10 +17,10 @@ A selected benchmark unit must pass every applicable gate:
    - An official example is not sufficient merely because it is official; it must exercise the path and metric that support the relevant claim.
    - For a dataset-level empirical claim, one prediction or arbitrary-folder inference cannot replace benchmark evaluation. Require a representative paper dataset or justified subset, the paper-aligned evaluator, and the primary aggregate metric.
 
-4. **Core-method execution**
-   - Determine whether the contribution is a procedure that creates or changes a scientific artifact.
-   - If it is, require one faithful execution of the claim-bearing stages that produces a new evaluable artifact. Evaluation of an author-provided artifact alone is `evaluation_only`.
-   - If scaled execution is necessary, preserve the mechanism and record changed budget parameters and scientific impact.
+4. **Core-method evidence**
+   - An official checkpoint, trained model, or released result may satisfy the gate when it incorporates the core method and is evaluated through a representative claim-bearing experiment.
+   - Require training or artifact generation only when the stated reproduction target concerns that process, no valid released artifact exists, or later optimization requires proving that process runs.
+   - When execution is required, preserve the claim-bearing mechanism and record any changed budget parameters and scientific impact.
 
 5. **Representative input**
    - At least one public, bundled, or otherwise approved dataset/input is available.

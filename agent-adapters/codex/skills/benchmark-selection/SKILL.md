@@ -66,7 +66,7 @@ Handoff:
 1. Define the minimum evidence requirement.
    - Preserve the research question and optimization goal.
    - Extract a claim-linked benchmark tuple: claim, claim-bearing method behavior, representative task/data, primary metric, documented reference result, and optional comparator.
-   - Classify the core contribution and set whether reproducing it requires executing a procedure that creates or changes a scientific artifact.
+   - Classify the core contribution and decide whether the current reproduction target requires rerunning training or artifact generation. Do not infer this solely from how the paper produced its released artifact.
    - Cite where each tuple element comes from: paper table/figure/section, official repository evaluation instructions, benchmark documentation, or released result metadata.
    - Identify the original-method behavior that must be reproduced before optimization.
    - Identify whether the question is comparative.
@@ -82,7 +82,8 @@ Handoff:
    - Apply the hard gates in the criteria reference.
    - Require an end-to-end evidence chain from the core claim to the executable evaluator; do not infer scientific validity merely because an official repository exposes a runnable example.
    - Prefer the smallest route that produces a valid original-method result.
-   - Accept released-artifact evaluation only when it reproduces the classified contribution and intended metric. Otherwise mark it `evaluation_only` and require faithful execution that produces a new artifact.
+   - Accept an official checkpoint, trained model, or released result when it incorporates the core method and supports the claim-bearing experiment and metric.
+   - Require method execution only when the stated target concerns the training or generation process, no valid released artifact exists, or later optimization requires proving that process runs.
    - Mark runnable checks without core-claim evidence as `smoke_only` or `demo_only`, reject them as the final benchmark, and record the missing evidence.
    - For dataset-level empirical claims, require at least one representative paper benchmark dataset or a justified subset, the paper-aligned evaluator, and its primary aggregate metric.
    - Estimate the cost of the closest paper configuration before considering a shortened protocol.
@@ -116,6 +117,7 @@ minimum_reproduction:
   claim_evidence: []
   core_contribution_type: "artifact_evaluation" # artifact_generation | artifact_evaluation | system_execution | analysis
   method_execution_required: false
+  method_execution_reason: ""
   required_method_stages: []
   generated_artifact: ""
   representative_dataset_or_input:
@@ -195,7 +197,8 @@ handoff:
 - A benchmark is invalid if it does not exercise the original method, cannot produce a meaningful result, leaks unavailable information, or cannot support later fair optimization comparison.
 - Repository authority establishes provenance, not core-result reproduction.
 - Runnable output without the paper-aligned evidence unit does not establish the reported claim.
-- When the contribution generates or changes an artifact, require a new artifact from the claim-bearing procedure; when the contribution is artifact evaluation, released artifacts may be sufficient.
+- Do not require regeneration merely because the paper originally created or changed an artifact. A released artifact is sufficient when it incorporates the core method and the selected evaluation reproduces a representative core experiment.
+- When `method_execution_required: true`, record the target-specific reason and the stages that must run.
 - If no feasible claim-bearing route exists, return `blocked` or `needs_user_confirmation`; do not weaken the benchmark to obtain `ready`.
 - Keep optional broader experiments outside the required resource scope.
 

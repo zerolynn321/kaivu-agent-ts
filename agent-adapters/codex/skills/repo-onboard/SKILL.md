@@ -1,6 +1,6 @@
 ---
 name: repo-onboard
-description: Inspect a research repository, identify the minimum core-experiment reproduction or controlled experiment path, discover a representative benchmark dataset or justified subset and official pretrained/released-result route when available, find comparable references, and write config.yaml. Use after repo-experiment-fix, paper-repo-discovery, or when a paper repository is supplied. For dataset-level paper claims, require the paper-aligned evaluator and primary aggregate metric; do not accept single-sample or arbitrary-folder inference as the final baseline merely because it uses official code or weights. Preserve required comparison branches for comparative requirements. This skill does not install dependencies, acquire resources, modify experiment logic, or require complete paper reproduction.
+description: Inspect or audit a research repository, identify the minimum core-experiment reproduction or controlled experiment path, discover a representative benchmark dataset or justified subset and official pretrained/released-result route when available, find comparable references, and write or re-evaluate config.yaml. Use after repo-experiment-fix or paper-repo-discovery, when a paper repository is supplied, or when reviewing whether an existing baseline configuration truly represents the paper's core experiment. For dataset-level paper claims, require the paper-aligned evaluator and primary aggregate metric; do not accept single-sample or arbitrary-folder inference as the final baseline merely because it uses official code or weights. Preserve required comparison branches for comparative requirements. This skill does not install dependencies, acquire resources, modify experiment logic, or require complete paper reproduction.
 ---
 
 # Repo Onboard
@@ -60,9 +60,9 @@ The selected path must:
 - be reusable as the unchanged comparator for future optimization;
 - have enough evidence to identify the command, input, output, and success criterion.
 
-Classify the core contribution before selecting a route. If it creates or changes a scientific artifact, set `method_execution_required: true` and require claim-bearing commands that produce a new artifact. For dataset-level claims, require a representative benchmark dataset or justified subset, the paper-aligned evaluator, and the primary aggregate metric. Routes missing either required evidence are not `ready`.
+Classify the core contribution and the current reproduction target before selecting a route. Set `method_execution_required: true` only when the target concerns training or artifact generation, no valid released artifact exists, or later optimization requires proving that process runs. An official checkpoint, trained model, or released result may otherwise support `ready` when it incorporates the core method and is evaluated on a representative core experiment. Dataset-level claims require a representative benchmark dataset or justified subset, the paper-aligned evaluator, and the primary aggregate metric.
 
-Choose the least costly route that satisfies the classified contribution. Reuse released artifacts when evaluation embodies the contribution; execute the claim-bearing procedure when artifact generation is the contribution. Do not shorten the selected core experiment merely for convenience. Simplify only for a concrete material constraint and record its impact. Do not require peripheral paper scope.
+Choose the least costly route that supplies the required core evidence. Prefer valid released artifacts over unnecessary retraining. Do not shorten the selected core experiment merely for convenience; simplify only for a material constraint and record its impact. Do not require peripheral paper scope.
 
 ## Workflow
 
@@ -86,7 +86,7 @@ Choose the least costly route that satisfies the classified contribution. Reuse 
 4. Select the minimum reproduction path.
    - Identify one representative paper benchmark dataset or justified subset; use a single input only when the paper's core evidence is genuinely single-instance or qualitative rather than dataset-level.
    - For specific-paper routes, identify the paper's core experiment and evidence unit first: dataset, split, evaluator, aggregate metric, and reference result when applicable.
-   - Classify `core_contribution_type`, `method_execution_required`, the required method stages, and the artifact they must generate.
+   - Classify `core_contribution_type`, `method_execution_required`, its target-specific reason, and any required stages or generated artifact.
    - Compare the chosen route against the paper configuration, including epochs/steps, training examples, model configuration, evaluation episodes, evaluator, and metric.
    - If the paper configuration is feasible, preserve it. If it is materially costly or infeasible, record cost evidence, every protocol reduction, its expected scientific impact, and the closest full-run command.
    - Prefer evaluation-only or released-result paths only when they reproduce the classified contribution; otherwise use them as supporting references.
@@ -129,6 +129,7 @@ minimum_reproduction:
     alignment_evidence: []
   core_contribution_type: "artifact_evaluation" # artifact_generation | artifact_evaluation | system_execution | analysis
   method_execution_required: false
+  method_execution_reason: ""
   required_method_stages: []
   generated_artifact: ""
   purpose: "optimization_baseline"
@@ -206,7 +207,7 @@ Do:
 
 - identify the smallest credible original-method reproduction path
 - preserve paper-core alignment for specific-paper reproduction
-- choose released artifacts or method execution according to the classified core contribution
+- prefer valid released artifacts and require method execution only when the reproduction target needs it
 - discover comparable documented results
 - write the Agent-owned `config.yaml`
 - preserve uncertainty and evidence
