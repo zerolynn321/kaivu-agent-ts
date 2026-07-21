@@ -60,16 +60,9 @@ The selected path must:
 - be reusable as the unchanged comparator for future optimization;
 - have enough evidence to identify the command, input, output, and success criterion.
 
-For dataset-level empirical claims, the selected path must additionally use at least one representative paper benchmark dataset or a justified subset, the paper-aligned evaluator, and the primary aggregate metric. Official-checkpoint inference on one sample or an arbitrary folder is `demo_only` and cannot make onboarding `ready`.
+Classify the core contribution before selecting a route. If it creates or changes a scientific artifact, set `method_execution_required: true` and require claim-bearing commands that produce a new artifact. For dataset-level claims, require a representative benchmark dataset or justified subset, the paper-aligned evaluator, and the primary aggregate metric. Routes missing either required evidence are not `ready`.
 
-Prefer, in order:
-
-1. official pretrained checkpoint plus documented evaluation;
-2. official released prediction/result plus documented evaluator;
-3. bundled representative dataset plus documented evaluation;
-4. the shortest documented training path that produces the original-method result.
-
-Prefer released artifacts over redundant retraining. Otherwise, do not shorten the selected core experiment merely for convenience. Simplify its protocol only when the closest paper configuration has a concrete material runtime, compute, hardware, data, access, or user-budget constraint. Do not require all datasets, all paper tables, all seeds, or all ablations. Do not select an unrelated demo, generic package example, or toy smoke test when it does not correspond to the paper's core experiment.
+Choose the least costly route that satisfies the classified contribution. Reuse released artifacts when evaluation embodies the contribution; execute the claim-bearing procedure when artifact generation is the contribution. Do not shorten the selected core experiment merely for convenience. Simplify only for a concrete material constraint and record its impact. Do not require peripheral paper scope.
 
 ## Workflow
 
@@ -93,14 +86,14 @@ Prefer released artifacts over redundant retraining. Otherwise, do not shorten t
 4. Select the minimum reproduction path.
    - Identify one representative paper benchmark dataset or justified subset; use a single input only when the paper's core evidence is genuinely single-instance or qualitative rather than dataset-level.
    - For specific-paper routes, identify the paper's core experiment and evidence unit first: dataset, split, evaluator, aggregate metric, and reference result when applicable.
+   - Classify `core_contribution_type`, `method_execution_required`, the required method stages, and the artifact they must generate.
    - Compare the chosen route against the paper configuration, including epochs/steps, training examples, model configuration, evaluation episodes, evaluator, and metric.
    - If the paper configuration is feasible, preserve it. If it is materially costly or infeasible, record cost evidence, every protocol reduction, its expected scientific impact, and the closest full-run command.
-   - Prefer evaluation-only or released-result paths over retraining.
+   - Prefer evaluation-only or released-result paths only when they reproduce the classified contribution; otherwise use them as supporting references.
    - If `repo_experiment_fix.yaml` or `benchmark_plan.yaml` defines `controlled_baseline.required: true` or `baseline_kind: controlled_comparison`, preserve every required branch in the config.
    - Require each branch to share the benchmark invariants unless the benchmark plan explicitly differs.
    - Do not invent comparison branches for a non-comparative requirement when one controlled experiment directly answers the question.
-   - Reject generic demos that only prove the package works but do not exercise the paper's claimed method or core scientific workflow.
-   - Reject single-sample or arbitrary-folder inference for dataset-level claims, even when it loads the official checkpoint and outputs a valid probability or prediction.
+   - Reject runnable checks that do not produce the required core-claim evidence.
    - Record the original method entrypoint, command, working directory, pre-eval steps, expected outputs, primary metric or success criterion, and estimated cost.
    - A cheap smoke command may be used as an intermediate check, but it is not the final baseline target unless it produces the meaningful original-method result required above.
 
@@ -134,6 +127,10 @@ minimum_reproduction:
     aligned: false
     paper_claim_or_experiment: ""
     alignment_evidence: []
+  core_contribution_type: "artifact_evaluation" # artifact_generation | artifact_evaluation | system_execution | analysis
+  method_execution_required: false
+  required_method_stages: []
+  generated_artifact: ""
   purpose: "optimization_baseline"
   baseline_kind: "single_method" # single_method | controlled_comparison
   route: "pretrained_eval" # pretrained_eval | released_result_eval | documented_training | bundled_example
@@ -193,10 +190,10 @@ next_skill: "repo-resource-prepare"
 
 ## Decision Rules
 
-- `ready`: the original method, paper-core alignment, evidence unit, meaningful result, and command path are supported. Dataset-level claims additionally require a representative benchmark dataset or justified subset, evaluator, and aggregate metric.
+- `ready`: the original method, paper-core alignment, required evidence unit, meaningful result, and command path are supported. Method-execution routes additionally require all claim-bearing stages and a declared generated artifact.
 - A shortened core protocol without a material constraint and explicit impact record is not `ready` for a specific-paper route.
 - Matching a shortened-run golden value proves that shortened configuration is reproducible; it does not by itself prove the paper's reported result.
-- `partial`: useful evidence exists but the command, result, or representative input remains ambiguous.
+- `partial`: useful evidence exists, but required method execution, generated artifact, representative input, evaluator, metric, or command remains unverified.
 - `blocked`: the repository is invalid or no meaningful original-method path can be identified.
 - Missing resources or dependencies do not block onboarding when their exact requirements can be handed to later stages.
 - A missing documented reference does not invalidate a meaningful local baseline.
@@ -209,7 +206,7 @@ Do:
 
 - identify the smallest credible original-method reproduction path
 - preserve paper-core alignment for specific-paper reproduction
-- prefer released checkpoints/results over unnecessary retraining
+- choose released artifacts or method execution according to the classified core contribution
 - discover comparable documented results
 - write the Agent-owned `config.yaml`
 - preserve uncertainty and evidence
@@ -219,6 +216,4 @@ Do not:
 - require all paper datasets, tables, seeds, or ablations
 - install dependencies, create environments, or acquire resources
 - modify repository source or scientific protocol
-- treat an import-only or help-only check as the final baseline
-- treat an unrelated generic demo as the final baseline for a specific paper
-- treat official-checkpoint single-sample or arbitrary-folder inference as a core benchmark for a dataset-level claim
+- treat runnable checks without required core-claim evidence as the final baseline

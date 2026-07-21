@@ -17,28 +17,33 @@ A selected benchmark unit must pass every applicable gate:
    - An official example is not sufficient merely because it is official; it must exercise the path and metric that support the relevant claim.
    - For a dataset-level empirical claim, one prediction or arbitrary-folder inference cannot replace benchmark evaluation. Require a representative paper dataset or justified subset, the paper-aligned evaluator, and the primary aggregate metric.
 
-4. **Representative input**
+4. **Core-method execution**
+   - Determine whether the contribution is a procedure that creates or changes a scientific artifact.
+   - If it is, require one faithful execution of the claim-bearing stages that produces a new evaluable artifact. Evaluation of an author-provided artifact alone is `evaluation_only`.
+   - If scaled execution is necessary, preserve the mechanism and record changed budget parameters and scientific impact.
+
+5. **Representative input**
    - At least one public, bundled, or otherwise approved dataset/input is available.
    - One representative dataset is sufficient.
 
-5. **Traceable provenance**
+6. **Traceable provenance**
    - Dataset, checkpoint, released result, and evaluator sources are identifiable.
 
-6. **Protocol and leakage safety**
+7. **Protocol and leakage safety**
    - Split, temporal boundary, preprocessing, and available-at-decision-time information are compatible with the intended claim.
 
-7. **Comparable output**
+8. **Comparable output**
    - The result can be preserved as the baseline comparator for later optimization on the same protocol.
 
-8. **Controlled comparison for comparative requirements**
+9. **Controlled comparison for comparative requirements**
    - If the user asks whether a factor improves performance, the benchmark must define the minimum treatment/control or reference branches needed to answer that question.
    - The branches must share the same dataset/input, split, primary metric, resource budget, and available-information boundary unless a difference is explicitly part of the claim.
    - Do not require control/treatment branches for non-comparative questions when one controlled experiment can directly answer the requirement.
 
-9. **Resource feasibility**
+10. **Resource feasibility**
    - Required downloads, environment, memory, runtime, and hardware fit the user constraints or have explicit approval.
 
-10. **Protocol fidelity**
+11. **Protocol fidelity**
    - Use the paper's epochs/steps, data scale, model configuration, evaluation episodes, evaluator, and primary metric for the selected core experiment when feasible.
    - Reduce breadth first: fewer datasets, seeds, secondary methods, ablations, or sweep points usually preserve the selected experiment better than shortening its convergence- or performance-bearing protocol.
    - Any shortened core protocol records a concrete material constraint, cost evidence, changed parameters, expected scientific impact, and the closest full-paper command.
@@ -54,9 +59,7 @@ Treat the following as engineering validation, not a final scientific baseline, 
 - a toy or generic demo disconnected from the source paper's representative evaluation.
 - single-image, single-sample, or arbitrary-folder inference when the paper reports dataset-level metrics.
 
-For learning, control, or robotics papers, require the smallest feasible claim-bearing route: an official learned policy/checkpoint, a demonstration-driven method, released benchmark result plus evaluator, or the shortest documented training/evaluation path. When the paper's evidence is success rate, sample efficiency, or generalization, raw reward alone is not a faithful substitute.
-
-Example: for a manipulation platform paper evaluated on `PickCube`, environment creation plus random rollouts is `smoke_only`. A credible minimum route evaluates a learned or demonstration-derived policy on the documented task protocol and reports task success rate; if the selected claim is multi-task generalization, include the smallest documented task split or task subset that actually measures it.
+Require the smallest feasible claim-bearing route. When the paper reports an aggregate outcome, raw intermediate outputs are not a faithful substitute.
 
 ## Route Preference
 

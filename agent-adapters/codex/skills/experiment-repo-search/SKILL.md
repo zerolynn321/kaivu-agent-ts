@@ -17,13 +17,6 @@ For an open-ended research requirement, the baseline target is not merely "the c
 
 Do not optimize only for lowest engineering risk. First satisfy the user's research intent and test intent, then choose the smallest credible implementation among the plans that satisfy it. If the user is explicitly testing repository integration or asks Codex to decide whether integration is needed, evaluate real external component repositories before falling back to a self-written lightweight substitute.
 
-Examples:
-
-- event information helps forecasting: `events_off` vs `events_on`;
-- retrieval diversity helps forecasting: similarity-only retrieval vs diversity-aware reranking;
-- causal graph priors help forecasting: default/adaptive graph vs causal-prior graph;
-- foundation models are useful: foundation-model evaluation vs representative classical baseline.
-
 The selected contract must ensure:
 
 - the original method is present and identifiable;

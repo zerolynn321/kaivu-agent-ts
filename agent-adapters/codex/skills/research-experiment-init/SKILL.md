@@ -36,19 +36,12 @@ Within this project, a passed minimum baseline means the repository can formally
 
 Distinguish the task type before delegating:
 
-- **Specific paper or supplied repository**: baseline means a minimum representative reproduction of the original paper/method's core experiment. Reuse official checkpoints or released results when valid, but still run the paper-aligned evaluation needed to support the core claim. For dataset-level claims, evaluate at least one representative paper benchmark dataset or a justified subset with the paper evaluator and primary aggregate metric. A single-sample prediction or arbitrary-folder inference is `demo_only`.
+- **Specific paper or supplied repository**: baseline means a minimum representative reproduction of the original paper/method's core experiment. Reuse official artifacts when they embody the contribution; otherwise execute the claim-bearing method. Dataset-level claims require a representative benchmark dataset or justified subset, the paper evaluator, and the primary aggregate metric.
 - **Open-ended research requirement**: baseline means a minimum controlled experiment that answers the research question before optimization. It may be a single-method experiment when that is enough, or multiple branches when the claim is comparative; use only the smallest set needed for the question.
 
-Examples for open-ended requirements:
+For comparative open-ended requirements, require every branch needed to answer the question under a fair protocol. For non-comparative requirements, one controlled experiment can be sufficient.
 
-- external events improve forecasting: run `events_off` and `events_on` on the same split, budget, and metrics;
-- retrieval diversity improves RAG forecasting: run similarity-only retrieval and diversity-aware retrieval on the same benchmark;
-- causal priors improve graph forecasting: run the default graph branch and causal-prior graph branch;
-- foundation model comparison: run the selected foundation model and a representative classical baseline under the same evaluation protocol.
-
-Do not mark a comparative open-ended requirement as ready merely because one event-aware, retrieval-aware, causal-aware, or foundation-model branch ran successfully. It must include the control needed to answer the user's requirement unless the user explicitly asks only to prepare one branch. For non-comparative open-ended requirements, one meaningful controlled experiment can be sufficient when it directly answers the stated question.
-
-For specific-paper reproduction, do not accept a repository demo, generic library example, import check, help command, toy smoke test, single-sample inference, or arbitrary-folder inference merely because it uses official code or weights. A demo is valid only when the paper itself uses that exact protocol and output as evidence for the core claim. Prefer official checkpoints and released outputs over retraining, but evaluate them through the documented core benchmark protocol.
+For specific papers, classify the core contribution before selecting a route. If it is a procedure that creates or changes a scientific artifact, execute the claim-bearing stages at least once and evaluate the newly produced artifact. Evaluating an author-provided artifact alone is `evaluation_only`; a runnable check without core-claim evidence is `demo_only`. Neither can establish readiness for optimizing the procedure.
 
 Do not choose a route by minimizing resource use first. First identify what evidence is required to reproduce the core experiment; then choose the least costly route that satisfies that evidence without weakening it.
 
@@ -184,6 +177,7 @@ Use `paper-repo-discovery` only to resolve and clone the paper repository, then 
 5. Onboard the final repository.
    - Invoke `repo-onboard`.
    - For paper/repository routes, require a command that exercises the original method on a paper-aligned core experiment. For dataset-level claims, require a representative benchmark dataset or justified subset, the paper evaluator, and the primary aggregate metric; do not substitute one input or raw prediction.
+   - Record the core contribution type and whether method execution is required. Do not mark onboarding ready when a method-execution paper only evaluates an author-provided artifact.
    - For open-ended requirement routes, require the configured baseline to preserve the minimum controlled experiment, including every branch only when the requirement is comparative.
    - Continue only when `config.yaml` records `onboard_status: ready`.
 
@@ -200,7 +194,7 @@ Use `paper-repo-discovery` only to resolve and clone the paper repository, then 
 
 8. Run the minimum-reproduction baseline.
    - Invoke `repo-baseline-run`.
-   - For paper/repository routes, require a meaningful paper-aligned original-method result, not only an unrelated demo, import, or empty command success.
+   - For paper/repository routes, require the configured claim-bearing method and evidence unit to be verified.
    - For open-ended requirement routes, require the smallest meaningful controlled experiment that answers the research question.
    - Compare with a documented reference when available; absence of a comparable reference does not block a valid local baseline.
    - Finish when `baseline_metrics.yaml` records `status: passed` and `ready_for_optimization: true`.

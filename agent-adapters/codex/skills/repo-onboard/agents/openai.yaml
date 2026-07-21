@@ -1,4 +1,4 @@
 interface:
   display_name: "Repo Onboard"
   short_description: "Find the minimum original-method reproduction path"
-  default_prompt: "Use $repo-onboard to configure a paper-aligned core experiment, treating official-checkpoint single-sample inference as demo-only for dataset-level claims."
+  default_prompt: "Use $repo-onboard to configure a paper-aligned core experiment, including claim-bearing method stages, generated artifacts, and evaluation evidence required by the classified contribution."

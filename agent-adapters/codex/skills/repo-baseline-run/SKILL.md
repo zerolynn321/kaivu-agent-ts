@@ -64,7 +64,7 @@ The final baseline must:
 - save enough command, environment, resource, and output evidence to rerun it;
 - provide a stable comparison point for later optimization.
 
-For dataset-level empirical claims, run the configured representative paper benchmark dataset or justified subset through the paper-aligned evaluator and record the primary aggregate metric. A valid probability or prediction from official weights on one sample or an arbitrary folder is only `demo_only`.
+When `method_execution_required: true`, run every claim-bearing stage, produce a new artifact, and evaluate it. Dataset-level claims additionally require the configured representative benchmark dataset or justified subset, paper-aligned evaluator, and primary aggregate metric. Mark a route `evaluation_only` or `demo_only` when it omits the corresponding required evidence; it cannot pass readiness.
 
 For open-ended comparative requirements, the baseline must additionally:
 
@@ -75,7 +75,7 @@ For open-ended comparative requirements, the baseline must additionally:
 
 For non-comparative open-ended requirements, do not require comparison branches when one controlled experiment directly answers the stated question.
 
-An import check, `--help`, empty dry run, unrelated toy output, or generic demo that is not aligned with the paper's core experiment is insufficient.
+Runnable checks without the required core-claim evidence are insufficient.
 
 Acceptable efficient routes include:
 
@@ -84,7 +84,7 @@ Acceptable efficient routes include:
 - evaluation on one bundled or public representative dataset;
 - the shortest necessary documented training route when no valid released artifact exists.
 
-Do not retrain merely to recreate an artifact that the official repository already releases. Do not require every dataset, seed, horizon, table, or ablation.
+Do not regenerate released artifacts when evaluation itself embodies the contribution. When artifact generation is the contribution, execute the required procedure rather than substituting released output. Do not require peripheral paper scope.
 
 For a selected paper core experiment, preserve the paper's convergence- and performance-bearing protocol when feasible. Reduce breadth before fidelity. Do not reduce epochs/steps, training examples, model size, evaluation episodes, or similar parameters merely to save ordinary runtime.
 
@@ -93,7 +93,8 @@ For a selected paper core experiment, preserve the paper's convergence- and perf
 1. Confirm readiness.
    - Read config, resource, and environment artifacts.
    - Confirm the command exercises the original method and matches the selected minimum reproduction.
-   - For specific-paper routes, confirm `config.yaml` records paper-core alignment evidence and the correct evidence unit. Do not run a demo as the final baseline unless the paper itself uses that exact protocol and output to support the core claim.
+   - For specific-paper routes, confirm `config.yaml` records paper-core alignment evidence and the correct evidence unit.
+   - Confirm `core_contribution_type`, `method_execution_required`, required stages, and generated artifact. Reject checkpoint-only evaluation when method execution is required.
    - For dataset-level claims, require a representative benchmark dataset or justified subset, evaluator, aggregate metric parser, and comparable reference evidence when available.
    - Compare the configured epochs/steps, data scale, model configuration, evaluator, metric, and evaluation budget with the paper or official reproduction command.
    - Reject an undocumented or convenience-only shortened core protocol. Require either the feasible paper protocol or recorded material cost evidence, changed parameters, expected scientific impact, and the closest full-run command.
@@ -129,7 +130,7 @@ For a selected paper core experiment, preserve the paper's convergence- and perf
 
 7. Validate the result.
    - Confirm the result is non-empty and came from the intended original-method path.
-   - For specific-paper routes, confirm the result came from the configured paper-core experiment path, official example, or documented evaluation route.
+   - For specific-paper routes, confirm the result came from the configured claim-bearing method and evaluation route.
    - Parse the primary metric or validate the defined method output.
    - For controlled comparisons, compute the treatment-control delta for the primary metric and record whether it improves, worsens, or is inconclusive under the chosen metric direction.
    - Compare with a documented reference when conditions are comparable.
@@ -161,6 +162,10 @@ minimum_reproduction:
     aligned: false
     paper_claim_or_experiment: ""
     alignment_evidence: []
+  core_contribution_type: "artifact_evaluation"
+  method_execution_required: false
+  required_method_stages: []
+  generated_artifact: ""
   representative_dataset_or_input: ""
   checkpoint_or_result: ""
   protocol_fidelity: "paper_exact" # paper_exact | paper_reduced_scope | shortened_core_protocol
@@ -192,6 +197,8 @@ output_validation:
   meaningful_result_verified: false
   demo_only: false
   aggregate_metric_verified: false
+  method_stages_verified: false
+  generated_artifact_verified: false
 documented_baseline: {}
 reference_status: "not_found" # found | not_found | ambiguous | missing_from_onboard
 reference_sources: []
@@ -243,8 +250,7 @@ Use this shape for `baseline_run_report.md`:
 - `passed`: the original-method command succeeds, paper-core alignment is verified when applicable, a meaningful result is verified, and its rerun evidence is recorded.
 - For specific-paper routes, `passed` additionally requires `paper_exact` or `paper_reduced_scope`, unless a `shortened_core_protocol` has a material constraint and is explicitly reported as a local optimization baseline rather than paper-result reproduction.
 - For `baseline_kind: controlled_comparison`, `passed` additionally requires every required branch to succeed and the primary delta to be recorded.
-- `partial`: execution succeeds but the meaningful output, method path, or metric cannot be verified; this is not ready for optimization.
-- `partial`: official-checkpoint inference succeeds but produces only per-sample predictions for a dataset-level claim; record `demo_only: true` and keep `ready_for_optimization: false`.
+- `partial`: execution succeeds but required method execution, generated artifact, evidence unit, or metric cannot be verified. Record `evaluation_only` or `demo_only` when applicable and keep `ready_for_optimization: false`.
 - `failed`: command fails, times out, produces invalid output, or a comparable result is outside an evidence-backed tolerance.
 - `blocked`: required resources, environment, credentials, approval, or hardware are missing.
 - Set `ready_for_optimization: true` only for `passed`.
@@ -255,7 +261,7 @@ Use this shape for `baseline_run_report.md`:
 Do:
 
 - run the configured minimum original-method reproduction
-- prefer evaluation-only released assets over unnecessary retraining
+- follow the classified contribution when choosing evaluation-only assets or method execution
 - preserve command, resource, environment, metric, and output evidence
 - compare with documented references when available
 - establish the result as the later optimization comparator
@@ -266,8 +272,6 @@ Do not:
 - require complete paper reproduction
 - require all datasets, tables, seeds, horizons, or ablations
 - add a post-baseline experiment-readiness stage
-- accept import-only or empty smoke success as the final baseline
-- accept an unrelated generic demo as the final baseline for a specific paper
-- accept official-checkpoint single-sample or arbitrary-folder inference as a dataset-level core experiment
+- accept runnable checks without required core-claim evidence as the final baseline
 - modify source, metrics, dataset semantics, or model logic in this stage
 - install dependencies or acquire resources

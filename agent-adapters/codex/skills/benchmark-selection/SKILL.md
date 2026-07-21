@@ -66,6 +66,7 @@ Handoff:
 1. Define the minimum evidence requirement.
    - Preserve the research question and optimization goal.
    - Extract a claim-linked benchmark tuple: claim, claim-bearing method behavior, representative task/data, primary metric, documented reference result, and optional comparator.
+   - Classify the core contribution and set whether reproducing it requires executing a procedure that creates or changes a scientific artifact.
    - Cite where each tuple element comes from: paper table/figure/section, official repository evaluation instructions, benchmark documentation, or released result metadata.
    - Identify the original-method behavior that must be reproduced before optimization.
    - Identify whether the question is comparative.
@@ -81,10 +82,8 @@ Handoff:
    - Apply the hard gates in the criteria reference.
    - Require an end-to-end evidence chain from the core claim to the executable evaluator; do not infer scientific validity merely because an official repository exposes a runnable example.
    - Prefer the smallest route that produces a valid original-method result.
-   - Treat a pretrained checkpoint evaluation or released-result evaluation as valid when it preserves the intended method and metric.
-   - Classify environment creation, reset/step checks, random actions, nonzero reward, rendering, import-only checks, and unrelated toy demos as `smoke_only` unless the paper's core claim is specifically about that behavior.
-   - Reject `smoke_only` routes as the final benchmark and record the missing claim-bearing policy/model, task success metric, evaluator, data/checkpoint, or reference target.
-   - Classify single-sample prediction and arbitrary-folder inference as `demo_only` when the paper's core evidence is a dataset-level benchmark metric, even if they use official checkpoints.
+   - Accept released-artifact evaluation only when it reproduces the classified contribution and intended metric. Otherwise mark it `evaluation_only` and require faithful execution that produces a new artifact.
+   - Mark runnable checks without core-claim evidence as `smoke_only` or `demo_only`, reject them as the final benchmark, and record the missing evidence.
    - For dataset-level empirical claims, require at least one representative paper benchmark dataset or a justified subset, the paper-aligned evaluator, and its primary aggregate metric.
    - Estimate the cost of the closest paper configuration before considering a shortened protocol.
    - Allow protocol simplification only for a concrete material constraint such as excessive runtime/compute, unavailable hardware/data, access restrictions, or a user-imposed budget. Record the evidence, changed parameters, expected scientific impact, and the closest later full-run command.
@@ -115,6 +114,10 @@ minimum_reproduction:
   original_method_behavior: ""
   core_claim: ""
   claim_evidence: []
+  core_contribution_type: "artifact_evaluation" # artifact_generation | artifact_evaluation | system_execution | analysis
+  method_execution_required: false
+  required_method_stages: []
+  generated_artifact: ""
   representative_dataset_or_input:
     name: ""
     version: ""
@@ -161,6 +164,7 @@ claim_alignment:
   reference_is_traceable: false
   smoke_only: false
   demo_only: false
+  evaluation_only: false
   dataset_level_evaluation_required: false
   representative_benchmark_coverage: ""
   missing_elements: []
@@ -189,10 +193,9 @@ handoff:
 - Use the original method's released checkpoint or result when it avoids unnecessary training and remains scientifically valid.
 - Missing a full paper benchmark suite is not a blocker.
 - A benchmark is invalid if it does not exercise the original method, cannot produce a meaningful result, leaks unavailable information, or cannot support later fair optimization comparison.
-- Repository authority is evidence of provenance, not evidence that every bundled demo reproduces the paper's core result.
-- A random or untrained policy producing reward is not evidence of task completion, learned-policy quality, benchmark success rate, sample efficiency, or generalization.
-- Loading an official checkpoint and producing a prediction proves inference plumbing, not a dataset-level paper result. For classification, detection, retrieval, segmentation, forecasting, and similar tasks, require the relevant aggregate metric over a representative paper benchmark dataset or justified subset.
-- When a paper reports task success or generalization, select at least one representative task and the paper-aligned success/generalization metric using an official learned policy, checkpoint, demonstration-driven method, or shortest documented training route. Do not substitute raw reward unless reward itself is the reported claim metric.
+- Repository authority establishes provenance, not core-result reproduction.
+- Runnable output without the paper-aligned evidence unit does not establish the reported claim.
+- When the contribution generates or changes an artifact, require a new artifact from the claim-bearing procedure; when the contribution is artifact evaluation, released artifacts may be sufficient.
 - If no feasible claim-bearing route exists, return `blocked` or `needs_user_confirmation`; do not weaken the benchmark to obtain `ready`.
 - Keep optional broader experiments outside the required resource scope.
 
