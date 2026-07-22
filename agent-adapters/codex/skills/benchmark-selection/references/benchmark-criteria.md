@@ -16,6 +16,8 @@ A selected benchmark unit must pass every applicable gate:
    - Each element is supported by the paper, official repository instructions, benchmark documentation, or released-result metadata.
    - An official example is not sufficient merely because it is official; it must exercise the path and metric that support the relevant claim.
    - For a dataset-level empirical claim, one prediction or arbitrary-folder inference cannot replace benchmark evaluation. Require a representative paper dataset or justified subset, the paper-aligned evaluator, and the primary aggregate metric.
+   - Freeze the evidence unit before optimizing for resource cost: scientific question, representative inputs, original-method output, evaluator, aggregate or claim-specific result, comparator when required, and reference evidence when available.
+   - If the claim concerns a downstream outcome, component scores or labels do not replace evaluation of that outcome.
 
 4. **Core-method evidence**
    - An official checkpoint, trained model, or released result may satisfy the gate when it incorporates the core method and is evaluated through a representative claim-bearing experiment.
@@ -34,6 +36,7 @@ A selected benchmark unit must pass every applicable gate:
 
 8. **Comparable output**
    - The result can be preserved as the baseline comparator for later optimization on the same protocol.
+   - Per-example outputs require a documented representative sampling rule and the claim-aligned aggregate evaluator when the paper supports its claim with aggregate performance.
 
 9. **Controlled comparison for comparative requirements**
    - If the user asks whether a factor improves performance, the benchmark must define the minimum treatment/control or reference branches needed to answer that question.
@@ -60,6 +63,8 @@ Treat the following as engineering validation, not a final scientific baseline, 
 - single-image, single-sample, or arbitrary-folder inference when the paper reports dataset-level metrics.
 
 Require the smallest feasible claim-bearing route. When the paper reports an aggregate outcome, raw intermediate outputs are not a faithful substitute.
+
+Resource unavailability may block the selected route, but it does not convert a smoke test or auxiliary component evaluation into a scientific baseline. Changing the task, evaluator, or outcome changes the reproduction target and requires an explicit new benchmark decision.
 
 ## Route Preference
 

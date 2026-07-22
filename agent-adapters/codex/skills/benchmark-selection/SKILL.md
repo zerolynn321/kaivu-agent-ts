@@ -72,6 +72,8 @@ Handoff:
    - Identify whether the question is comparative.
    - For comparative questions, define required branches and fairness invariants before repository search.
    - Define one primary metric or meaningful output.
+   - Freeze a claim-bearing evidence unit before considering commands or resource convenience: representative input set, original-method output, evaluator, aggregate metric or claim-specific result, comparator when required, and reference evidence when available.
+   - State the scientific question that this evidence unit answers. Reject a route whose outputs cannot answer that question even if the model, checkpoint, or interface runs successfully.
    - Separate hard requirements from preferences.
 
 2. Search benchmark candidates.
@@ -85,7 +87,9 @@ Handoff:
    - Accept an official checkpoint, trained model, or released result when it incorporates the core method and supports the claim-bearing experiment and metric.
    - Require method execution only when the stated target concerns the training or generation process, no valid released artifact exists, or later optimization requires proving that process runs.
    - Mark runnable checks without core-claim evidence as `smoke_only` or `demo_only`, reject them as the final benchmark, and record the missing evidence.
+   - Do not substitute intermediate model outputs, scores, probabilities, embeddings, generated samples, or interface responses for the paper's claim-bearing evaluation. They are sufficient only when those outputs are themselves the documented evidence unit for the selected claim.
    - For dataset-level empirical claims, require at least one representative paper benchmark dataset or a justified subset, the paper-aligned evaluator, and its primary aggregate metric.
+   - When the claim concerns downstream selection, ranking, retrieval, control, or decision quality, evaluate the downstream outcome. Component-level scoring or classification is auxiliary evidence unless the selected paper claim is specifically about that component metric.
    - Estimate the cost of the closest paper configuration before considering a shortened protocol.
    - Allow protocol simplification only for a concrete material constraint such as excessive runtime/compute, unavailable hardware/data, access restrictions, or a user-imposed budget. Record the evidence, changed parameters, expected scientific impact, and the closest later full-run command.
 
@@ -98,6 +102,7 @@ Handoff:
 5. Freeze only the necessary protocol.
    - Record one representative dataset/input, applicable split or evaluation boundary, primary metric/output, original-method command expectations, checkpoint/result source, and fairness invariants needed for later optimization.
    - Record optional broader paper resources separately; do not mark them required.
+   - If required benchmark resources are unavailable, keep the claim-bearing route blocked or request confirmation for a scientifically different target. Do not silently replace it with a cheaper runnable task and retain `status: ready`.
 
 6. Write artifacts.
    - Include selected route, rejected alternatives, evidence, risks, adaptation obligations, and repository-fit requirements.
@@ -131,6 +136,13 @@ minimum_reproduction:
     source: ""
     required: false
   primary_metric_or_output: ""
+  evidence_unit:
+    scientific_question: ""
+    representative_inputs: ""
+    method_output: ""
+    evaluator: ""
+    aggregate_or_claim_specific_result: ""
+    comparator_requirement: ""
   metric_evaluator: ""
   reference_target: ""
   reference_evidence: []
@@ -169,6 +181,9 @@ claim_alignment:
   evaluation_only: false
   dataset_level_evaluation_required: false
   representative_benchmark_coverage: ""
+  evidence_unit_complete: false
+  downstream_outcome_required: false
+  downstream_outcome_verified_by_plan: false
   missing_elements: []
 
 adaptation:
@@ -197,6 +212,8 @@ handoff:
 - A benchmark is invalid if it does not exercise the original method, cannot produce a meaningful result, leaks unavailable information, or cannot support later fair optimization comparison.
 - Repository authority establishes provenance, not core-result reproduction.
 - Runnable output without the paper-aligned evidence unit does not establish the reported claim.
+- Availability of official code, data, or a checkpoint proves provenance and feasibility only. It does not justify changing the evidence unit from the paper's downstream or aggregate result to an easier component-level output.
+- A small batch of per-example outputs cannot pass an aggregate empirical claim without a representative sampling rule, labels or targets when applicable, the aligned evaluator, and the primary aggregate metric.
 - Do not require regeneration merely because the paper originally created or changed an artifact. A released artifact is sufficient when it incorporates the core method and the selected evaluation reproduces a representative core experiment.
 - When `method_execution_required: true`, record the target-specific reason and the stages that must run.
 - If no feasible claim-bearing route exists, return `blocked` or `needs_user_confirmation`; do not weaken the benchmark to obtain `ready`.

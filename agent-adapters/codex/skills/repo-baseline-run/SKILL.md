@@ -64,6 +64,8 @@ The final baseline must:
 - save enough command, environment, resource, and output evidence to rerun it;
 - provide a stable comparison point for later optimization.
 
+Before execution, restate the configured evidence unit as one sentence: this run uses the selected inputs and original-method output with the selected evaluator to answer the recorded scientific question. If that sentence cannot be completed from traceable configuration and paper/repository evidence, do not run a substitute as the final baseline.
+
 An official checkpoint, trained model, or released result can pass when it incorporates the core method and the run reproduces a representative paper-aligned core experiment. When `method_execution_required: true` for a recorded target-specific reason, run the required stages and verify their outputs. Dataset-level claims additionally require the configured representative benchmark dataset or justified subset, paper-aligned evaluator, and primary aggregate metric.
 
 For open-ended comparative requirements, the baseline must additionally:
@@ -96,6 +98,8 @@ For a selected paper core experiment, preserve the paper's convergence- and perf
    - For specific-paper routes, confirm `config.yaml` records paper-core alignment evidence and the correct evidence unit.
    - Confirm `core_contribution_type`, `method_execution_required`, its recorded reason, and any required stages or generated artifact.
    - For dataset-level claims, require a representative benchmark dataset or justified subset, evaluator, aggregate metric parser, and comparable reference evidence when available.
+   - Confirm the evidence unit is complete: scientific question, representative inputs, method output, evaluator, aggregate or claim-specific result, comparator when required, and traceable source evidence.
+   - Detect proxy drift: reject component scores, probabilities, labels, embeddings, samples, or other intermediate outputs when the configured claim concerns a downstream result they do not directly measure.
    - Compare the configured epochs/steps, data scale, model configuration, evaluator, metric, and evaluation budget with the paper or official reproduction command.
    - Reject an undocumented or convenience-only shortened core protocol. Require either the feasible paper protocol or recorded material cost evidence, changed parameters, expected scientific impact, and the closest full-run command.
    - For `baseline_kind: controlled_comparison`, confirm every required branch has a command, resource path, metric parser, and success criterion.
@@ -131,6 +135,7 @@ For a selected paper core experiment, preserve the paper's convergence- and perf
 7. Validate the result.
    - Confirm the result is non-empty and came from the intended original-method path.
    - For specific-paper routes, confirm the result came from the configured claim-bearing method and evaluation route.
+   - Re-answer the recorded scientific question using only the produced aggregate result and preserved evidence. If the result supports only model loading, interface behavior, or an auxiliary component property, classify it as `partial` or `demo_only` rather than `passed`.
    - Parse the primary metric or validate the defined method output.
    - Confirm the raw log, raw metric/result file, and every required produced output exist and are non-empty after execution. A report summary or copied numeric value is not raw evidence.
    - Confirm recorded resource paths still exist after execution and are sufficient to rerun the same command.
@@ -166,6 +171,13 @@ minimum_reproduction:
     aligned: false
     paper_claim_or_experiment: ""
     alignment_evidence: []
+  evidence_unit:
+    scientific_question: ""
+    representative_inputs: ""
+    method_output: ""
+    evaluator: ""
+    aggregate_or_claim_specific_result: ""
+    comparator_requirement: ""
   core_contribution_type: "artifact_evaluation"
   method_execution_required: false
   method_execution_reason: ""
@@ -202,6 +214,8 @@ output_validation:
   meaningful_result_verified: false
   demo_only: false
   aggregate_metric_verified: false
+  scientific_question_answered: false
+  proxy_drift_detected: false
   method_stages_verified: false
   generated_artifact_verified: false
   raw_metric_or_result_path: ""
@@ -258,6 +272,7 @@ Use this shape for `baseline_run_report.md`:
 ## Decision Rules
 
 - `passed`: the original-method command succeeds, paper-core alignment is verified when applicable, a meaningful result is verified, and its rerun evidence is recorded.
+- `passed` requires `scientific_question_answered: true` and `proxy_drift_detected: false`; successful execution and plausible numeric outputs are not substitutes.
 - `passed` additionally requires all required resources and rerun assets to exist at their recorded paths, plus non-empty raw logs and raw metric/result evidence. A narrative report or historical metric alone cannot pass.
 - For specific-paper routes, `passed` additionally requires `paper_exact` or `paper_reduced_scope`, unless a `shortened_core_protocol` has a material constraint and is explicitly reported as a local optimization baseline rather than paper-result reproduction.
 - For `baseline_kind: controlled_comparison`, `passed` additionally requires every required branch to succeed and the primary delta to be recorded.
